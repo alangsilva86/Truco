@@ -272,160 +272,172 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden flex flex-col">
+    <div className="min-h-screen bg-[#0a0a0a] text-white font-sans overflow-hidden flex flex-col selection:bg-emerald-500/30">
       {/* Header / Scoreboard */}
-      <header className="p-6 flex justify-between items-center bg-white/5 backdrop-blur-md border-b border-white/10">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-emerald-500/20 rounded-xl border border-emerald-500/30">
-            <Trophy className="w-6 h-6 text-emerald-400" />
+      <header className="px-4 py-3 sm:p-6 flex justify-between items-center bg-white/5 backdrop-blur-md border-b border-white/10 z-10">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <div className="p-2 sm:p-3 bg-emerald-500/20 rounded-lg sm:rounded-xl border border-emerald-500/30">
+            <Trophy className="w-4 h-4 sm:w-6 sm:h-6 text-emerald-400" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Truco Royale</h1>
-            <p className="text-xs text-white/40 uppercase tracking-widest">Premium Experience</p>
+          <div className="hidden xs:block">
+            <h1 className="text-sm sm:text-xl font-bold tracking-tight">Truco Royale</h1>
+            <p className="text-[8px] sm:text-xs text-white/40 uppercase tracking-widest">Premium</p>
           </div>
         </div>
 
-        <div className="flex gap-8 items-center">
+        <div className="flex gap-4 sm:gap-8 items-center">
           <div className="text-center">
-            <p className="text-[10px] text-white/40 uppercase font-bold mb-1">Seu Time</p>
-            <p className="text-3xl font-mono font-bold text-emerald-400">{state.scores.team0}</p>
+            <p className="text-[8px] sm:text-[10px] text-white/40 uppercase font-bold mb-0.5 sm:mb-1">Nós</p>
+            <p className="text-xl sm:text-3xl font-mono font-bold text-emerald-400 leading-none">{state.scores.team0}</p>
           </div>
-          <div className="h-8 w-[1px] bg-white/10" />
+          <div className="h-6 sm:h-8 w-[1px] bg-white/10" />
           <div className="text-center">
-            <p className="text-[10px] text-white/40 uppercase font-bold mb-1">Eles</p>
-            <p className="text-3xl font-mono font-bold text-rose-400">{state.scores.team1}</p>
+            <p className="text-[8px] sm:text-[10px] text-white/40 uppercase font-bold mb-0.5 sm:mb-1">Eles</p>
+            <p className="text-xl sm:text-3xl font-mono font-bold text-rose-400 leading-none">{state.scores.team1}</p>
           </div>
         </div>
 
         <button 
           onClick={() => setState(INITIAL_STATE)}
-          className="p-3 hover:bg-white/10 rounded-full transition-colors"
+          className="p-2 sm:p-3 hover:bg-white/10 rounded-full transition-colors"
         >
-          <RotateCcw className="w-5 h-5" />
+          <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
       </header>
 
       {/* Main Table Area */}
-      <main className="flex-1 relative flex items-center justify-center p-4">
+      <main className="flex-1 relative flex flex-col items-center justify-center p-2 sm:p-4 overflow-hidden">
         {/* The Table Surface */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="w-[80%] aspect-square max-w-[800px] rounded-full bg-gradient-to-b from-emerald-900/20 to-transparent border border-emerald-500/10 blur-3xl" />
-          <div className="absolute w-[60%] aspect-square max-w-[600px] rounded-full border border-white/5" />
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+          <div className="w-[120%] sm:w-[80%] aspect-square max-w-[800px] rounded-full bg-gradient-to-b from-emerald-900/20 to-transparent border border-emerald-500/10 blur-3xl opacity-50 sm:opacity-100" />
+          <div className="absolute w-[90%] sm:w-[60%] aspect-square max-w-[600px] rounded-full border border-white/5" />
         </div>
 
         {/* Players Layout */}
-        <div className="relative w-full max-w-5xl aspect-video flex items-center justify-center">
+        <div className="relative w-full h-full max-w-5xl flex items-center justify-center">
           
           {/* Partner (Top) */}
-          <div className="absolute top-0 flex flex-col items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
-              <Users className="w-3 h-3 text-emerald-400" />
-              <span className="text-xs font-medium">{state.players[2].name}</span>
+          <div className="absolute top-2 sm:top-0 flex flex-col items-center gap-2 sm:gap-4 z-10">
+            <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 bg-white/5 rounded-full border border-white/10 backdrop-blur-sm">
+              <Users className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-400" />
+              <span className="text-[10px] sm:text-xs font-medium">{state.players[2].name}</span>
             </div>
-            <div className="flex gap-[-20px]">
+            <div className="flex -space-x-4 sm:-space-x-8">
               {state.players[2].hand.map((card, i) => (
                 <CardComponent 
                   key={card.id} 
                   card={card} 
                   onClick={() => handlePartnerPlay(i)}
-                  className={`-ml-8 first:ml-0 transition-all ${state.turn === 2 ? 'ring-2 ring-emerald-400 scale-100 opacity-100' : 'opacity-60 scale-90'}`} 
+                  className={`transition-all ${state.turn === 2 ? 'ring-2 ring-emerald-400 scale-100 opacity-100 z-20' : 'opacity-60 scale-90 hover:opacity-100'}`} 
                 />
               ))}
             </div>
           </div>
 
           {/* AI Left */}
-          <div className="absolute left-0 flex flex-col items-center gap-4 -rotate-90 origin-center translate-x-[-20%]">
-             <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
-              <Zap className="w-3 h-3 text-rose-400" />
-              <span className="text-xs font-medium">{state.players[1].name}</span>
+          <div className="absolute left-0 sm:left-4 flex flex-col items-center gap-2 sm:gap-4 -rotate-90 origin-center translate-x-[-25%] sm:translate-x-0">
+             <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 bg-white/5 rounded-full border border-white/10 backdrop-blur-sm">
+              <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-rose-400" />
+              <span className="text-[10px] sm:text-xs font-medium">{state.players[1].name}</span>
             </div>
-            <div className="flex gap-[-40px]">
+            <div className="flex -space-x-8 sm:-space-x-12">
               {state.players[1].hand.map((card, i) => (
-                <CardComponent key={i} card={null} hidden className="-ml-12 first:ml-0" />
+                <CardComponent key={i} card={null} hidden className="scale-75 sm:scale-100" />
               ))}
             </div>
           </div>
 
           {/* AI Right */}
-          <div className="absolute right-0 flex flex-col items-center gap-4 rotate-90 origin-center translate-x-[20%]">
-             <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10">
-              <Zap className="w-3 h-3 text-rose-400" />
-              <span className="text-xs font-medium">{state.players[3].name}</span>
+          <div className="absolute right-0 sm:right-4 flex flex-col items-center gap-2 sm:gap-4 rotate-90 origin-center translate-x-[25%] sm:translate-x-0">
+             <div className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-0.5 sm:py-1 bg-white/5 rounded-full border border-white/10 backdrop-blur-sm">
+              <Zap className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-rose-400" />
+              <span className="text-[10px] sm:text-xs font-medium">{state.players[3].name}</span>
             </div>
-            <div className="flex gap-[-40px]">
+            <div className="flex -space-x-8 sm:-space-x-12">
               {state.players[3].hand.map((card, i) => (
-                <CardComponent key={i} card={null} hidden className="-ml-12 first:ml-0" />
+                <CardComponent key={i} card={null} hidden className="scale-75 sm:scale-100" />
               ))}
             </div>
           </div>
 
           {/* Center Area (Played Cards & Vira) */}
-          <div className="relative w-64 h-64 flex items-center justify-center">
+          <div className="relative w-48 h-48 sm:w-64 sm:h-64 flex items-center justify-center">
             {/* Vira */}
-            <div className="absolute -left-32 top-1/2 -translate-y-1/2 flex flex-col items-center gap-2">
-              <p className="text-[10px] uppercase tracking-widest text-white/40 font-bold">Vira</p>
-              <CardComponent card={state.vira} className="scale-75" />
+            <div className="absolute -left-20 xs:-left-24 sm:-left-32 top-1/2 -translate-y-1/2 flex flex-col items-center gap-1 sm:gap-2 z-0">
+              <p className="text-[8px] sm:text-[10px] uppercase tracking-widest text-white/40 font-bold">Vira</p>
+              <CardComponent card={state.vira} className="scale-60 sm:scale-75" />
             </div>
 
             {/* Played Cards */}
-            <AnimatePresence>
-              {state.roundCards.map((card, i) => card && (
-                <motion.div
-                  key={`${card.id}-${i}`}
-                  initial={{ scale: 0, opacity: 0, y: i === 0 ? 100 : i === 2 ? -100 : 0, x: i === 1 ? -100 : i === 3 ? 100 : 0 }}
-                  animate={{ scale: 1, opacity: 1, y: i === 0 ? 40 : i === 2 ? -40 : 0, x: i === 1 ? -40 : i === 3 ? 40 : 0, rotate: (i * 15) - 22 }}
-                  className="absolute"
-                >
-                  <CardComponent card={card} className="scale-90" />
-                </motion.div>
-              ))}
-            </AnimatePresence>
+            <div className="relative w-full h-full flex items-center justify-center">
+              <AnimatePresence>
+                {state.roundCards.map((card, i) => card && (
+                  <motion.div
+                    key={`${card.id}-${i}`}
+                    initial={{ scale: 0, opacity: 0, y: i === 0 ? 100 : i === 2 ? -100 : 0, x: i === 1 ? -100 : i === 3 ? 100 : 0 }}
+                    animate={{ 
+                      scale: 0.85, 
+                      opacity: 1, 
+                      y: i === 0 ? 30 : i === 2 ? -30 : 0, 
+                      x: i === 1 ? -30 : i === 3 ? 30 : 0, 
+                      rotate: (i * 15) - 22,
+                      zIndex: 10 + i
+                    }}
+                    className="absolute"
+                  >
+                    <CardComponent card={card} className="sm:scale-90" />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
 
             {/* Status Message */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
               <AnimatePresence mode="wait">
-                <motion.p
+                <motion.div
                   key={state.message}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="text-sm font-medium text-emerald-400 text-center max-w-[120px]"
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.1 }}
+                  className="bg-black/60 backdrop-blur-md px-4 py-2 rounded-full border border-white/10 shadow-2xl"
                 >
-                  {state.message}
-                </motion.p>
+                  <p className="text-[10px] sm:text-sm font-bold text-emerald-400 text-center whitespace-nowrap">
+                    {state.message}
+                  </p>
+                </motion.div>
               </AnimatePresence>
             </div>
           </div>
 
           {/* User (Bottom) */}
-          <div className="absolute bottom-0 flex flex-col items-center gap-6">
-            <div className="flex gap-4">
+          <div className="absolute bottom-2 sm:bottom-0 flex flex-col items-center gap-4 sm:gap-6 z-20 w-full px-4">
+            <div className="flex -space-x-4 sm:space-x-4">
               {state.players[0].hand.map((card, i) => (
                 <CardComponent 
                   key={card.id} 
                   card={card} 
                   onClick={() => handleUserPlay(i)}
-                  className={state.turn === 0 ? 'ring-2 ring-emerald-500/50 shadow-emerald-500/20' : ''}
+                  className={`transition-all ${state.turn === 0 ? 'ring-4 ring-emerald-500/50 shadow-emerald-500/40 scale-110 -translate-y-2' : 'hover:-translate-y-1'}`}
                 />
               ))}
             </div>
-            <div className="flex items-center gap-4">
-               <div className="flex items-center gap-2 px-4 py-2 bg-emerald-500/10 rounded-full border border-emerald-500/20">
+            
+            <div className="flex items-center justify-between w-full max-w-sm gap-4">
+               <div className="flex-1 flex items-center gap-2 px-3 sm:px-4 py-2 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 backdrop-blur-md">
                 <div className={`w-2 h-2 rounded-full ${(state.turn === 0 || state.turn === 2) ? 'bg-emerald-400 animate-pulse' : 'bg-white/20'}`} />
-                <span className="text-sm font-bold uppercase tracking-wider">
-                  {state.turn === 0 ? 'Sua Vez' : state.turn === 2 ? 'Vez do Parceiro' : 'Aguardando...'}
+                <span className="text-[10px] sm:text-sm font-black uppercase tracking-wider truncate">
+                  {state.turn === 0 ? 'Sua Vez' : state.turn === 2 ? 'Parceiro' : 'Aguardando'}
                 </span>
               </div>
               
               <button
                 onClick={callTruco}
-                disabled={state.trucoPending || state.turn !== 0 || state.lastTrucoBy === 0}
+                disabled={state.trucoPending || (state.turn !== 0 && state.turn !== 2) || state.lastTrucoBy === 0}
                 className={`
-                  px-6 py-2 rounded-full font-black text-sm uppercase tracking-tighter transition-all
-                  ${state.trucoPending || state.turn !== 0 || state.lastTrucoBy === 0
-                    ? 'bg-white/5 text-white/20 cursor-not-allowed'
-                    : 'bg-gradient-to-r from-amber-400 to-orange-500 text-black hover:scale-105 active:scale-95 shadow-lg shadow-orange-500/20'}
+                  flex-1 py-3 sm:py-4 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-tighter transition-all active:scale-95 shadow-xl
+                  ${state.trucoPending || (state.turn !== 0 && state.turn !== 2) || state.lastTrucoBy === 0
+                    ? 'bg-white/5 text-white/20 cursor-not-allowed border border-white/5'
+                    : 'bg-gradient-to-r from-amber-400 to-orange-500 text-black hover:scale-105 shadow-orange-500/30 border-b-4 border-orange-700'}
                 `}
               >
                 Truco!
@@ -436,6 +448,7 @@ export default function App() {
         </div>
       </main>
 
+
       {/* Game Over Overlay */}
       <AnimatePresence>
         {state.phase === 'gameEnd' && (
@@ -443,31 +456,31 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xl"
+            className="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-2xl p-4"
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-white/5 border border-white/10 p-12 rounded-[40px] text-center max-w-md shadow-2xl"
+              className="bg-slate-900 border border-white/10 p-6 sm:p-12 rounded-[32px] sm:rounded-[40px] text-center w-full max-w-md shadow-2xl"
             >
-              <div className="w-24 h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-8 border border-emerald-500/30">
-                <Trophy className="w-12 h-12 text-emerald-400" />
+              <div className="w-16 h-16 sm:w-24 sm:h-24 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto mb-6 sm:mb-8 border border-emerald-500/30">
+                <Trophy className="w-8 h-8 sm:w-12 sm:h-12 text-emerald-400" />
               </div>
-              <h2 className="text-4xl font-black mb-4 tracking-tighter uppercase">Fim de Jogo</h2>
-              <p className="text-white/60 mb-8 font-medium">{state.message}</p>
-              <div className="grid grid-cols-2 gap-4 mb-8">
-                <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                  <p className="text-[10px] text-white/40 uppercase font-bold mb-1">Seu Time</p>
-                  <p className="text-2xl font-mono font-bold text-emerald-400">{state.scores.team0}</p>
+              <h2 className="text-2xl sm:text-4xl font-black mb-2 sm:mb-4 tracking-tighter uppercase">Fim de Jogo</h2>
+              <p className="text-white/60 mb-6 sm:mb-8 font-medium text-sm sm:text-base">{state.message}</p>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 mb-6 sm:mb-8">
+                <div className="bg-white/5 p-3 sm:p-4 rounded-2xl border border-white/10">
+                  <p className="text-[8px] sm:text-[10px] text-white/40 uppercase font-bold mb-1">Nós</p>
+                  <p className="text-xl sm:text-2xl font-mono font-bold text-emerald-400">{state.scores.team0}</p>
                 </div>
-                <div className="bg-white/5 p-4 rounded-2xl border border-white/10">
-                  <p className="text-[10px] text-white/40 uppercase font-bold mb-1">Eles</p>
-                  <p className="text-2xl font-mono font-bold text-rose-400">{state.scores.team1}</p>
+                <div className="bg-white/5 p-3 sm:p-4 rounded-2xl border border-white/10">
+                  <p className="text-[8px] sm:text-[10px] text-white/40 uppercase font-bold mb-1">Eles</p>
+                  <p className="text-xl sm:text-2xl font-mono font-bold text-rose-400">{state.scores.team1}</p>
                 </div>
               </div>
               <button
                 onClick={() => setState(INITIAL_STATE)}
-                className="w-full py-4 bg-emerald-500 text-black font-black rounded-2xl hover:scale-105 transition-transform active:scale-95 uppercase tracking-widest text-sm"
+                className="w-full py-3 sm:py-4 bg-emerald-500 text-black font-black rounded-2xl hover:scale-105 transition-transform active:scale-95 uppercase tracking-widest text-xs sm:text-sm shadow-lg shadow-emerald-500/20"
               >
                 Jogar Novamente
               </button>
@@ -483,18 +496,18 @@ export default function App() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 z-40 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-slate-900 border border-amber-500/50 p-8 rounded-3xl text-center max-w-xs shadow-[0_0_50px_rgba(245,158,11,0.2)]"
+              className="bg-slate-900 border border-amber-500/50 p-6 sm:p-8 rounded-[32px] text-center w-full max-w-xs shadow-[0_0_50px_rgba(245,158,11,0.3)]"
             >
-              <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-6 border border-amber-500/30">
-                <Zap className="w-8 h-8 text-amber-400" />
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 border border-amber-500/30">
+                <Zap className="w-6 h-6 sm:w-8 sm:h-8 text-amber-400" />
               </div>
-              <h2 className="text-2xl font-black mb-2 tracking-tighter uppercase text-amber-400">TRUCO!</h2>
-              <p className="text-white/60 mb-8 text-sm">Os adversários estão pedindo Truco. O que você faz?</p>
+              <h2 className="text-xl sm:text-2xl font-black mb-2 tracking-tighter uppercase text-amber-400">TRUCO!</h2>
+              <p className="text-white/60 mb-6 sm:mb-8 text-xs sm:text-sm">Os adversários estão pedindo Truco. O que você faz?</p>
               
               <div className="flex flex-col gap-3">
                 <button
@@ -506,7 +519,7 @@ export default function App() {
                       message: 'Você aceitou o Truco!',
                     }));
                   }}
-                  className="w-full py-3 bg-emerald-500 text-black font-bold rounded-xl hover:scale-105 transition-transform active:scale-95 uppercase text-xs tracking-widest"
+                  className="w-full py-3 sm:py-4 bg-emerald-500 text-black font-bold rounded-xl hover:scale-105 transition-transform active:scale-95 uppercase text-xs tracking-widest shadow-lg shadow-emerald-500/20"
                 >
                   Aceitar
                 </button>
@@ -521,7 +534,7 @@ export default function App() {
                     }));
                     setTimeout(() => startNewRound(((state.dealer + 1) % 4) as PlayerId), 2000);
                   }}
-                  className="w-full py-3 bg-rose-500/10 text-rose-500 border border-rose-500/20 font-bold rounded-xl hover:bg-rose-500/20 transition-all active:scale-95 uppercase text-xs tracking-widest"
+                  className="w-full py-3 sm:py-4 bg-rose-500/10 text-rose-500 border border-rose-500/20 font-bold rounded-xl hover:bg-rose-500/20 transition-all active:scale-95 uppercase text-xs tracking-widest"
                 >
                   Correr
                 </button>
@@ -531,19 +544,20 @@ export default function App() {
         )}
       </AnimatePresence>
 
+
       {/* Footer Info */}
-      <footer className="p-4 flex justify-center gap-12 bg-black/40 border-t border-white/5 text-[10px] uppercase tracking-[0.2em] font-bold text-white/30">
-        <div className="flex items-center gap-2">
+      <footer className="px-4 py-3 flex justify-center gap-4 sm:gap-12 bg-black/40 border-t border-white/5 text-[8px] sm:text-[10px] uppercase tracking-widest font-bold text-white/30 backdrop-blur-md">
+        <div className="flex items-center gap-1.5">
           <div className="w-1 h-1 rounded-full bg-emerald-500" />
-          <span>Manilha: {state.manilhaRank}</span>
+          <span className="whitespace-nowrap">Manilha: {state.manilhaRank}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <div className="w-1 h-1 rounded-full bg-orange-500" />
-          <span>Valor: {state.currentRoundPoints} Pontos</span>
+          <span className="whitespace-nowrap">Valor: {state.currentRoundPoints}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <div className="w-1 h-1 rounded-full bg-indigo-500" />
-          <span>Rodada: {state.tricksWon.team0 + state.tricksWon.team1 + 1}/3</span>
+          <span className="whitespace-nowrap">Rodada: {state.tricksWon.team0 + state.tricksWon.team1 + 1}/3</span>
         </div>
       </footer>
     </div>
