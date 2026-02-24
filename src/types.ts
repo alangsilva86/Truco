@@ -16,6 +16,11 @@ export interface Player {
   team: 0 | 1; // 0: User + Partner, 1: AI Left + AI Right
 }
 
+export interface Trick {
+  cards: (Card | null)[];
+  winner: PlayerId | 'tie';
+}
+
 export interface GameState {
   deck: Card[];
   players: Player[];
@@ -24,6 +29,7 @@ export interface GameState {
   turn: PlayerId;
   dealer: PlayerId;
   roundCards: (Card | null)[]; // Cards played in the current "queda" (trick)
+  trickHistory: Trick[];
   roundWinner: PlayerId | null;
   scores: { team0: number; team1: number };
   currentRoundPoints: number; // 1, 3, 6, 9, 12
@@ -32,4 +38,5 @@ export interface GameState {
   lastTrucoBy: PlayerId | null;
   trucoPending: boolean;
   message: string;
+  logs: string[];
 }
