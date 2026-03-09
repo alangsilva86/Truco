@@ -1,4 +1,4 @@
-import { Card, Rank, Suit, PlayerId } from './types';
+import { Card, Player, PlayerId, Rank, Suit } from './types';
 
 export const SUITS: Suit[] = ['Ouros', 'Espadas', 'Copas', 'Paus'];
 export const RANKS: Rank[] = ['4', '5', '6', '7', 'Q', 'J', 'K', 'A', '2', '3'];
@@ -66,4 +66,43 @@ export function getTrickWinner(cards: (Card | null)[], manilhaRank: Rank, firstP
     }
   }
   return winner;
+}
+
+export function getRoundWinnerTeam(
+  trickWinners: Array<PlayerId | 'tie'>,
+  players: Player[],
+  handStarter: PlayerId
+): 0 | 1 | null {
+  const teamResults = trickWinners.map((winner) => winner === 'tie' ? 'tie' : players[winner].team);
+  const team0Wins = teamResults.filter((team) => team === 0).length;
+  const team1Wins = teamResults.filter((team) => team === 1).length;
+
+  if (team0Wins >= 2) return 0;
+  if (team1Wins >= 2) return 1;
+
+  const [first, second, third] = teamResults;
+  const handStarterTeam = players[handStarter].team;
+
+  if (teamResults.length === 1) return null;
+
+  if (teamResults.length === 2) {
+    if (first === 'tie' && second !== 'tie') return second;
+    if (first !== 'tie' && second === 'tie') return first;
+    return null;
+  }
+
+  if (first === 'tie' && second === 'tie') {
+    if (third === 'tie' || third === undefined) return handStarterTeam;
+    return third;
+  }
+
+  if (third === 'tie') {
+    if (first !== 'tie') return first;
+    if (second !== 'tie') return second;
+    return handStarterTeam;
+  }
+
+  if (third === 0 || third === 1) return third;
+
+  return handStarterTeam;
 }

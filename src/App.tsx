@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Trophy, Users, RotateCcw, Zap, Brain, Swords } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { GameState, PlayerId, Rank } from './types';
-import { createDeck, shuffle, getManilhaRank, compareCards, getTrickWinner } from './gameEngine';
+import { GameState, PlayerId } from './types';
+import { createDeck, shuffle, getManilhaRank, compareCards, getTrickWinner, getRoundWinnerTeam } from './gameEngine';
 import { CardComponent } from './components/Card';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -20,6 +20,7 @@ const INITIAL_STATE: GameState = {
   manilhaRank: null,
   turn: 0,
   dealer: 0,
+  trickStarter: 0,
   roundCards: [null, null, null, null],
   trickHistory: [],
   roundWinner: null,
@@ -55,8 +56,6 @@ function getTrucoLabel(value: number): string {
 export default function App() {
   const [state, setState] = useState<GameState>(INITIAL_STATE);
   const [isAiThinking, setIsAiThinking] = useState(false);
-  const [trickStarter, setTrickStarter] = useState<PlayerId>(1);
-  const [firstTrickWinner, setFirstTrickWinner] = useState<PlayerId | 'tie' | null>(null);
 
   // Stable random rotations for played cards — prevent jitter on re-render
   const cardRotationRef = useRef<Map<string, number>>(new Map());
@@ -85,6 +84,7 @@ export default function App() {
       manilhaRank,
       turn: nextStarter,
       dealer: dealerId,
+      trickStarter: nextStarter,
       roundCards: [null, null, null, null],
       trickHistory: [],
       roundWinner: null,
@@ -96,8 +96,6 @@ export default function App() {
       message: 'Nova rodada! Valendo 1 ponto.',
       logs: [`Nova rodada — ${players[nextStarter].name} começa.`, ...prev.logs].slice(0, 10),
     }));
-    setTrickStarter(nextStarter);
-    setFirstTrickWinner(null);
   }, []);
 
   // ── playCard ────────────────────────────────────────────────────────────────
@@ -105,6 +103,7 @@ export default function App() {
     setState(prev => {
       const player = prev.players[playerId];
       const card   = player.hand[cardIndex];
+      if (!card || prev.phase !== 'playing') return prev;
       const newHand = player.hand.filter((_, i) => i !== cardIndex);
       const newPlayers = prev.players.map(p => p.id === playerId ? { ...p, hand: newHand } : p);
       const newRoundCards = [...prev.roundCards];
@@ -125,50 +124,30 @@ export default function App() {
     if (playedCount !== 4 || state.phase !== 'playing') return;
 
     const timer = setTimeout(() => {
-      const winner = getTrickWinner(state.roundCards, state.manilhaRank!, trickStarter);
+      const winner = getTrickWinner(state.roundCards, state.manilhaRank!, state.trickStarter);
+      const updatedTrickHistory = [...state.trickHistory, { cards: [...state.roundCards], winner }];
+      const handStarter = ((state.dealer + 1) % 4) as PlayerId;
       let newTricksWon = { ...state.tricksWon };
       let nextTurn: PlayerId;
       let message = '';
-      let currentFirstTrickWinner = firstTrickWinner;
 
       if (winner === 'tie') {
         message = 'Empatou! (Embuchou)';
-        nextTurn = trickStarter;
-        if (currentFirstTrickWinner === null) setFirstTrickWinner('tie');
+        nextTurn = state.trickStarter;
       } else {
         const winningPlayer = state.players[winner];
         if (winningPlayer.team === 0) newTricksWon.team0++;
         else newTricksWon.team1++;
         nextTurn = winner;
         message = `${winningPlayer.name} venceu a vaza!`;
-        if (currentFirstTrickWinner === null) {
-          setFirstTrickWinner(winner);
-          currentFirstTrickWinner = winner;
-        }
       }
 
-      const { team0, team1 } = newTricksWon;
-      const totalTricks = team0 + team1 + (winner === 'tie' ? 1 : 0);
-      let roundEnded = false;
-      let roundWinnerTeam: 0 | 1 | null = null;
-
-      if (team0 === 2) { roundEnded = true; roundWinnerTeam = 0; }
-      else if (team1 === 2) { roundEnded = true; roundWinnerTeam = 1; }
-      else if (winner === 'tie' && currentFirstTrickWinner !== null && currentFirstTrickWinner !== 'tie') {
-        roundEnded = true;
-        roundWinnerTeam = state.players[currentFirstTrickWinner as PlayerId].team;
-      } else if (currentFirstTrickWinner === 'tie' && winner !== 'tie') {
-        roundEnded = true;
-        roundWinnerTeam = state.players[winner as PlayerId].team;
-      } else if (totalTricks === 3) {
-        roundEnded = true;
-        if (team0 > team1) roundWinnerTeam = 0;
-        else if (team1 > team0) roundWinnerTeam = 1;
-        else {
-          const dealerTeam = state.players[state.dealer].team;
-          roundWinnerTeam = dealerTeam === 0 ? 1 : 0;
-        }
-      }
+      const roundWinnerTeam = getRoundWinnerTeam(
+        updatedTrickHistory.map((trick) => trick.winner),
+        state.players,
+        handStarter
+      );
+      const roundEnded = roundWinnerTeam !== null;
 
       if (roundEnded) {
         const points = state.currentRoundPoints;
@@ -184,7 +163,7 @@ export default function App() {
           setState(prev => ({
             ...prev,
             scores: newScores,
-            trickHistory: [...prev.trickHistory, { cards: state.roundCards, winner }],
+            trickHistory: updatedTrickHistory,
             phase: 'gameEnd',
             message: roundWinnerTeam === 0 ? 'VOCÊS VENCERAM O JOGO!' : 'ELES VENCERAM O JOGO!',
             logs: [roundMsg, ...prev.logs].slice(0, 10),
@@ -198,8 +177,9 @@ export default function App() {
             ...prev,
             scores: newScores,
             tricksWon: newTricksWon,
-            trickHistory: [...prev.trickHistory, { cards: state.roundCards, winner }],
+            trickHistory: updatedTrickHistory,
             roundCards: [null, null, null, null],
+            phase: 'roundEnd',
             message: roundMsg,
             logs: [roundMsg, ...prev.logs].slice(0, 10),
           }));
@@ -209,18 +189,18 @@ export default function App() {
         setState(prev => ({
           ...prev,
           tricksWon: newTricksWon,
-          trickHistory: [...prev.trickHistory, { cards: state.roundCards, winner }],
+          trickHistory: updatedTrickHistory,
           roundCards: [null, null, null, null],
           turn: nextTurn,
+          trickStarter: nextTurn,
           message,
           logs: [message, ...prev.logs].slice(0, 10),
         }));
-        setTrickStarter(nextTurn);
       }
     }, 1500);
 
     return () => clearTimeout(timer);
-  }, [state.roundCards, state.phase, state.manilhaRank, trickStarter, state.players,
+  }, [state.roundCards, state.phase, state.manilhaRank, state.trickStarter, state.players,
       state.tricksWon, state.currentRoundPoints, state.scores, state.dealer, startNewRound]);
 
   // ── Initial deal ────────────────────────────────────────────────────────────
@@ -738,7 +718,7 @@ export default function App() {
           <AnimatePresence mode="wait">
 
             {/* Vez do jogador */}
-            {state.turn === 0 ? (
+            {state.phase === 'playing' && state.turn === 0 ? (
               <motion.div
                 key="user"
                 initial={{ y: 40, opacity: 0 }}
@@ -746,6 +726,22 @@ export default function App() {
                 exit={{ y: 40, opacity: 0 }}
                 className="flex flex-col items-center gap-3 w-full"
               >
+                <div className="flex flex-col items-center gap-1.5 opacity-85">
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-full border border-indigo-500/20 bg-indigo-500/10 backdrop-blur-md">
+                    <Users className="w-2.5 h-2.5 text-indigo-300" />
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-200">Parceiro</span>
+                  </div>
+                  <div className="flex justify-center gap-1.5 sm:gap-2 scale-[0.82] origin-center">
+                    {state.players[2].hand.map((card) => (
+                      <CardComponent
+                        key={card.id}
+                        card={card}
+                        manilhaRank={state.manilhaRank}
+                        className="opacity-90"
+                      />
+                    ))}
+                  </div>
+                </div>
                 <div className="flex justify-center gap-2 sm:gap-3">
                   {state.players[0].hand.map((card, i) => (
                     <CardComponent
@@ -773,7 +769,7 @@ export default function App() {
               </motion.div>
 
             /* Vez do parceiro */
-            ) : state.turn === 2 ? (
+            ) : state.phase === 'playing' && state.turn === 2 ? (
               <motion.div
                 key="partner"
                 initial={{ y: 40, opacity: 0 }}
@@ -781,6 +777,22 @@ export default function App() {
                 exit={{ y: 40, opacity: 0 }}
                 className="flex flex-col items-center gap-3 w-full"
               >
+                <div className="flex flex-col items-center gap-1.5 opacity-85">
+                  <div className="flex items-center gap-1 px-2 py-1 rounded-full border border-emerald-500/20 bg-emerald-500/10 backdrop-blur-md">
+                    <Users className="w-2.5 h-2.5 text-emerald-300" />
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-200">Sua mão</span>
+                  </div>
+                  <div className="flex justify-center gap-1.5 sm:gap-2 scale-[0.82] origin-center">
+                    {state.players[0].hand.map((card) => (
+                      <CardComponent
+                        key={card.id}
+                        card={card}
+                        manilhaRank={state.manilhaRank}
+                        className="opacity-90"
+                      />
+                    ))}
+                  </div>
+                </div>
                 <div className="flex justify-center gap-2 sm:gap-3">
                   {state.players[2].hand.map((card, i) => (
                     <CardComponent

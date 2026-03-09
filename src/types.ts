@@ -28,6 +28,7 @@ export interface GameState {
   manilhaRank: Rank | null;
   turn: PlayerId;
   dealer: PlayerId;
+  trickStarter: PlayerId;
   roundCards: (Card | null)[]; // Cards played in the current "queda" (trick)
   trickHistory: Trick[];
   roundWinner: PlayerId | null;
