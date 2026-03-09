@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trophy, Users, RotateCcw, Zap, Brain, Swords } from 'lucide-react';
+import { Trophy, Users, RotateCcw, Zap, Brain, Swords, EyeOff } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { GameState, PlayerId } from './types';
-import { createDeck, shuffle, getManilhaRank, compareCards, getTrickWinner, getRoundWinnerTeam } from './gameEngine';
+import { createDeck, shuffle, getManilhaRank, compareCards, comparePlayedCards, getTrickWinner, getRoundWinnerTeam } from './gameEngine';
 import { CardComponent } from './components/Card';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -56,6 +56,7 @@ function getTrucoLabel(value: number): string {
 export default function App() {
   const [state, setState] = useState<GameState>(INITIAL_STATE);
   const [isAiThinking, setIsAiThinking] = useState(false);
+  const [playMode, setPlayMode] = useState<'open' | 'covered'>('open');
 
   // Stable random rotations for played cards — prevent jitter on re-render
   const cardRotationRef = useRef<Map<string, number>>(new Map());
@@ -70,6 +71,7 @@ export default function App() {
   // ── startNewRound ───────────────────────────────────────────────────────────
   const startNewRound = useCallback((dealerId: PlayerId) => {
     cardRotationRef.current.clear();
+    setPlayMode('open');
     const deck = shuffle(createDeck());
     const players = INITIAL_STATE.players.map((p) => ({ ...p, hand: deck.splice(0, 3) }));
     const vira = deck.splice(0, 1)[0];
@@ -99,7 +101,7 @@ export default function App() {
   }, []);
 
   // ── playCard ────────────────────────────────────────────────────────────────
-  const playCard = useCallback((playerId: PlayerId, cardIndex: number) => {
+  const playCard = useCallback((playerId: PlayerId, cardIndex: number, hidden = false) => {
     setState(prev => {
       const player = prev.players[playerId];
       const card   = player.hand[cardIndex];
@@ -107,13 +109,13 @@ export default function App() {
       const newHand = player.hand.filter((_, i) => i !== cardIndex);
       const newPlayers = prev.players.map(p => p.id === playerId ? { ...p, hand: newHand } : p);
       const newRoundCards = [...prev.roundCards];
-      newRoundCards[playerId] = card;
+      newRoundCards[playerId] = { card, hidden };
       return {
         ...prev,
         players: newPlayers,
         roundCards: newRoundCards,
         turn: ((prev.turn + 1) % 4) as PlayerId,
-        logs: [`${player.name}: ${card.rank} de ${card.suit}`, ...prev.logs].slice(0, 10),
+        logs: [hidden ? `${player.name}: carta coberta` : `${player.name}: ${card.rank} de ${card.suit}`, ...prev.logs].slice(0, 10),
       };
     });
   }, []);
@@ -208,6 +210,15 @@ export default function App() {
     if (state.phase === 'dealing') startNewRound(0);
   }, [state.phase, startNewRound]);
 
+  const isTeamTurn = state.phase === 'playing' && (state.turn === 0 || state.turn === 2);
+  const canPlayHidden = isTeamTurn && !state.trucoPending && state.trickHistory.length > 0;
+
+  useEffect(() => {
+    if (!canPlayHidden && playMode === 'covered') {
+      setPlayMode('open');
+    }
+  }, [canPlayHidden, playMode]);
+
   // ── AI turn — play card ─────────────────────────────────────────────────────
   useEffect(() => {
     if (state.phase !== 'playing' || (state.turn !== 1 && state.turn !== 3) || state.trucoPending) {
@@ -226,12 +237,14 @@ export default function App() {
         if (playedCards.length > 0) {
           let bestPlayed = playedCards[0]!;
           for (const c of playedCards) {
-            if (c && compareCards(c, bestPlayed, state.manilhaRank!) > 0) bestPlayed = c;
+            if (c && comparePlayedCards(c, bestPlayed, state.manilhaRank!) > 0) bestPlayed = c;
           }
           let winIndex = -1;
           for (let i = 0; i < aiPlayer.hand.length; i++) {
-            if (compareCards(aiPlayer.hand[i], bestPlayed, state.manilhaRank!) > 0) {
-              if (winIndex === -1 || compareCards(aiPlayer.hand[winIndex], aiPlayer.hand[i], state.manilhaRank!) > 0) {
+            const currentCandidate = { card: aiPlayer.hand[i], hidden: false };
+            if (comparePlayedCards(currentCandidate, bestPlayed, state.manilhaRank!) > 0) {
+              const previousWinner = winIndex === -1 ? null : { card: aiPlayer.hand[winIndex], hidden: false };
+              if (previousWinner === null || comparePlayedCards(previousWinner, currentCandidate, state.manilhaRank!) > 0) {
                 winIndex = i;
               }
             }
@@ -247,7 +260,7 @@ export default function App() {
           }
         }
 
-        playCard(state.turn, bestIndex);
+        playCard(state.turn, bestIndex, false);
       }
       setIsAiThinking(false);
     }, 1200);
@@ -286,20 +299,26 @@ export default function App() {
       state.players, state.manilhaRank, state.currentRoundPoints]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
+  const playControlledCard = (playerId: 0 | 2, cardIndex: number) => {
+    const hidden = canPlayHidden && playMode === 'covered';
+    playCard(playerId, cardIndex, hidden);
+    setPlayMode('open');
+  };
+
   const handleUserPlay = (cardIndex: number) => {
     if (state.turn === 0 && state.phase === 'playing' && !state.trucoPending) {
-      playCard(0, cardIndex);
+      playControlledCard(0, cardIndex);
     }
   };
 
   const handlePartnerPlay = (cardIndex: number) => {
     if (state.turn === 2 && state.phase === 'playing' && !state.trucoPending) {
-      playCard(2, cardIndex);
+      playControlledCard(2, cardIndex);
     }
   };
 
   const callTruco = () => {
-    if (state.phase !== 'playing' || state.trucoPending) return;
+    if (state.phase !== 'playing' || state.trucoPending || (state.turn !== 0 && state.turn !== 2)) return;
     if (state.lastTrucoBy !== null && state.players[state.lastTrucoBy].team === 0) return;
     const nextValue = getNextTrucoValue(state.currentRoundPoints);
     if (nextValue > 12) return;
@@ -412,6 +431,7 @@ export default function App() {
   // ── Derived ─────────────────────────────────────────────────────────────────
   const canCallTruco =
     state.phase === 'playing' &&
+    (state.turn === 0 || state.turn === 2) &&
     !state.trucoPending &&
     (state.lastTrucoBy === null || state.players[state.lastTrucoBy].team !== 0) &&
     getNextTrucoValue(state.currentRoundPoints) <= 12;
@@ -419,11 +439,42 @@ export default function App() {
   // Pode aumentar se o próximo valor após o que a IA pediu ainda está dentro do limite
   const aiTrucoValue = getNextTrucoValue(state.currentRoundPoints);
   const canRaise = aiTrucoValue < 12;
+  const currentTurnName = state.players[state.turn]?.name ?? 'Mesa';
+  const turnToneClass =
+    state.turn === 0
+      ? 'border-emerald-500/40 bg-emerald-500/12 text-emerald-300'
+      : state.turn === 2
+        ? 'border-indigo-500/40 bg-indigo-500/12 text-indigo-300'
+        : 'border-rose-500/40 bg-rose-500/12 text-rose-300';
+  const turnHeadline =
+    state.phase === 'roundEnd'
+      ? 'Fechando rodada'
+      : state.phase === 'gameEnd'
+        ? 'Fim de jogo'
+        : state.turn === 0
+          ? 'Sua vez de jogar'
+          : state.turn === 2
+            ? 'Vez do parceiro'
+            : `${currentTurnName} está jogando`;
+  const turnHint =
+    state.phase === 'roundEnd'
+      ? 'A próxima mão começa em instantes.'
+      : state.phase === 'gameEnd'
+        ? state.message
+        : isTeamTurn
+          ? playMode === 'covered'
+            ? 'Modo coberto ativo. Clique em uma carta para jogar escondendo.'
+            : 'Clique em uma carta da dupla. Use os botões ao lado para trucar ou jogar coberta.'
+          : isAiThinking
+            ? `${currentTurnName} está pensando na melhor jogada.`
+            : 'Aguarde a vez voltar para sua dupla.';
+  const hiddenModeLabel = playMode === 'covered' ? 'Próxima: coberta' : 'Jogar coberta';
 
   const isPlayerWin = state.phase === 'gameEnd' && state.scores.team0 >= 12;
 
   const resetGame = () => {
     cardRotationRef.current.clear();
+    setPlayMode('open');
     setState(INITIAL_STATE);
   };
 
@@ -588,6 +639,58 @@ export default function App() {
           </div>
         </div>
 
+        <div className="relative z-10 w-full max-w-4xl px-1 pb-3">
+          <div className="rounded-[24px] border border-white/10 bg-black/45 backdrop-blur-xl shadow-[0_12px_30px_rgba(0,0,0,0.25)] px-3 py-3 sm:px-4 sm:py-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex items-start gap-3">
+                <div className={`mt-0.5 rounded-2xl border px-2.5 py-2 ${turnToneClass}`}>
+                  <Zap className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-[9px] uppercase font-black tracking-[0.3em] text-white/35">Turno</p>
+                  <h2 className="text-sm sm:text-base font-black tracking-tight text-white">{turnHeadline}</h2>
+                  <p className="text-[11px] sm:text-xs text-white/55">{turnHint}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2 sm:items-end">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => canPlayHidden && setPlayMode((current) => current === 'open' ? 'covered' : 'open')}
+                    disabled={!canPlayHidden}
+                    className={`px-3 py-2 rounded-xl border text-[10px] font-black uppercase tracking-[0.18em] transition-all ${
+                      playMode === 'covered'
+                        ? 'border-amber-400/60 bg-amber-400 text-black shadow-[0_8px_24px_rgba(251,191,36,0.25)]'
+                        : 'border-white/10 bg-white/5 text-white/70'
+                    } disabled:opacity-35 disabled:grayscale disabled:cursor-not-allowed`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <EyeOff className="w-3.5 h-3.5" />
+                      {hiddenModeLabel}
+                    </span>
+                  </button>
+                  <button
+                    onClick={callTruco}
+                    disabled={!canCallTruco}
+                    className="px-4 py-2 bg-gradient-to-r from-amber-300 via-amber-400 to-orange-500 text-black font-black rounded-xl uppercase text-[10px] tracking-[0.22em] shadow-[0_10px_24px_rgba(249,115,22,0.25)] border border-amber-200/40 transition-all disabled:opacity-35 disabled:grayscale disabled:cursor-not-allowed"
+                  >
+                    Trucar
+                  </button>
+                </div>
+                <p className="text-[10px] text-white/35">
+                  {canPlayHidden
+                    ? playMode === 'covered'
+                      ? 'A próxima carta da sua dupla será jogada coberta.'
+                      : 'Carta coberta liberada nesta vaza.'
+                    : state.trickHistory.length === 0
+                      ? 'Carta coberta liberada a partir da 2ª vaza.'
+                      : 'Carta coberta disponível quando a vez for da sua dupla.'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* ── Mesa ───────────────────────────────────────────────────────────── */}
         <div className="flex-1 w-full relative flex items-center justify-center z-10">
 
@@ -635,9 +738,9 @@ export default function App() {
             </div>
           </div>
 
-          {/* Parceiro (topo) — Player 2 — sempre face-down */}
+          {/* Parceiro (topo) — Player 2 */}
           <div className={`absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 transition-all duration-300 ${
-            state.turn === 2 ? 'opacity-25 scale-90' : 'opacity-70'
+            state.turn === 2 ? 'opacity-100 scale-105' : 'opacity-70'
           }`}>
             <div className={`flex items-center gap-1 px-2 py-1 rounded-full border backdrop-blur-md transition-all ${
               state.turn === 2
@@ -657,9 +760,9 @@ export default function App() {
           {/* ── Área de Cartas Jogadas ───────────────────────────────────── */}
           <div className="relative w-44 h-44 sm:w-60 sm:h-60 flex items-center justify-center">
             <AnimatePresence>
-              {state.roundCards.map((card, i) => card && (
+              {state.roundCards.map((playedCard, i) => playedCard && (
                 <motion.div
-                  key={`${card.id}-${i}`}
+                  key={`${playedCard.card.id}-${playedCard.hidden ? 'covered' : 'open'}-${i}`}
                   initial={{
                     scale: 0, opacity: 0,
                     y: i === 0 ? 70 : i === 2 ? -70 : 0,
@@ -670,13 +773,18 @@ export default function App() {
                     opacity: 1,
                     y: i === 0 ? 18 : i === 2 ? -18 : 0,
                     x: i === 1 ? -18 : i === 3 ? 18 : 0,
-                    rotate: getCardRotation(card.id, i),
+                    rotate: getCardRotation(playedCard.card.id, i),
                     zIndex: 10 + i,
                   }}
                   transition={{ type: 'spring', stiffness: 280, damping: 22 }}
                   className="absolute flex flex-col items-center"
                 >
-                  <CardComponent card={card} manilhaRank={state.manilhaRank} className="shadow-2xl" />
+                  <CardComponent
+                    card={playedCard.card}
+                    hidden={playedCard.hidden}
+                    manilhaRank={playedCard.hidden ? null : state.manilhaRank}
+                    className="shadow-2xl"
+                  />
                   <motion.div
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -714,7 +822,7 @@ export default function App() {
         </div>
 
         {/* ── Área de Ação — Barra inferior ──────────────────────────────── */}
-        <div className="h-40 sm:h-52 w-full flex items-center justify-center relative z-20 pb-2">
+        <div className="h-52 sm:h-64 w-full flex items-center justify-center relative z-20 pb-2">
           <AnimatePresence mode="wait">
 
             {/* Vez do jogador */}
@@ -753,18 +861,9 @@ export default function App() {
                     />
                   ))}
                 </div>
-                <div className="flex items-center justify-center gap-2">
-                  <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-500/20 rounded-xl border border-emerald-500/30 backdrop-blur-xl">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Sua vez</span>
-                  </div>
-                  <button
-                    onClick={callTruco}
-                    disabled={!canCallTruco}
-                    className="px-4 py-2 bg-gradient-to-r from-amber-400 to-orange-500 text-black font-black rounded-xl uppercase text-[10px] tracking-tighter shadow-lg shadow-orange-500/20 border-b-2 border-orange-700 active:translate-y-0.5 active:border-b-0 transition-all disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed"
-                  >
-                    {getTrucoLabel(getNextTrucoValue(state.currentRoundPoints))}!
-                  </button>
+                <div className="flex items-center justify-center gap-2 px-3 py-2 bg-emerald-500/20 rounded-xl border border-emerald-500/30 backdrop-blur-xl">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Sua vez</span>
                 </div>
               </motion.div>
 
@@ -804,18 +903,9 @@ export default function App() {
                     />
                   ))}
                 </div>
-                <div className="flex items-center justify-center gap-2">
-                  <div className="flex items-center gap-1.5 px-3 py-2 bg-indigo-500/20 rounded-xl border border-indigo-500/30 backdrop-blur-xl">
-                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Vez do Parceiro</span>
-                  </div>
-                  <button
-                    onClick={callTruco}
-                    disabled={!canCallTruco}
-                    className="px-4 py-2 bg-gradient-to-r from-amber-400 to-orange-500 text-black font-black rounded-xl uppercase text-[10px] tracking-tighter shadow-lg shadow-orange-500/20 border-b-2 border-orange-700 active:translate-y-0.5 active:border-b-0 transition-all disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed"
-                  >
-                    {getTrucoLabel(getNextTrucoValue(state.currentRoundPoints))}!
-                  </button>
+                <div className="flex items-center justify-center gap-2 px-3 py-2 bg-indigo-500/20 rounded-xl border border-indigo-500/30 backdrop-blur-xl">
+                  <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400">Vez do Parceiro</span>
                 </div>
               </motion.div>
 

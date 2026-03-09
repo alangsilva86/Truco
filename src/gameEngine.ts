@@ -1,4 +1,4 @@
-import { Card, Player, PlayerId, Rank, Suit } from './types';
+import { Card, PlayedCard, Player, PlayerId, Rank, Suit } from './types';
 
 export const SUITS: Suit[] = ['Ouros', 'Espadas', 'Copas', 'Paus'];
 export const RANKS: Rank[] = ['4', '5', '6', '7', 'Q', 'J', 'K', 'A', '2', '3'];
@@ -48,7 +48,14 @@ export function compareCards(c1: Card, c2: Card, manilhaRank: Rank): number {
   return RANK_VALUE[c1.rank] - RANK_VALUE[c2.rank];
 }
 
-export function getTrickWinner(cards: (Card | null)[], manilhaRank: Rank, firstPlayer: PlayerId): PlayerId | 'tie' {
+export function comparePlayedCards(c1: PlayedCard, c2: PlayedCard, manilhaRank: Rank): number {
+  if (c1.hidden && c2.hidden) return 0;
+  if (c1.hidden) return -1;
+  if (c2.hidden) return 1;
+  return compareCards(c1.card, c2.card, manilhaRank);
+}
+
+export function getTrickWinner(cards: (PlayedCard | null)[], manilhaRank: Rank, firstPlayer: PlayerId): PlayerId | 'tie' {
   let winner: PlayerId | 'tie' = firstPlayer;
   let bestCard = cards[firstPlayer]!;
 
@@ -57,7 +64,7 @@ export function getTrickWinner(cards: (Card | null)[], manilhaRank: Rank, firstP
     const currentCard = cards[currentPlayer];
     if (!currentCard) continue;
 
-    const cmp = compareCards(currentCard, bestCard, manilhaRank);
+    const cmp = comparePlayedCards(currentCard, bestCard, manilhaRank);
     if (cmp > 0) {
       bestCard = currentCard;
       winner = currentPlayer;

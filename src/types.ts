@@ -7,6 +7,11 @@ export interface Card {
   id: string;
 }
 
+export interface PlayedCard {
+  card: Card;
+  hidden: boolean;
+}
+
 export type PlayerId = 0 | 1 | 2 | 3; // 0 is User, 1 is Left, 2 is Partner (Top), 3 is Right
 
 export interface Player {
@@ -17,7 +22,7 @@ export interface Player {
 }
 
 export interface Trick {
-  cards: (Card | null)[];
+  cards: (PlayedCard | null)[];
   winner: PlayerId | 'tie';
 }
 
@@ -29,7 +34,7 @@ export interface GameState {
   turn: PlayerId;
   dealer: PlayerId;
   trickStarter: PlayerId;
-  roundCards: (Card | null)[]; // Cards played in the current "queda" (trick)
+  roundCards: (PlayedCard | null)[]; // Cards played in the current "queda" (trick)
   trickHistory: Trick[];
   roundWinner: PlayerId | null;
   scores: { team0: number; team1: number };
