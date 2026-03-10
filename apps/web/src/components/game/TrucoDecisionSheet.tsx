@@ -37,7 +37,9 @@ export function TrucoDecisionSheet({
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-amber-100/60">Decisao</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-amber-100/60">
+              Decisao
+            </p>
             <h3 className="mt-1 text-xl font-black text-white">
               {requesterName} pediu truco
             </h3>

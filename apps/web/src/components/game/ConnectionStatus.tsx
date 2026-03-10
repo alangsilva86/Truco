@@ -40,9 +40,15 @@ export function ConnectionStatus({
         )}
 
         <div className="flex min-h-10 items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/65 sm:min-h-11 sm:rounded-2xl sm:text-xs sm:tracking-[0.18em]">
-          {connectionState === 'reconnecting' && <LoaderCircle className="h-4 w-4 animate-spin text-amber-300" />}
-          {connectionState === 'disconnected' && <AlertCircle className="h-4 w-4 text-rose-300" />}
-          {connectionState === 'connected' && <Swords className="h-4 w-4 text-emerald-300" />}
+          {connectionState === 'reconnecting' && (
+            <LoaderCircle className="h-4 w-4 animate-spin text-amber-300" />
+          )}
+          {connectionState === 'disconnected' && (
+            <AlertCircle className="h-4 w-4 text-rose-300" />
+          )}
+          {connectionState === 'connected' && (
+            <Swords className="h-4 w-4 text-emerald-300" />
+          )}
           {connectionState}
         </div>
       </div>

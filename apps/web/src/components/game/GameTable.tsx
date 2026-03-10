@@ -1,5 +1,20 @@
-import { AvailableAction, Card, ClientGameView, ConnectionState, SeatId, TeamId } from '@truco/contracts';
-import { AlertCircle, LoaderCircle, LogOut, RefreshCcw, Swords, Trophy, X } from 'lucide-react';
+import {
+  AvailableAction,
+  Card,
+  ClientGameView,
+  ConnectionState,
+  SeatId,
+  TeamId,
+} from '@truco/contracts';
+import {
+  AlertCircle,
+  LoaderCircle,
+  LogOut,
+  RefreshCcw,
+  Swords,
+  Trophy,
+  X,
+} from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { createTablePresentation } from '../../lib/tablePresentation.js';
 import { BottomActionBar } from './BottomActionBar.js';
@@ -67,12 +82,16 @@ export function GameTable({
 }: GameTableProps) {
   const [logsOpen, setLogsOpen] = useState(false);
 
-  const presentation = useMemo(() => createTablePresentation({
-    view,
-    viewerTeamId,
-    playAction,
-    requestTrucoAction,
-  }), [playAction, requestTrucoAction, view, viewerTeamId]);
+  const presentation = useMemo(
+    () =>
+      createTablePresentation({
+        view,
+        viewerTeamId,
+        playAction,
+        requestTrucoAction,
+      }),
+    [playAction, requestTrucoAction, view, viewerTeamId],
+  );
 
   useEffect(() => {
     if (logs.length === 0 || presentation.isWaiting) {
@@ -145,7 +164,9 @@ export function GameTable({
                   active={presentation.topSeat.active}
                   cards={presentation.topCards}
                   manilhaRank={view.manilhaRank}
-                  onPlayCard={(card) => onPlayCard(presentation.topSeat.seatId, card)}
+                  onPlayCard={(card) =>
+                    onPlayCard(presentation.topSeat.seatId, card)
+                  }
                   disabled={!presentation.topSeat.active || commandPending}
                 />
               </div>
@@ -242,7 +263,9 @@ export function GameTable({
                   active={presentation.bottomSeat.active}
                   cards={presentation.bottomCards}
                   manilhaRank={view.manilhaRank}
-                  onPlayCard={(card) => onPlayCard(presentation.bottomSeat.seatId, card)}
+                  onPlayCard={(card) =>
+                    onPlayCard(presentation.bottomSeat.seatId, card)
+                  }
                   disabled={!presentation.bottomSeat.active || commandPending}
                 />
               )}
@@ -268,8 +291,14 @@ export function GameTable({
       {presentation.isGameEnd && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
           <div className="table-surface safe-bottom flex w-full max-w-sm flex-col items-center gap-5 rounded-[30px] px-6 py-7 text-center shadow-2xl shadow-black/60">
-            <div className={`rounded-full border p-4 ${presentation.gameWon ? 'border-emerald-300/25 bg-emerald-500/10 text-emerald-200' : 'border-rose-300/20 bg-rose-500/10 text-rose-200'}`}>
-              {presentation.gameWon ? <Trophy className="h-8 w-8" /> : <Swords className="h-8 w-8" />}
+            <div
+              className={`rounded-full border p-4 ${presentation.gameWon ? 'border-emerald-300/25 bg-emerald-500/10 text-emerald-200' : 'border-rose-300/20 bg-rose-500/10 text-rose-200'}`}
+            >
+              {presentation.gameWon ? (
+                <Trophy className="h-8 w-8" />
+              ) : (
+                <Swords className="h-8 w-8" />
+              )}
             </div>
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.28em] text-white/40">
@@ -279,7 +308,9 @@ export function GameTable({
                 {presentation.scoreUs} × {presentation.scoreThem}
               </h3>
               <p className="mt-2 text-sm text-white/55">
-                {presentation.gameWon ? 'Sua dupla venceu a partida.' : 'A partida terminou. Peça revanche ou saia da sala.'}
+                {presentation.gameWon
+                  ? 'Sua dupla venceu a partida.'
+                  : 'A partida terminou. Peça revanche ou saia da sala.'}
               </p>
             </div>
 
@@ -293,7 +324,11 @@ export function GameTable({
                   : 'bg-emerald-400 text-black hover:brightness-105'
               }`}
             >
-              {rematchRequested ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+              {rematchRequested ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCcw className="h-4 w-4" />
+              )}
               {rematchRequested ? 'Aguardando adversario...' : 'Pedir revanche'}
             </button>
 
@@ -316,8 +351,12 @@ export function GameTable({
               <LoaderCircle className="h-8 w-8 animate-spin" />
             </div>
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-white/40">Conexao interrompida</p>
-              <h3 className="mt-2 text-2xl font-black text-white">Adversario desconectou</h3>
+              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-white/40">
+                Conexao interrompida
+              </p>
+              <h3 className="mt-2 text-2xl font-black text-white">
+                Adversario desconectou
+              </h3>
               <p className="mt-2 text-sm text-white/55">
                 O jogo continua automaticamente assim que ele reconectar.
               </p>
@@ -335,11 +374,22 @@ export function GameTable({
       )}
 
       <TrucoDecisionSheet
-        open={Boolean(respondTrucoAction && view.trucoPending && !presentation.isPausedReconnect)}
-        requesterName={view.trucoPending ? (view.players[view.trucoPending.requestedBySeatId]?.nickname ?? 'Adversario') : 'Adversario'}
+        open={Boolean(
+          respondTrucoAction &&
+          view.trucoPending &&
+          !presentation.isPausedReconnect,
+        )}
+        requesterName={
+          view.trucoPending
+            ? (view.players[view.trucoPending.requestedBySeatId]?.nickname ??
+              'Adversario')
+            : 'Adversario'
+        }
         requestedValue={view.trucoPending?.requestedValue ?? 0}
         acceptedValue={view.trucoPending?.acceptedValue ?? 0}
-        raiseTarget={view.trucoPending ? view.trucoPending.requestedValue + 3 : null}
+        raiseTarget={
+          view.trucoPending ? view.trucoPending.requestedValue + 3 : null
+        }
         canRaise={Boolean(respondTrucoAction?.actions.includes('raise'))}
         commandPending={commandPending}
         onAccept={onAcceptTruco}

@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { defineRoom, defineServer, monitor, playground } from 'colyseus';
+import { serverMetrics } from './observability/metrics.js';
 import { roomDirectory } from './services/roomDirectory.js';
 import { TrucoRoom } from './rooms/TrucoRoom.js';
 
@@ -16,20 +17,31 @@ const app = defineServer({
       res.json({ version: '1.0.0' });
     });
 
+    server.get('/metrics', (_req: Request, res: Response) => {
+      res.json(serverMetrics.snapshot());
+    });
+
     server.get('/api/rooms/:roomCode', (req: Request, res: Response) => {
       const roomCode = String(req.params.roomCode ?? '').toUpperCase();
       const room = roomDirectory.resolve(roomCode);
 
       if (!room) {
-        res.status(404).json({ error: 'NOT_FOUND', message: 'Sala nao encontrada.' });
+        res
+          .status(404)
+          .json({ error: 'NOT_FOUND', message: 'Sala nao encontrada.' });
         return;
       }
 
       if (!room.joinable) {
         if (room.lifecycle === 'CLOSED') {
-          res.status(410).json({ error: 'CLOSED', message: 'Esta sala foi encerrada.' });
+          res
+            .status(410)
+            .json({ error: 'CLOSED', message: 'Esta sala foi encerrada.' });
         } else {
-          res.status(409).json({ error: 'LOCKED', message: 'Esta sala ja esta cheia ou em andamento.' });
+          res.status(409).json({
+            error: 'LOCKED',
+            message: 'Esta sala ja esta cheia ou em andamento.',
+          });
         }
         return;
       }

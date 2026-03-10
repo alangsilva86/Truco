@@ -52,9 +52,15 @@ export function SeatPanel(props: SeatPanelProps) {
 
   if (props.mode === 'hidden') {
     return (
-      <div className={`flex flex-col items-center gap-1.5 ${props.orientation === 'left' || props.orientation === 'right' ? 'max-w-[4.75rem] sm:max-w-none' : ''}`}>
-        <div className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] sm:px-3 sm:text-xs sm:tracking-[0.18em] ${badgeClass}`}>
-          <span className="block max-w-[4rem] truncate sm:max-w-[7rem]">{props.nickname}</span>
+      <div
+        className={`flex flex-col items-center gap-1.5 ${props.orientation === 'left' || props.orientation === 'right' ? 'max-w-[4.75rem] sm:max-w-none' : ''}`}
+      >
+        <div
+          className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] sm:px-3 sm:text-xs sm:tracking-[0.18em] ${badgeClass}`}
+        >
+          <span className="block max-w-[4rem] truncate sm:max-w-[7rem]">
+            {props.nickname}
+          </span>
           {props.dealer && <span className="ml-1 text-amber-300/80">·D</span>}
         </div>
 
@@ -75,20 +81,32 @@ export function SeatPanel(props: SeatPanelProps) {
   const isTop = props.orientation === 'top';
 
   return (
-    <div className={`flex flex-col items-center gap-1.5 sm:gap-2 ${isBottom || isTop ? 'w-full' : ''}`}>
-      <div className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] sm:px-3 sm:text-xs sm:tracking-[0.18em] ${badgeClass}`}>
-        <span className="block max-w-[9rem] truncate sm:max-w-[10rem]">{props.nickname}</span>
+    <div
+      className={`flex flex-col items-center gap-1.5 sm:gap-2 ${isBottom || isTop ? 'w-full' : ''}`}
+    >
+      <div
+        className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] sm:px-3 sm:text-xs sm:tracking-[0.18em] ${badgeClass}`}
+      >
+        <span className="block max-w-[9rem] truncate sm:max-w-[10rem]">
+          {props.nickname}
+        </span>
         {props.dealer && <span className="ml-1 text-amber-300/80">·D</span>}
       </div>
 
-      <div className={`flex w-full items-center justify-center overflow-x-auto pb-1 ${isBottom ? 'gap-1.5 sm:gap-3' : 'gap-1 sm:gap-2'} ${isTop ? 'max-w-[17rem] sm:max-w-none' : ''}`}>
+      <div
+        className={`flex w-full items-center justify-center overflow-x-auto pb-1 ${isBottom ? 'gap-1.5 sm:gap-3' : 'gap-1 sm:gap-2'} ${isTop ? 'max-w-[17rem] sm:max-w-none' : ''}`}
+      >
         {props.cards.map((card) => (
           <CardView
             key={card.id}
             card={card}
             manilhaRank={props.manilhaRank}
             compact={compact}
-            onClick={!props.disabled && props.onPlayCard ? () => props.onPlayCard?.(card) : undefined}
+            onClick={
+              !props.disabled && props.onPlayCard
+                ? () => props.onPlayCard?.(card)
+                : undefined
+            }
             active={props.active && !props.disabled}
             muted={!props.active}
           />

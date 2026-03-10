@@ -1,9 +1,21 @@
-import { AvailableAction, Card, ClientGameView, SeatId, TeamId, getSeatLayoutForTeam } from '@truco/contracts';
+import {
+  AvailableAction,
+  Card,
+  ClientGameView,
+  SeatId,
+  TeamId,
+  getSeatLayoutForTeam,
+} from '@truco/contracts';
 
 type PlayAction = Extract<AvailableAction, { type: 'PLAY_CARD' }>;
 type TrucoAction = Extract<AvailableAction, { type: 'REQUEST_TRUCO' }>;
 
-export type BannerTone = 'player' | 'opponent' | 'waiting' | 'warning' | 'finished';
+export type BannerTone =
+  | 'player'
+  | 'opponent'
+  | 'waiting'
+  | 'warning'
+  | 'finished';
 export type TrickDotTone = 'us' | 'them' | 'tie' | 'empty';
 
 export interface TableSeatModel {
@@ -94,7 +106,10 @@ function createBanner(params: {
     };
   }
 
-  if (view.gamePhase === 'TRUCO_DECISION' && view.trucoPending?.responseTeam === params.viewerTeamId) {
+  if (
+    view.gamePhase === 'TRUCO_DECISION' &&
+    view.trucoPending?.responseTeam === params.viewerTeamId
+  ) {
     return {
       tone: 'player',
       title: 'Responder truco',
@@ -178,7 +193,10 @@ function getCoveredHint(playAction: PlayAction | null): string {
   return 'Jogue escondendo o valor da carta na mesa.';
 }
 
-function getTrucoHint(view: ClientGameView, requestTrucoAction: TrucoAction | null): string {
+function getTrucoHint(
+  view: ClientGameView,
+  requestTrucoAction: TrucoAction | null,
+): string {
   if (requestTrucoAction) {
     return `Pedir ${requestTrucoAction.nextValue} ponto${requestTrucoAction.nextValue > 1 ? 's' : ''} agora.`;
   }
@@ -207,8 +225,10 @@ export function createTablePresentation(params: {
   const isPausedReconnect = view.roomLifecycle === 'PAUSED_RECONNECT';
   const isBottomTurn = playAction?.seatId === seatLayout.bottom;
   const isTopTurn = playAction?.seatId === seatLayout.top;
-  const isOpponentLeftTurn = view.gamePhase === 'PLAYING' && view.turnSeatId === seatLayout.left;
-  const isOpponentRightTurn = view.gamePhase === 'PLAYING' && view.turnSeatId === seatLayout.right;
+  const isOpponentLeftTurn =
+    view.gamePhase === 'PLAYING' && view.turnSeatId === seatLayout.left;
+  const isOpponentRightTurn =
+    view.gamePhase === 'PLAYING' && view.turnSeatId === seatLayout.right;
   const scoreUs = viewerTeamId === 0 ? view.scores[0] : view.scores[1];
   const scoreThem = viewerTeamId === 0 ? view.scores[1] : view.scores[0];
   const gameWon = isGameEnd && scoreUs >= 12;
@@ -287,7 +307,9 @@ export function createTablePresentation(params: {
     phaseLabel: getPhaseLabel(view),
     coveredHint: getCoveredHint(playAction),
     trucoHint: getTrucoHint(view, requestTrucoAction),
-    trucoLabel: requestTrucoAction ? `Trucar ${requestTrucoAction.nextValue}` : 'Trucar',
+    trucoLabel: requestTrucoAction
+      ? `Trucar ${requestTrucoAction.nextValue}`
+      : 'Trucar',
     canToggleCovered: Boolean(playAction?.canPlayCovered),
     canRequestTruco: Boolean(requestTrucoAction),
   };

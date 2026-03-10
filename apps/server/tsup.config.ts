@@ -7,8 +7,5 @@ export default defineConfig({
   outDir: 'dist',
   clean: true,
   splitting: false,
-  noExternal: [
-    '@truco/contracts',
-    '@truco/engine',
-  ],
+  noExternal: ['@truco/contracts', '@truco/engine'],
 });

@@ -18,7 +18,6 @@ import {
 import {
   PlayedCardInternal,
   TrickInternal,
-  compareCards,
   createDeck,
   getManilhaRank,
   getNextTrucoValue,
@@ -79,7 +78,7 @@ function cloneState(state: MatchState): MatchState {
 }
 
 function randomFromState(state: MatchState): number {
-  let t = (state.rngState += 0x6D2B79F5);
+  let t = (state.rngState += 0x6d2b79f5);
   t = Math.imul(t ^ (t >>> 15), t | 1);
   t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
   return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
@@ -94,7 +93,10 @@ function shuffleDeck(seedState: MatchState): Card[] {
   return deck;
 }
 
-function withStateVersion(state: MatchState, events: ClientMatchEvent[]): ApplyCommandResult {
+function withStateVersion(
+  state: MatchState,
+  events: ClientMatchEvent[],
+): ApplyCommandResult {
   state.stateVersion += 1;
   return { nextState: state, events };
 }
@@ -116,10 +118,16 @@ function createEvent<TType extends ClientMatchEvent['type']>(
 
 function queueNextRound(state: MatchState, nextDealerSeatId: SeatId): void {
   state.phase = 'ROUND_END';
-  state.pendingTransition = { kind: 'START_ROUND', dealerSeatId: nextDealerSeatId };
+  state.pendingTransition = {
+    kind: 'START_ROUND',
+    dealerSeatId: nextDealerSeatId,
+  };
 }
 
-function startRound(state: MatchState, dealerSeatId: SeatId): ClientMatchEvent[] {
+function startRound(
+  state: MatchState,
+  dealerSeatId: SeatId,
+): ClientMatchEvent[] {
   const events: ClientMatchEvent[] = [];
   const deck = shuffleDeck(state);
   const hands: Record<SeatId, Card[]> = {
@@ -155,11 +163,13 @@ function startRound(state: MatchState, dealerSeatId: SeatId): ClientMatchEvent[]
   state.rematchVotes = { 0: false, 1: false };
   state.message = `Nova rodada. ${state.players[nextTurnSeatId].nickname} começa.`;
 
-  events.push(createEvent(state, 'ROUND_STARTED', {
-    dealerSeatId,
-    turnSeatId: nextTurnSeatId,
-    currentRoundPoints: state.currentRoundPoints,
-  }));
+  events.push(
+    createEvent(state, 'ROUND_STARTED', {
+      dealerSeatId,
+      turnSeatId: nextTurnSeatId,
+      currentRoundPoints: state.currentRoundPoints,
+    }),
+  );
 
   return events;
 }
@@ -182,8 +192,13 @@ function resolveTrickAndMaybeRound(state: MatchState): ClientMatchEvent[] {
   }
 
   const trickCards = getOrderedRoundCards(state.roundCards);
-  const winnerSeatId = getTrickWinner(state.roundCards, state.manilhaRank, state.trickStarterSeatId);
-  const nextTurnSeatId = winnerSeatId === 'tie' ? state.trickStarterSeatId : winnerSeatId;
+  const winnerSeatId = getTrickWinner(
+    state.roundCards,
+    state.manilhaRank,
+    state.trickStarterSeatId,
+  );
+  const nextTurnSeatId =
+    winnerSeatId === 'tie' ? state.trickStarterSeatId : winnerSeatId;
 
   state.trickHistory.push({
     winnerSeatId,
@@ -191,21 +206,27 @@ function resolveTrickAndMaybeRound(state: MatchState): ClientMatchEvent[] {
   });
   state.trickWinners.push(winnerSeatId);
 
-  events.push(createEvent(state, 'TRICK_WON', {
-    winnerSeatId,
-    nextTurnSeatId,
-    cards: trickCards.map(sanitizePlayedCardView),
-  }));
+  events.push(
+    createEvent(state, 'TRICK_WON', {
+      winnerSeatId,
+      nextTurnSeatId,
+      cards: trickCards.map(sanitizePlayedCardView),
+    }),
+  );
 
   const handStarterSeatId = ((state.dealerSeatId! + 1) % 4) as SeatId;
-  const roundWinnerTeam = getRoundWinnerTeam(state.trickWinners, handStarterSeatId);
+  const roundWinnerTeam = getRoundWinnerTeam(
+    state.trickWinners,
+    handStarterSeatId,
+  );
 
   if (roundWinnerTeam === null) {
     state.phase = 'TRICK_END';
     state.pendingTransition = { kind: 'ADVANCE_TRICK', nextTurnSeatId };
-    state.message = winnerSeatId === 'tie'
-      ? 'Vaza empatada.'
-      : `${state.players[winnerSeatId].nickname} venceu a vaza.`;
+    state.message =
+      winnerSeatId === 'tie'
+        ? 'Vaza empatada.'
+        : `${state.players[winnerSeatId].nickname} venceu a vaza.`;
     return events;
   }
 
@@ -214,26 +235,33 @@ function resolveTrickAndMaybeRound(state: MatchState): ClientMatchEvent[] {
 
   const awardedPoints = state.currentRoundPoints;
 
-  events.push(createEvent(state, 'ROUND_ENDED', {
-    winnerTeam: roundWinnerTeam,
-    awardedPoints,
-    scores: { ...state.scores },
-  }));
+  events.push(
+    createEvent(state, 'ROUND_ENDED', {
+      winnerTeam: roundWinnerTeam,
+      awardedPoints,
+      scores: { ...state.scores },
+    }),
+  );
 
   if (state.scores[roundWinnerTeam] >= 12) {
     state.phase = 'GAME_END';
     state.pendingTransition = null;
     state.gameWinnerTeam = roundWinnerTeam;
     state.message = `${state.players[TEAM_SEATS[roundWinnerTeam][0]].nickname} venceu o jogo.`;
-    events.push(createEvent(state, 'GAME_ENDED', {
-      winnerTeam: roundWinnerTeam,
-      scores: { ...state.scores },
-    }));
+    events.push(
+      createEvent(state, 'GAME_ENDED', {
+        winnerTeam: roundWinnerTeam,
+        scores: { ...state.scores },
+      }),
+    );
     return events;
   }
 
   queueNextRound(state, ((state.dealerSeatId! + 1) % 4) as SeatId);
-  state.message = roundWinnerTeam === 0 ? 'Time 0 venceu a rodada.' : 'Time 1 venceu a rodada.';
+  state.message =
+    roundWinnerTeam === 0
+      ? 'Time 0 venceu a rodada.'
+      : 'Time 1 venceu a rodada.';
   return events;
 }
 
@@ -252,27 +280,33 @@ function resolveTrucoRun(state: MatchState): ClientMatchEvent[] {
   state.scores[awardedTeam] += awardedPoints;
   state.lastRoundWinnerTeam = awardedTeam;
 
-  events.push(createEvent(state, 'TRUCO_RUN', {
-    runnerTeam,
-    awardedTeam,
-    awardedPoints,
-  }));
+  events.push(
+    createEvent(state, 'TRUCO_RUN', {
+      runnerTeam,
+      awardedTeam,
+      awardedPoints,
+    }),
+  );
 
-  events.push(createEvent(state, 'ROUND_ENDED', {
-    winnerTeam: awardedTeam,
-    awardedPoints,
-    scores: { ...state.scores },
-  }));
+  events.push(
+    createEvent(state, 'ROUND_ENDED', {
+      winnerTeam: awardedTeam,
+      awardedPoints,
+      scores: { ...state.scores },
+    }),
+  );
 
   if (state.scores[awardedTeam] >= 12) {
     state.phase = 'GAME_END';
     state.pendingTransition = null;
     state.gameWinnerTeam = awardedTeam;
     state.message = `${state.players[TEAM_SEATS[awardedTeam][0]].nickname} venceu o jogo.`;
-    events.push(createEvent(state, 'GAME_ENDED', {
-      winnerTeam: awardedTeam,
-      scores: { ...state.scores },
-    }));
+    events.push(
+      createEvent(state, 'GAME_ENDED', {
+        winnerTeam: awardedTeam,
+        scores: { ...state.scores },
+      }),
+    );
     return events;
   }
 
@@ -289,11 +323,17 @@ function canSeatPlayCovered(state: MatchState): boolean {
   return state.trickHistory.length > 0;
 }
 
-function createInvalidResult(state: MatchState, error: string): ApplyCommandResult {
+function createInvalidResult(
+  state: MatchState,
+  error: string,
+): ApplyCommandResult {
   return { nextState: state, events: [], error };
 }
 
-function playCard(state: MatchState, command: Extract<GameCommand, { type: 'PLAY_CARD' }>): ApplyCommandResult {
+function playCard(
+  state: MatchState,
+  command: Extract<GameCommand, { type: 'PLAY_CARD' }>,
+): ApplyCommandResult {
   const nextState = cloneState(state);
   const { seatId, cardId, mode } = command.payload;
 
@@ -313,7 +353,10 @@ function playCard(state: MatchState, command: Extract<GameCommand, { type: 'PLAY
   }
 
   if (mode === 'covered' && !canSeatPlayCovered(nextState)) {
-    return createInvalidResult(state, 'Covered card is not available on the first trick.');
+    return createInvalidResult(
+      state,
+      'Covered card is not available on the first trick.',
+    );
   }
 
   const [card] = hand.splice(cardIndex, 1);
@@ -343,16 +386,25 @@ function playCard(state: MatchState, command: Extract<GameCommand, { type: 'PLAY
   return withStateVersion(nextState, events);
 }
 
-function requestTruco(state: MatchState, command: Extract<GameCommand, { type: 'REQUEST_TRUCO' }>): ApplyCommandResult {
+function requestTruco(
+  state: MatchState,
+  command: Extract<GameCommand, { type: 'REQUEST_TRUCO' }>,
+): ApplyCommandResult {
   const nextState = cloneState(state);
   const { seatId } = command.payload;
 
   if (nextState.phase !== 'PLAYING') {
-    return createInvalidResult(state, 'Truco can only be requested during play.');
+    return createInvalidResult(
+      state,
+      'Truco can only be requested during play.',
+    );
   }
 
   if (nextState.turnSeatId !== seatId) {
-    return createInvalidResult(state, 'Only the active seat can request truco.');
+    return createInvalidResult(
+      state,
+      'Only the active seat can request truco.',
+    );
   }
 
   const requestingTeam = getTeamForSeat(seatId);
@@ -361,13 +413,19 @@ function requestTruco(state: MatchState, command: Extract<GameCommand, { type: '
     nextState.lastTrucoBySeatId !== null &&
     getTeamForSeat(nextState.lastTrucoBySeatId) === requestingTeam
   ) {
-    return createInvalidResult(state, 'The same team cannot raise consecutively.');
+    return createInvalidResult(
+      state,
+      'The same team cannot raise consecutively.',
+    );
   }
 
   const requestedValue = getNextTrucoValue(nextState.currentRoundPoints);
 
   if (requestedValue > 12) {
-    return createInvalidResult(state, 'Round is already worth the maximum value.');
+    return createInvalidResult(
+      state,
+      'Round is already worth the maximum value.',
+    );
   }
 
   nextState.pendingTruco = {
@@ -389,7 +447,10 @@ function requestTruco(state: MatchState, command: Extract<GameCommand, { type: '
   ]);
 }
 
-function respondTruco(state: MatchState, command: Extract<GameCommand, { type: 'RESPOND_TRUCO' }>): ApplyCommandResult {
+function respondTruco(
+  state: MatchState,
+  command: Extract<GameCommand, { type: 'RESPOND_TRUCO' }>,
+): ApplyCommandResult {
   if (!state.pendingTruco) {
     return createInvalidResult(state, 'There is no pending truco decision.');
   }
@@ -446,9 +507,15 @@ function respondTruco(state: MatchState, command: Extract<GameCommand, { type: '
   ]);
 }
 
-function rematch(state: MatchState, command: RematchCommand): ApplyCommandResult {
+function rematch(
+  state: MatchState,
+  command: RematchCommand,
+): ApplyCommandResult {
   if (state.phase !== 'GAME_END') {
-    return createInvalidResult(state, 'Rematch is only available after the game ends.');
+    return createInvalidResult(
+      state,
+      'Rematch is only available after the game ends.',
+    );
   }
 
   const nextState = cloneState(state);
@@ -459,7 +526,10 @@ function rematch(state: MatchState, command: RematchCommand): ApplyCommandResult
     nextState.scores = { 0: 0, 1: 0 };
     nextState.gameWinnerTeam = null;
     nextState.lastRoundWinnerTeam = null;
-    beginDealing(nextState, ((nextState.dealerSeatId ?? 3) + 1) % 4 as SeatId);
+    beginDealing(
+      nextState,
+      (((nextState.dealerSeatId ?? 3) + 1) % 4) as SeatId,
+    );
     return withStateVersion(nextState, []);
   }
 
@@ -497,7 +567,10 @@ export function createMatch(seed: number, setup: MatchSetup): MatchState {
   };
 }
 
-export function beginMatch(state: MatchState, dealerSeatId: SeatId = 0): ApplyCommandResult {
+export function beginMatch(
+  state: MatchState,
+  dealerSeatId: SeatId = 0,
+): ApplyCommandResult {
   const nextState = cloneState(state);
   beginDealing(nextState, dealerSeatId);
   nextState.stateVersion += 1;
@@ -516,7 +589,10 @@ export function applyPendingTransition(state: MatchState): ApplyCommandResult {
   }
 
   if (nextState.pendingTransition.kind === 'START_ROUND') {
-    const events = startRound(nextState, nextState.pendingTransition.dealerSeatId);
+    const events = startRound(
+      nextState,
+      nextState.pendingTransition.dealerSeatId,
+    );
     return withStateVersion(nextState, events);
   }
 
@@ -530,7 +606,11 @@ export function applyPendingTransition(state: MatchState): ApplyCommandResult {
   return { nextState, events: [] };
 }
 
-export function updateTeamConnection(state: MatchState, teamId: TeamId, connected: boolean): ApplyCommandResult {
+export function updateTeamConnection(
+  state: MatchState,
+  teamId: TeamId,
+  connected: boolean,
+): ApplyCommandResult {
   const nextState = cloneState(state);
   const affectedSeats = TEAM_SEATS[teamId];
   const events: ClientMatchEvent[] = [];
@@ -540,15 +620,24 @@ export function updateTeamConnection(state: MatchState, teamId: TeamId, connecte
   }
 
   const nickname = nextState.players[affectedSeats[0]].nickname;
-  events.push(createEvent(nextState, connected ? 'PLAYER_RECONNECTED' : 'PLAYER_DROPPED', {
-    teamId,
-    nickname,
-  }));
+  events.push(
+    createEvent(
+      nextState,
+      connected ? 'PLAYER_RECONNECTED' : 'PLAYER_DROPPED',
+      {
+        teamId,
+        nickname,
+      },
+    ),
+  );
 
   return withStateVersion(nextState, events);
 }
 
-export function forfeitMatch(state: MatchState, loserTeamId: TeamId): ApplyCommandResult {
+export function forfeitMatch(
+  state: MatchState,
+  loserTeamId: TeamId,
+): ApplyCommandResult {
   const nextState = cloneState(state);
   const winnerTeam = loserTeamId === 0 ? 1 : 0;
 
@@ -568,7 +657,10 @@ export function forfeitMatch(state: MatchState, loserTeamId: TeamId): ApplyComma
   ]);
 }
 
-export function applyCommand(state: MatchState, command: GameCommand): ApplyCommandResult {
+export function applyCommand(
+  state: MatchState,
+  command: GameCommand,
+): ApplyCommandResult {
   switch (command.type) {
     case 'PLAY_CARD':
       return playCard(state, command);
@@ -583,10 +675,17 @@ export function applyCommand(state: MatchState, command: GameCommand): ApplyComm
   }
 }
 
-export function getLegalActions(state: MatchState, viewerTeamId: TeamId): AvailableAction[] {
+export function getLegalActions(
+  state: MatchState,
+  viewerTeamId: TeamId,
+): AvailableAction[] {
   const actions: AvailableAction[] = [];
 
-  if (state.phase === 'PLAYING' && state.turnSeatId !== null && getTeamForSeat(state.turnSeatId) === viewerTeamId) {
+  if (
+    state.phase === 'PLAYING' &&
+    state.turnSeatId !== null &&
+    getTeamForSeat(state.turnSeatId) === viewerTeamId
+  ) {
     actions.push({
       type: 'PLAY_CARD',
       seatId: state.turnSeatId,
@@ -596,10 +695,8 @@ export function getLegalActions(state: MatchState, viewerTeamId: TeamId): Availa
 
     if (
       state.pendingTruco === null &&
-      (
-        state.lastTrucoBySeatId === null ||
-        getTeamForSeat(state.lastTrucoBySeatId) !== viewerTeamId
-      )
+      (state.lastTrucoBySeatId === null ||
+        getTeamForSeat(state.lastTrucoBySeatId) !== viewerTeamId)
     ) {
       const nextValue = getNextTrucoValue(state.currentRoundPoints);
       if (nextValue <= 12) {
@@ -612,11 +709,15 @@ export function getLegalActions(state: MatchState, viewerTeamId: TeamId): Availa
     }
   }
 
-  if (state.phase === 'TRUCO_DECISION' && state.pendingTruco?.responseTeam === viewerTeamId) {
+  if (
+    state.phase === 'TRUCO_DECISION' &&
+    state.pendingTruco?.responseTeam === viewerTeamId
+  ) {
     const raiseValue = getNextTrucoValue(state.pendingTruco.requestedValue);
     actions.push({
       type: 'RESPOND_TRUCO',
-      actions: raiseValue <= 12 ? ['accept', 'raise', 'run'] : ['accept', 'run'],
+      actions:
+        raiseValue <= 12 ? ['accept', 'raise', 'run'] : ['accept', 'run'],
       requestedValue: state.pendingTruco.requestedValue,
       currentAcceptedValue: state.pendingTruco.acceptedValue,
     });
@@ -625,7 +726,10 @@ export function getLegalActions(state: MatchState, viewerTeamId: TeamId): Availa
   return actions;
 }
 
-export function projectClientView(state: MatchState, viewerTeamId: TeamId): Omit<
+export function projectClientView(
+  state: MatchState,
+  viewerTeamId: TeamId,
+): Omit<
   ClientGameView,
   'roomCode' | 'roomLifecycle' | 'ownedSeatIds' | 'connectionState'
 > {
@@ -660,7 +764,9 @@ export function projectClientView(state: MatchState, viewerTeamId: TeamId): Omit
     trickStarterSeatId: state.trickStarterSeatId,
     vira: state.vira,
     manilhaRank: state.manilhaRank,
-    trucoPending: state.pendingTruco ? structuredClone(state.pendingTruco) : null,
+    trucoPending: state.pendingTruco
+      ? structuredClone(state.pendingTruco)
+      : null,
     availableActions: getLegalActions(state, viewerTeamId),
     message: state.message,
     lastRoundWinnerTeam: state.lastRoundWinnerTeam,

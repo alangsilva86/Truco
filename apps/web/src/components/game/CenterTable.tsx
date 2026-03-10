@@ -37,7 +37,9 @@ export function CenterTable({
           <Sparkles className="h-6 w-6" />
         </div>
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.28em] text-white/40">Compartilhe o codigo</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.28em] text-white/40">
+            Compartilhe o codigo
+          </p>
           <h3 className="mt-3 font-mono text-4xl font-black tracking-[0.22em] text-white sm:text-5xl">
             {roomCode}
           </h3>
@@ -50,7 +52,11 @@ export function CenterTable({
           onClick={onCopyCode}
           className="flex min-h-11 items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-black uppercase tracking-[0.18em] text-white/80 transition hover:bg-white/10 hover:text-white"
         >
-          {codeCopied ? <Check className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4" />}
+          {codeCopied ? (
+            <Check className="h-4 w-4 text-emerald-400" />
+          ) : (
+            <Copy className="h-4 w-4" />
+          )}
           {codeCopied ? 'Codigo copiado' : 'Copiar codigo'}
         </button>
       </div>
@@ -63,13 +69,14 @@ export function CenterTable({
       <div className="absolute inset-x-8 top-4 h-10 rounded-full bg-white/6 blur-2xl sm:inset-x-14 sm:top-7 sm:h-12" />
 
       {roundCards.map((playedCard) => {
-        const position = playedCard.seatId === seatLayout.bottom
-          ? 'left-1/2 top-[64%] -translate-x-1/2'
-          : playedCard.seatId === seatLayout.top
-            ? 'left-1/2 top-[4%] -translate-x-1/2'
-            : playedCard.seatId === seatLayout.left
-              ? 'left-[3%] top-1/2 -translate-y-1/2'
-              : 'right-[3%] top-1/2 -translate-y-1/2';
+        const position =
+          playedCard.seatId === seatLayout.bottom
+            ? 'left-1/2 top-[64%] -translate-x-1/2'
+            : playedCard.seatId === seatLayout.top
+              ? 'left-1/2 top-[4%] -translate-x-1/2'
+              : playedCard.seatId === seatLayout.left
+                ? 'left-[3%] top-1/2 -translate-y-1/2'
+                : 'right-[3%] top-1/2 -translate-y-1/2';
 
         return (
           <div

@@ -1,4 +1,10 @@
-import { ClientMatchEvent, GameCommand, TEAM_SEATS, TeamId, getTeamForSeat } from '@truco/contracts';
+import { performance } from 'node:perf_hooks';
+import {
+  ClientMatchEvent,
+  GameCommand,
+  TEAM_SEATS,
+  TeamId,
+} from '@truco/contracts';
 import {
   ApplyCommandResult,
   MatchState,
@@ -8,6 +14,7 @@ import {
   forfeitMatch,
   updateTeamConnection,
 } from '@truco/engine';
+import { serverMetrics } from '../observability/metrics.js';
 import { CommandQueue } from './CommandQueue.js';
 
 interface MatchRuntimeOptions {
@@ -21,11 +28,39 @@ function ownsSeat(teamId: TeamId, seatId: number): boolean {
   return TEAM_SEATS[teamId].includes(seatId as 0 | 1 | 2 | 3);
 }
 
+class BoundedCommandIdCache {
+  private readonly ids = new Set<string>();
+  private readonly order: string[] = [];
+
+  constructor(private readonly maxSize: number) {}
+
+  add(commandId: string): void {
+    if (this.ids.has(commandId)) {
+      return;
+    }
+
+    this.ids.add(commandId);
+    this.order.push(commandId);
+
+    if (this.order.length <= this.maxSize) {
+      return;
+    }
+
+    const staleCommandId = this.order.shift();
+    if (staleCommandId) {
+      this.ids.delete(staleCommandId);
+    }
+  }
+
+  has(commandId: string): boolean {
+    return this.ids.has(commandId);
+  }
+}
+
 export class MatchRuntime {
   private state: MatchState;
   private readonly queue = new CommandQueue();
-  private readonly processedCommandIds = new Set<string>();
-  private readonly eventLog: ClientMatchEvent[] = [];
+  private readonly processedCommandIds = new BoundedCommandIdCache(1024);
   private transitionTimer: NodeJS.Timeout | null = null;
   private transitionsPaused = false;
 
@@ -47,6 +82,7 @@ export class MatchRuntime {
     }
 
     this.queue.enqueue(() => {
+      const startedAt = performance.now();
       const validationError = this.validateCommandOwnership(teamId, command);
       if (validationError) {
         this.options.onReject(teamId, validationError, command.commandId);
@@ -61,13 +97,20 @@ export class MatchRuntime {
 
       this.processedCommandIds.add(command.commandId);
       this.commit(result);
+      serverMetrics.recordCommandApply(
+        Number((performance.now() - startedAt).toFixed(3)),
+      );
     });
   }
 
   markTeamConnection(teamId: TeamId, connected: boolean): void {
     this.queue.enqueue(() => {
+      const startedAt = performance.now();
       const result = updateTeamConnection(this.state, teamId, connected);
       this.commit(result);
+      serverMetrics.recordCommandApply(
+        Number((performance.now() - startedAt).toFixed(3)),
+      );
     });
   }
 
@@ -83,8 +126,12 @@ export class MatchRuntime {
 
   forceForfeit(loserTeamId: TeamId): void {
     this.queue.enqueue(() => {
+      const startedAt = performance.now();
       const result = forfeitMatch(this.state, loserTeamId);
       this.commit(result);
+      serverMetrics.recordCommandApply(
+        Number((performance.now() - startedAt).toFixed(3)),
+      );
     });
   }
 
@@ -97,7 +144,6 @@ export class MatchRuntime {
     this.options.onStateChange(this.state);
 
     for (const event of result.events) {
-      this.eventLog.push(event);
       this.options.onEvent(event);
     }
 
@@ -111,13 +157,14 @@ export class MatchRuntime {
       return;
     }
 
-    const delay = this.state.phase === 'DEALING'
-      ? 500
-      : this.state.phase === 'TRICK_END'
-        ? 1200
-        : this.state.phase === 'ROUND_END'
-          ? 1600
-          : 0;
+    const delay =
+      this.state.phase === 'DEALING'
+        ? 500
+        : this.state.phase === 'TRICK_END'
+          ? 1200
+          : this.state.phase === 'ROUND_END'
+            ? 1600
+            : 0;
 
     if (delay === 0) {
       return;
@@ -125,8 +172,12 @@ export class MatchRuntime {
 
     this.transitionTimer = setTimeout(() => {
       this.queue.enqueue(() => {
+        const startedAt = performance.now();
         const result = applyPendingTransition(this.state);
         this.commit(result);
+        serverMetrics.recordCommandApply(
+          Number((performance.now() - startedAt).toFixed(3)),
+        );
       });
     }, delay);
   }
@@ -140,7 +191,10 @@ export class MatchRuntime {
     this.transitionTimer = null;
   }
 
-  private validateCommandOwnership(teamId: TeamId, command: GameCommand): string | null {
+  private validateCommandOwnership(
+    teamId: TeamId,
+    command: GameCommand,
+  ): string | null {
     switch (command.type) {
       case 'PLAY_CARD':
         return ownsSeat(teamId, command.payload.seatId)

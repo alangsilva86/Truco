@@ -1,5 +1,16 @@
 export const SUITS = ['Ouros', 'Espadas', 'Copas', 'Paus'] as const;
-export const RANKS = ['4', '5', '6', '7', 'Q', 'J', 'K', 'A', '2', '3'] as const;
+export const RANKS = [
+  '4',
+  '5',
+  '6',
+  '7',
+  'Q',
+  'J',
+  'K',
+  'A',
+  '2',
+  '3',
+] as const;
 
 export type Suit = (typeof SUITS)[number];
 export type Rank = (typeof RANKS)[number];
@@ -127,8 +138,14 @@ export interface BaseGameCommand<TType extends string, TPayload> {
 }
 
 export type PlayCardCommand = BaseGameCommand<'PLAY_CARD', PlayCardPayload>;
-export type RequestTrucoCommand = BaseGameCommand<'REQUEST_TRUCO', RequestTrucoPayload>;
-export type RespondTrucoCommand = BaseGameCommand<'RESPOND_TRUCO', RespondTrucoPayload>;
+export type RequestTrucoCommand = BaseGameCommand<
+  'REQUEST_TRUCO',
+  RequestTrucoPayload
+>;
+export type RespondTrucoCommand = BaseGameCommand<
+  'RESPOND_TRUCO',
+  RespondTrucoPayload
+>;
 export type RematchCommand = BaseGameCommand<'REMATCH', RematchPayload>;
 
 export type GameCommand =
@@ -146,15 +163,47 @@ export interface BaseEngineEvent<TType extends string, TPayload> {
 }
 
 export type EngineEvent =
-  | BaseEngineEvent<'ROUND_STARTED', { dealerSeatId: SeatId; turnSeatId: SeatId; currentRoundPoints: number }>
-  | BaseEngineEvent<'CARD_PLAYED', { seatId: SeatId; card: Card | null; hidden: boolean }>
-  | BaseEngineEvent<'TRUCO_REQUESTED', { seatId: SeatId; requestedValue: number; responseTeam: TeamId }>
+  | BaseEngineEvent<
+      'ROUND_STARTED',
+      { dealerSeatId: SeatId; turnSeatId: SeatId; currentRoundPoints: number }
+    >
+  | BaseEngineEvent<
+      'CARD_PLAYED',
+      { seatId: SeatId; card: Card | null; hidden: boolean }
+    >
+  | BaseEngineEvent<
+      'TRUCO_REQUESTED',
+      { seatId: SeatId; requestedValue: number; responseTeam: TeamId }
+    >
   | BaseEngineEvent<'TRUCO_ACCEPTED', { acceptedValue: number }>
-  | BaseEngineEvent<'TRUCO_RAISED', { seatId: SeatId; requestedValue: number; responseTeam: TeamId }>
-  | BaseEngineEvent<'TRUCO_RUN', { runnerTeam: TeamId; awardedTeam: TeamId; awardedPoints: number }>
-  | BaseEngineEvent<'TRICK_WON', { winnerSeatId: SeatId | 'tie'; nextTurnSeatId: SeatId; cards: PlayedCardView[] }>
-  | BaseEngineEvent<'ROUND_ENDED', { winnerTeam: TeamId; awardedPoints: number; scores: Record<TeamId, number> }>
-  | BaseEngineEvent<'GAME_ENDED', { winnerTeam: TeamId; scores: Record<TeamId, number> }>
+  | BaseEngineEvent<
+      'TRUCO_RAISED',
+      { seatId: SeatId; requestedValue: number; responseTeam: TeamId }
+    >
+  | BaseEngineEvent<
+      'TRUCO_RUN',
+      { runnerTeam: TeamId; awardedTeam: TeamId; awardedPoints: number }
+    >
+  | BaseEngineEvent<
+      'TRICK_WON',
+      {
+        winnerSeatId: SeatId | 'tie';
+        nextTurnSeatId: SeatId;
+        cards: PlayedCardView[];
+      }
+    >
+  | BaseEngineEvent<
+      'ROUND_ENDED',
+      {
+        winnerTeam: TeamId;
+        awardedPoints: number;
+        scores: Record<TeamId, number>;
+      }
+    >
+  | BaseEngineEvent<
+      'GAME_ENDED',
+      { winnerTeam: TeamId; scores: Record<TeamId, number> }
+    >
   | BaseEngineEvent<'PLAYER_DROPPED', { teamId: TeamId; nickname: string }>
   | BaseEngineEvent<'PLAYER_RECONNECTED', { teamId: TeamId; nickname: string }>;
 

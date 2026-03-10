@@ -1,4 +1,13 @@
-import { Card, PlayedCardView, Rank, RANKS, SeatId, Suit, SUITS, getTeamForSeat } from '@truco/contracts';
+import {
+  Card,
+  PlayedCardView,
+  Rank,
+  RANKS,
+  SeatId,
+  Suit,
+  SUITS,
+  getTeamForSeat,
+} from '@truco/contracts';
 
 export const RANK_VALUE: Record<Rank, number> = {
   '4': 0,
@@ -46,7 +55,11 @@ export function getManilhaRank(viraRank: Rank): Rank {
   return RANKS[(index + 1) % RANKS.length];
 }
 
-export function compareCards(left: Card, right: Card, manilhaRank: Rank): number {
+export function compareCards(
+  left: Card,
+  right: Card,
+  manilhaRank: Rank,
+): number {
   const leftIsManilha = left.rank === manilhaRank;
   const rightIsManilha = right.rank === manilhaRank;
 
@@ -65,7 +78,11 @@ export function compareCards(left: Card, right: Card, manilhaRank: Rank): number
   return RANK_VALUE[left.rank] - RANK_VALUE[right.rank];
 }
 
-export function comparePlayedCards(left: PlayedCardInternal, right: PlayedCardInternal, manilhaRank: Rank): number {
+export function comparePlayedCards(
+  left: PlayedCardInternal,
+  right: PlayedCardInternal,
+  manilhaRank: Rank,
+): number {
   if (left.hidden && right.hidden) {
     return 0;
   }
@@ -91,7 +108,9 @@ export function getTrickWinner(
   let bestCard = roundCards[firstPlayer];
 
   if (!bestCard) {
-    throw new Error('Cannot resolve trick winner without the first player card.');
+    throw new Error(
+      'Cannot resolve trick winner without the first player card.',
+    );
   }
 
   for (let offset = 1; offset < orderedCards.length; offset += 1) {
@@ -119,9 +138,9 @@ export function getRoundWinnerTeam(
   trickWinners: Array<SeatId | 'tie'>,
   handStarterSeatId: SeatId,
 ): 0 | 1 | null {
-  const teamResults = trickWinners.map((winnerSeatId) => (
-    winnerSeatId === 'tie' ? 'tie' : getTeamForSeat(winnerSeatId)
-  ));
+  const teamResults = trickWinners.map((winnerSeatId) =>
+    winnerSeatId === 'tie' ? 'tie' : getTeamForSeat(winnerSeatId),
+  );
 
   const team0Wins = teamResults.filter((teamId) => teamId === 0).length;
   const team1Wins = teamResults.filter((teamId) => teamId === 1).length;
@@ -204,7 +223,9 @@ export function getTrucoLabel(value: number): string {
   return 'DOZE';
 }
 
-export function sanitizePlayedCardView(card: PlayedCardInternal): PlayedCardView {
+export function sanitizePlayedCardView(
+  card: PlayedCardInternal,
+): PlayedCardView {
   return {
     seatId: card.seatId,
     hidden: card.hidden,
@@ -212,7 +233,9 @@ export function sanitizePlayedCardView(card: PlayedCardInternal): PlayedCardView
   };
 }
 
-export function getOrderedRoundCards(roundCards: Partial<Record<SeatId, PlayedCardInternal>>): PlayedCardInternal[] {
+export function getOrderedRoundCards(
+  roundCards: Partial<Record<SeatId, PlayedCardInternal>>,
+): PlayedCardInternal[] {
   return ([0, 1, 2, 3] as SeatId[])
     .map((seatId) => roundCards[seatId])
     .filter((card): card is PlayedCardInternal => Boolean(card));

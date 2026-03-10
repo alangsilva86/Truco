@@ -145,7 +145,7 @@ describe('engine', () => {
 
   it('exposes legal actions only to the active team', () => {
     const state = startReadyMatch(99);
-    const activeTeam = (state.turnSeatId ?? 1) % 2 === 0 ? 0 : 1 as TeamId;
+    const activeTeam = (state.turnSeatId ?? 1) % 2 === 0 ? 0 : (1 as TeamId);
     const waitingTeam = activeTeam === 0 ? 1 : 0;
 
     expect(getLegalActions(state, activeTeam)).not.toHaveLength(0);
@@ -314,7 +314,9 @@ describe('engine', () => {
     });
     expect(vote1.error).toBeUndefined();
     // After both votes, engine begins a new match (DEALING or PLAYING)
-    expect(['DEALING', 'PLAYING', 'ROUND_END']).toContain(vote1.nextState.phase);
+    expect(['DEALING', 'PLAYING', 'ROUND_END']).toContain(
+      vote1.nextState.phase,
+    );
     // Scores reset to 0
     expect(vote1.nextState.scores[0]).toBe(0);
     expect(vote1.nextState.scores[1]).toBe(0);

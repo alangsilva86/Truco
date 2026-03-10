@@ -23,8 +23,12 @@ export function MatchLogDrawer({ logs, open, onClose }: MatchLogDrawerProps) {
       <div className="table-surface safe-bottom relative z-10 w-full max-w-xl rounded-[28px] px-4 py-4 shadow-2xl shadow-black/50 sm:max-w-md">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-white/35">Log da partida</p>
-            <p className="mt-1 text-sm text-white/55">Eventos recentes da mesa em ordem decrescente.</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-white/35">
+              Log da partida
+            </p>
+            <p className="mt-1 text-sm text-white/55">
+              Eventos recentes da mesa em ordem decrescente.
+            </p>
           </div>
           <button
             type="button"
@@ -37,7 +41,10 @@ export function MatchLogDrawer({ logs, open, onClose }: MatchLogDrawerProps) {
 
         <div className="max-h-[45dvh] space-y-2 overflow-y-auto pr-1">
           {logs.map((log, index) => (
-            <div key={`${log}-${index}`} className="rounded-2xl border border-white/8 bg-white/5 px-3 py-2 text-sm text-white/75">
+            <div
+              key={`${log}-${index}`}
+              className="rounded-2xl border border-white/8 bg-white/5 px-3 py-2 text-sm text-white/75"
+            >
               {log}
             </div>
           ))}

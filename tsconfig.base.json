@@ -11,12 +11,8 @@
     "verbatimModuleSyntax": false,
     "baseUrl": ".",
     "paths": {
-      "@truco/contracts": [
-        "packages/contracts/src/index.ts"
-      ],
-      "@truco/engine": [
-        "packages/engine/src/index.ts"
-      ]
+      "@truco/contracts": ["packages/contracts/src/index.ts"],
+      "@truco/engine": ["packages/engine/src/index.ts"]
     }
   }
 }

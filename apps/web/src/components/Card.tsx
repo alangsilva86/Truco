@@ -38,7 +38,9 @@ export function CardView({
   compact = false,
   className = '',
 }: CardProps) {
-  const sizeClass = compact ? 'h-16 w-11 sm:h-24 sm:w-16' : 'h-20 w-14 sm:h-32 sm:w-20';
+  const sizeClass = compact
+    ? 'h-16 w-11 sm:h-24 sm:w-16'
+    : 'h-20 w-14 sm:h-32 sm:w-20';
   const isRed = card ? card.suit === 'Copas' || card.suit === 'Ouros' : false;
   const isManilha = Boolean(card && manilhaRank && card.rank === manilhaRank);
   const interactive = Boolean(onClick);
@@ -66,7 +68,9 @@ export function CardView({
 
   if (!card) {
     return (
-      <div className={`${sizeClass} rounded-2xl border border-dashed border-white/10 bg-white/5`} />
+      <div
+        className={`${sizeClass} rounded-2xl border border-dashed border-white/10 bg-white/5`}
+      />
     );
   }
 
@@ -85,7 +89,9 @@ export function CardView({
       <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-black/10" />
       <div className="relative flex h-full flex-col justify-between">
         <div className="flex flex-col items-start">
-          <span className={`text-base font-black leading-none sm:text-lg ${isRed ? 'text-rose-600' : 'text-slate-900'}`}>
+          <span
+            className={`text-base font-black leading-none sm:text-lg ${isRed ? 'text-rose-600' : 'text-slate-900'}`}
+          >
             {card.rank}
           </span>
           <SuitIcon suit={card.suit} />
@@ -94,7 +100,9 @@ export function CardView({
           <SuitIcon suit={card.suit} />
         </div>
         <div className="flex rotate-180 flex-col items-end">
-          <span className={`text-base font-black leading-none sm:text-lg ${isRed ? 'text-rose-600' : 'text-slate-900'}`}>
+          <span
+            className={`text-base font-black leading-none sm:text-lg ${isRed ? 'text-rose-600' : 'text-slate-900'}`}
+          >
             {card.rank}
           </span>
           <SuitIcon suit={card.suit} />

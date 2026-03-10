@@ -3,15 +3,8 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": [
-      "ES2022"
-    ],
-    "types": [
-      "node"
-    ]
+    "lib": ["ES2022"],
+    "types": ["node"]
   },
-  "include": [
-    "src/**/*.ts",
-    "test/**/*.ts"
-  ]
+  "include": ["src/**/*.ts", "test/**/*.ts"]
 }

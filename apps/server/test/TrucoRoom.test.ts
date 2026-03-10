@@ -1,13 +1,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ColyseusTestServer, boot } from '@colyseus/testing';
+import { ClientGameView, GameCommand } from '@truco/contracts';
 import app from '../src/app.config.js';
-import { GameCommand } from '@truco/contracts';
 
-function parseCards(raw: string | undefined): Array<{ id: string }> {
-  return raw ? JSON.parse(raw) as Array<{ id: string }> : [];
-}
-
-async function waitFor(predicate: () => boolean, timeoutMs = 4_000): Promise<void> {
+async function waitFor(
+  predicate: () => boolean,
+  timeoutMs = 4_000,
+): Promise<void> {
   const start = Date.now();
   while (!predicate()) {
     if (Date.now() - start > timeoutMs) {
@@ -17,10 +16,22 @@ async function waitFor(predicate: () => boolean, timeoutMs = 4_000): Promise<voi
   }
 }
 
-function onceMessage<T>(room: { onMessage: (type: string, cb: (message: T) => void) => void }, type: string): Promise<T> {
+function onceMessage<T>(
+  room: { onMessage: (type: string, cb: (message: T) => void) => void },
+  type: string,
+): Promise<T> {
   return new Promise((resolve) => {
     room.onMessage(type, (message: T) => resolve(message));
   });
+}
+
+async function bootstrapView(room: {
+  onMessage: (type: string, cb: (message: ClientGameView) => void) => void;
+  send: (type: string, payload?: unknown) => void;
+}): Promise<ClientGameView> {
+  const response = onceMessage<ClientGameView>(room, 'game_view');
+  room.send('bootstrap');
+  return response;
 }
 
 describe('TrucoRoom', () => {
@@ -42,30 +53,44 @@ describe('TrucoRoom', () => {
     const room = await colyseus.createRoom('truco_room', {});
     const host = await colyseus.connectTo(room, { nickname: 'Ana' });
     const guest = await colyseus.connectTo(room, { nickname: 'Bia' });
+    host.onMessage('game_view', () => undefined);
+    guest.onMessage('game_view', () => undefined);
     host.onMessage('match_event', () => undefined);
     guest.onMessage('match_event', () => undefined);
 
-    await waitFor(() => host.state.gamePhase === 'PLAYING' && guest.state.gamePhase === 'PLAYING');
+    await waitFor(
+      () =>
+        host.state.gamePhase === 'PLAYING' &&
+        guest.state.gamePhase === 'PLAYING',
+    );
 
-    expect(parseCards(host.state.team0Seat0HandJson).length).toBe(3);
-    expect(parseCards(host.state.team0Seat2HandJson).length).toBe(3);
-    expect(parseCards(host.state.team1Seat1HandJson).length).toBe(0);
+    const hostView = await bootstrapView(host);
+    const guestView = await bootstrapView(guest);
 
-    expect(parseCards(guest.state.team1Seat1HandJson).length).toBe(3);
-    expect(parseCards(guest.state.team1Seat3HandJson).length).toBe(3);
-    expect(parseCards(guest.state.team0Seat0HandJson).length).toBe(0);
+    expect(hostView.visibleHands[0]).toHaveLength(3);
+    expect(hostView.visibleHands[2]).toHaveLength(3);
+    expect(hostView.visibleHands[1]).toBeUndefined();
+
+    expect(guestView.visibleHands[1]).toHaveLength(3);
+    expect(guestView.visibleHands[3]).toHaveLength(3);
+    expect(guestView.visibleHands[0]).toBeUndefined();
   });
 
   it('rejects commands that target seats outside the player team', async () => {
     const room = await colyseus.createRoom('truco_room', {});
     const host = await colyseus.connectTo(room, { nickname: 'Ana' });
+    host.onMessage('game_view', () => undefined);
     host.onMessage('match_event', () => undefined);
     const guest = await colyseus.connectTo(room, { nickname: 'Bia' });
+    guest.onMessage('game_view', () => undefined);
     guest.onMessage('match_event', () => undefined);
 
     await waitFor(() => host.state.gamePhase === 'PLAYING');
 
-    const rejection = onceMessage<{ message: string }>(host, 'command_rejected');
+    const rejection = onceMessage<{ message: string }>(
+      host,
+      'command_rejected',
+    );
     const illegalCommand: GameCommand = {
       commandId: 'illegal-1',
       issuedAt: Date.now(),
@@ -87,30 +112,37 @@ describe('TrucoRoom', () => {
   it('deduplicates the same command id', async () => {
     const room = await colyseus.createRoom('truco_room', {});
     const host = await colyseus.connectTo(room, { nickname: 'Ana' });
+    host.onMessage('game_view', () => undefined);
     host.onMessage('match_event', () => undefined);
     const guest = await colyseus.connectTo(room, { nickname: 'Bia' });
+    guest.onMessage('game_view', () => undefined);
     guest.onMessage('match_event', () => undefined);
 
     await waitFor(() => guest.state.gamePhase === 'PLAYING');
     await waitFor(() => guest.state.turnSeatId === 1);
 
-    const firstCardId = parseCards(guest.state.team1Seat1HandJson)[0].id;
+    const initialView = await bootstrapView(guest);
+    const firstCardId = initialView.visibleHands[1]?.[0]?.id;
+    expect(firstCardId).toBeDefined();
+
     const duplicateCommand: GameCommand = {
       commandId: 'duplicate-1',
       issuedAt: Date.now(),
       type: 'PLAY_CARD',
       payload: {
         seatId: 1,
-        cardId: firstCardId,
+        cardId: firstCardId!,
         mode: 'open',
       },
     };
 
+    const previousStateVersion = guest.state.stateVersion;
     guest.send('command', duplicateCommand);
     guest.send('command', duplicateCommand);
 
-    await waitFor(() => parseCards(guest.state.team1Seat1HandJson).length === 2);
+    await waitFor(() => guest.state.stateVersion > previousStateVersion);
+    const nextView = await bootstrapView(guest);
 
-    expect(parseCards(guest.state.team1Seat1HandJson).length).toBe(2);
+    expect(nextView.visibleHands[1]).toHaveLength(2);
   });
 });
