@@ -38,7 +38,7 @@ export function CardView({
   compact = false,
   className = '',
 }: CardProps) {
-  const sizeClass = compact ? 'h-20 w-14 sm:h-24 sm:w-16' : 'h-24 w-16 sm:h-32 sm:w-20';
+  const sizeClass = compact ? 'h-16 w-11 sm:h-24 sm:w-16' : 'h-20 w-14 sm:h-32 sm:w-20';
   const isRed = card ? card.suit === 'Copas' || card.suit === 'Ouros' : false;
   const isManilha = Boolean(card && manilhaRank && card.rank === manilhaRank);
   const interactive = Boolean(onClick);
@@ -55,7 +55,7 @@ export function CardView({
         type="button"
         onClick={onClick}
         disabled={!interactive}
-        className={`${sizeClass} ${className} ${mutedClass} rounded-[22px] border border-white/10 bg-gradient-to-br from-slate-900 via-slate-950 to-black shadow-2xl transition-transform duration-200 ${active ? 'ring-2 ring-amber-400/70 -translate-y-1' : interactive ? 'hover:-translate-y-1 active:translate-y-0' : ''}`}
+        className={`${sizeClass} ${className} ${mutedClass} rounded-[18px] border border-white/10 bg-gradient-to-br from-slate-900 via-slate-950 to-black shadow-2xl transition-transform duration-200 sm:rounded-[22px] ${active ? 'ring-2 ring-amber-400/70 -translate-y-1' : interactive ? 'hover:-translate-y-1 active:translate-y-0' : ''}`}
       >
         <div className="m-2 flex h-[calc(100%-1rem)] items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-500/10">
           <div className="h-8 w-6 rounded-md border border-emerald-300/20 bg-emerald-300/10" />
@@ -75,7 +75,7 @@ export function CardView({
       type="button"
       onClick={onClick}
       disabled={!interactive}
-      className={`${sizeClass} ${className} ${mutedClass} ${stateClass} relative overflow-hidden rounded-[22px] bg-gradient-to-br from-white via-slate-50 to-slate-200 p-2 text-slate-950 shadow-2xl transition-all duration-200`}
+      className={`${sizeClass} ${className} ${mutedClass} ${stateClass} relative overflow-hidden rounded-[18px] bg-gradient-to-br from-white via-slate-50 to-slate-200 p-1.5 text-slate-950 shadow-2xl transition-all duration-200 sm:rounded-[22px] sm:p-2`}
     >
       {isManilha && (
         <div className="absolute right-0 top-0 rounded-bl-xl bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-black">
@@ -85,7 +85,7 @@ export function CardView({
       <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-black/10" />
       <div className="relative flex h-full flex-col justify-between">
         <div className="flex flex-col items-start">
-          <span className={`text-lg font-black leading-none ${isRed ? 'text-rose-600' : 'text-slate-900'}`}>
+          <span className={`text-base font-black leading-none sm:text-lg ${isRed ? 'text-rose-600' : 'text-slate-900'}`}>
             {card.rank}
           </span>
           <SuitIcon suit={card.suit} />
@@ -94,7 +94,7 @@ export function CardView({
           <SuitIcon suit={card.suit} />
         </div>
         <div className="flex rotate-180 flex-col items-end">
-          <span className={`text-lg font-black leading-none ${isRed ? 'text-rose-600' : 'text-slate-900'}`}>
+          <span className={`text-base font-black leading-none sm:text-lg ${isRed ? 'text-rose-600' : 'text-slate-900'}`}>
             {card.rank}
           </span>
           <SuitIcon suit={card.suit} />

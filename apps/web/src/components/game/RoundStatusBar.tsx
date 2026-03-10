@@ -16,9 +16,9 @@ function StatCard({ label, value, tone = 'default' }: { label: string; value: st
     : 'border-white/10 bg-black/25 text-white';
 
   return (
-    <div className={`rounded-[22px] border px-3 py-3 ${className}`}>
+    <div className={`rounded-[18px] border px-3 py-2.5 sm:rounded-[22px] sm:py-3 ${className}`}>
       <p className="text-[10px] uppercase tracking-[0.24em] text-white/40">{label}</p>
-      <p className="mt-2 text-xl font-black leading-none">{value}</p>
+      <p className="mt-1.5 text-lg font-black leading-none sm:mt-2 sm:text-xl">{value}</p>
     </div>
   );
 }
@@ -32,20 +32,20 @@ export function RoundStatusBar({
   currentRoundPoints,
 }: RoundStatusBarProps) {
   return (
-    <section className="table-surface mx-3 mt-3 rounded-[28px] px-4 py-4 sm:px-5">
+    <section className="table-surface mx-3 mt-3 rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-5 sm:py-4">
       <div className="grid gap-3 xl:grid-cols-[1.2fr_minmax(0,1fr)] xl:items-center">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.28em] text-white/35">Estado da rodada</p>
-          <h2 className="mt-2 text-2xl font-black leading-tight text-white sm:text-[2rem]">
+          <h2 className="mt-1.5 text-lg font-black leading-tight text-white sm:mt-2 sm:text-[2rem]">
             {message}
           </h2>
         </div>
 
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {!isWaiting && (
-            <div className="col-span-2 rounded-[22px] border border-white/10 bg-black/25 px-3 py-3 sm:col-span-1">
+            <div className="col-span-2 rounded-[18px] border border-white/10 bg-black/25 px-3 py-2.5 sm:col-span-1 sm:rounded-[22px] sm:py-3">
               <p className="text-[10px] uppercase tracking-[0.24em] text-white/40">Vazas</p>
-              <div className="mt-3 flex items-center gap-2">
+              <div className="mt-2 flex items-center gap-2 sm:mt-3">
                 {trickDots.map((dot, index) => (
                   <div
                     key={`${dot}-${index}`}

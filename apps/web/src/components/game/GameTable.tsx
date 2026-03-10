@@ -89,8 +89,8 @@ export function GameTable({
   const showBottomActions = !presentation.isWaiting && !presentation.isGameEnd;
 
   return (
-    <div className="h-[100dvh] max-h-[100dvh] overflow-hidden px-2 py-2 sm:px-4 sm:py-4">
-      <div className="table-shell mx-auto flex h-full max-w-7xl flex-col overflow-hidden rounded-[32px] border p-2 sm:p-3">
+    <div className="min-h-[100dvh] overflow-x-hidden px-2 py-2 sm:h-[100dvh] sm:max-h-[100dvh] sm:overflow-hidden sm:px-4 sm:py-4">
+      <div className="table-shell mx-auto flex min-h-[calc(100dvh-1rem)] max-w-7xl flex-col overflow-hidden rounded-[28px] border p-2 sm:h-full sm:min-h-0 sm:rounded-[32px] sm:p-3">
         <TableHeader
           roomCode={view.roomCode}
           codeCopied={codeCopied}
@@ -102,7 +102,7 @@ export function GameTable({
           onLeave={onLeave}
         />
 
-        <main className="felt-noise relative mt-2 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[30px] border border-white/8">
+        <main className="felt-noise relative mt-2 flex min-h-0 flex-1 flex-col overflow-y-auto rounded-[26px] border border-white/8 sm:rounded-[30px]">
           <RoundStatusBar
             message={view.message}
             trickDots={presentation.trickDots}
@@ -151,10 +151,35 @@ export function GameTable({
               </div>
             )}
 
-            <div className="relative flex min-h-0 flex-1 items-center justify-center">
+            <div className="mt-2 flex shrink-0 justify-between gap-2 lg:hidden">
               {!presentation.isWaiting && !presentation.isGameEnd && (
                 <>
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2">
+                  <SeatPanel
+                    mode="hidden"
+                    orientation="left"
+                    tone="opponent"
+                    nickname={presentation.leftSeat.nickname}
+                    dealer={presentation.leftSeat.dealer}
+                    active={presentation.leftSeat.active}
+                    count={presentation.leftSeat.hiddenCount}
+                  />
+                  <SeatPanel
+                    mode="hidden"
+                    orientation="right"
+                    tone="opponent"
+                    nickname={presentation.rightSeat.nickname}
+                    dealer={presentation.rightSeat.dealer}
+                    active={presentation.rightSeat.active}
+                    count={presentation.rightSeat.hiddenCount}
+                  />
+                </>
+              )}
+            </div>
+
+            <div className="relative flex min-h-0 flex-1 items-center justify-center py-2 sm:py-3">
+              {!presentation.isWaiting && !presentation.isGameEnd && (
+                <>
+                  <div className="absolute left-0 top-1/2 hidden -translate-y-1/2 lg:block">
                     <SeatPanel
                       mode="hidden"
                       orientation="left"
@@ -166,7 +191,7 @@ export function GameTable({
                     />
                   </div>
 
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2">
+                  <div className="absolute right-0 top-1/2 hidden -translate-y-1/2 lg:block">
                     <SeatPanel
                       mode="hidden"
                       orientation="right"
@@ -193,7 +218,7 @@ export function GameTable({
               />
             </div>
 
-            <div className="mt-3 flex shrink-0 flex-col items-center gap-3">
+            <div className="mt-2 flex shrink-0 flex-col items-center gap-2 sm:mt-3 sm:gap-3">
               <BottomActionBar
                 show={showBottomActions}
                 coveredActive={coveredMode}

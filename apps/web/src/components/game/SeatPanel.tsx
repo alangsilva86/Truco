@@ -52,17 +52,17 @@ export function SeatPanel(props: SeatPanelProps) {
 
   if (props.mode === 'hidden') {
     return (
-      <div className={`flex flex-col items-center gap-2 ${props.orientation === 'left' || props.orientation === 'right' ? 'max-w-[5.5rem] sm:max-w-none' : ''}`}>
-        <div className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.18em] ${badgeClass}`}>
-          <span className="block max-w-[4.5rem] truncate sm:max-w-none">{props.nickname}</span>
+      <div className={`flex flex-col items-center gap-1.5 ${props.orientation === 'left' || props.orientation === 'right' ? 'max-w-[4.75rem] sm:max-w-none' : ''}`}>
+        <div className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] sm:px-3 sm:text-xs sm:tracking-[0.18em] ${badgeClass}`}>
+          <span className="block max-w-[4rem] truncate sm:max-w-[7rem]">{props.nickname}</span>
           {props.dealer && <span className="ml-1 text-amber-300/80">·D</span>}
         </div>
 
-        <div className="flex -space-x-3 sm:-space-x-4">
+        <div className="flex -space-x-2.5 sm:-space-x-4">
           {Array.from({ length: props.count }).map((_, index) => (
             <div
               key={`${props.orientation}-card-${index}`}
-              className="h-16 w-11 rounded-xl border border-white/10 bg-slate-950 shadow-xl sm:h-20 sm:w-14 sm:rounded-2xl"
+              className="h-12 w-8 rounded-[14px] border border-white/10 bg-slate-950 shadow-xl sm:h-20 sm:w-14 sm:rounded-2xl"
             />
           ))}
         </div>
@@ -71,15 +71,17 @@ export function SeatPanel(props: SeatPanelProps) {
   }
 
   const compact = props.orientation !== 'bottom';
+  const isBottom = props.orientation === 'bottom';
+  const isTop = props.orientation === 'top';
 
   return (
-    <div className={`flex flex-col items-center gap-2 ${props.orientation === 'bottom' ? 'w-full' : ''}`}>
-      <div className={`rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.18em] ${badgeClass}`}>
-        <span className="block max-w-[10rem] truncate">{props.nickname}</span>
+    <div className={`flex flex-col items-center gap-1.5 sm:gap-2 ${isBottom || isTop ? 'w-full' : ''}`}>
+      <div className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] sm:px-3 sm:text-xs sm:tracking-[0.18em] ${badgeClass}`}>
+        <span className="block max-w-[9rem] truncate sm:max-w-[10rem]">{props.nickname}</span>
         {props.dealer && <span className="ml-1 text-amber-300/80">·D</span>}
       </div>
 
-      <div className={`flex items-center justify-center ${props.orientation === 'bottom' ? 'gap-2 sm:gap-3' : 'gap-1.5 sm:gap-2'}`}>
+      <div className={`flex w-full items-center justify-center overflow-x-auto pb-1 ${isBottom ? 'gap-1.5 sm:gap-3' : 'gap-1 sm:gap-2'} ${isTop ? 'max-w-[17rem] sm:max-w-none' : ''}`}>
         {props.cards.map((card) => (
           <CardView
             key={card.id}

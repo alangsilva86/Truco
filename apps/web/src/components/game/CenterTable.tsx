@@ -58,18 +58,18 @@ export function CenterTable({
   }
 
   return (
-    <div className="relative flex h-[11.5rem] w-[15.5rem] items-center justify-center sm:h-[15rem] sm:w-[21rem]">
-      <div className="table-surface table-glow absolute inset-0 rounded-[40px]" />
-      <div className="absolute inset-x-10 top-6 h-12 rounded-full bg-white/6 blur-2xl sm:inset-x-14 sm:top-7" />
+    <div className="relative flex h-[8.75rem] w-full max-w-[14rem] items-center justify-center sm:h-[15rem] sm:max-w-[21rem]">
+      <div className="table-surface table-glow absolute inset-0 rounded-[28px] sm:rounded-[40px]" />
+      <div className="absolute inset-x-8 top-4 h-10 rounded-full bg-white/6 blur-2xl sm:inset-x-14 sm:top-7 sm:h-12" />
 
       {roundCards.map((playedCard) => {
         const position = playedCard.seatId === seatLayout.bottom
-          ? 'left-1/2 top-[62%] -translate-x-1/2'
+          ? 'left-1/2 top-[64%] -translate-x-1/2'
           : playedCard.seatId === seatLayout.top
-            ? 'left-1/2 top-[2%] -translate-x-1/2'
+            ? 'left-1/2 top-[4%] -translate-x-1/2'
             : playedCard.seatId === seatLayout.left
-              ? 'left-[1%] top-1/2 -translate-y-1/2'
-              : 'right-[1%] top-1/2 -translate-y-1/2';
+              ? 'left-[3%] top-1/2 -translate-y-1/2'
+              : 'right-[3%] top-1/2 -translate-y-1/2';
 
         return (
           <div
@@ -86,11 +86,11 @@ export function CenterTable({
         );
       })}
 
-      <div className="relative z-10 max-w-[10rem] rounded-[24px] border border-white/10 bg-black/45 px-4 py-3 text-center shadow-xl">
-        <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
+      <div className="relative z-10 max-w-[8.75rem] rounded-[20px] border border-white/10 bg-black/50 px-3 py-2.5 text-center shadow-xl sm:max-w-[10rem] sm:rounded-[24px] sm:px-4 sm:py-3">
+        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/35 sm:text-[10px] sm:tracking-[0.24em]">
           {phaseLabel}
         </p>
-        <p className="mt-1 text-sm font-black leading-tight text-white">
+        <p className="mt-1 text-xs font-black leading-tight text-white sm:text-sm">
           {message}
         </p>
       </div>
