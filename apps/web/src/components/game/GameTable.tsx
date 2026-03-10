@@ -31,7 +31,6 @@ import { SeatPanel } from './SeatPanel.js';
 import { TableHeader } from './TableHeader.js';
 import { TopSeatFocusOverlay } from './TopSeatFocusOverlay.js';
 import { TrucoDecisionSheet } from './TrucoDecisionSheet.js';
-import { TurnBanner } from './TurnBanner.js';
 
 type PlayAction = Extract<AvailableAction, { type: 'PLAY_CARD' }>;
 type TrucoAction = Extract<AvailableAction, { type: 'REQUEST_TRUCO' }>;
@@ -530,17 +529,14 @@ export function GameTable({
           ) : (
             <>
               <RoundStatusBar
-                message={view.message}
-                trickDots={presentation.trickDots}
-                isWaiting={presentation.isWaiting}
-                vira={view.vira}
-                manilhaRank={view.manilhaRank}
-                currentRoundPoints={view.currentRoundPoints}
-              />
-
-              <TurnBanner
                 banner={presentation.banner}
                 commandPending={commandPending}
+                currentRoundPoints={view.currentRoundPoints}
+                isWaiting={presentation.isWaiting}
+                manilhaRank={view.manilhaRank}
+                message={view.message}
+                trickDots={presentation.trickDots}
+                vira={view.vira}
               />
 
               {error && (

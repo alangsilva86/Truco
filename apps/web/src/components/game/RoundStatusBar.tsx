@@ -1,99 +1,101 @@
 import { Card, Rank } from '@truco/contracts';
-import { TrickDotTone } from '../../lib/tablePresentation.js';
+import { LoaderCircle } from 'lucide-react';
+import { TableBannerModel, TrickDotTone } from '../../lib/tablePresentation.js';
 
 interface RoundStatusBarProps {
+  banner: TableBannerModel | null;
+  commandPending: boolean;
+  currentRoundPoints: number;
+  isWaiting: boolean;
+  manilhaRank: Rank | null;
   message: string;
   trickDots: TrickDotTone[];
-  isWaiting: boolean;
   vira: Card | null;
-  manilhaRank: Rank | null;
-  currentRoundPoints: number;
 }
 
-function StatCard({
-  label,
-  value,
-  tone = 'default',
-}: {
-  label: string;
-  value: string;
-  tone?: 'default' | 'accent';
-}) {
-  const className =
-    tone === 'accent'
-      ? 'border-amber-300/30 bg-amber-400/12 text-amber-100'
-      : 'border-white/10 bg-black/25 text-white';
-
-  return (
-    <div
-      className={`rounded-[18px] border px-3 py-2.5 sm:rounded-[22px] sm:py-3 ${className}`}
-    >
-      <p className="text-[10px] uppercase tracking-[0.24em] text-white/40">
-        {label}
-      </p>
-      <p className="mt-1.5 text-lg font-black leading-none sm:mt-2 sm:text-xl">
-        {value}
-      </p>
-    </div>
-  );
+function dotClass(dot: TrickDotTone): string {
+  if (dot === 'us') return 'bg-emerald-400 border-emerald-400';
+  if (dot === 'them') return 'bg-rose-400 border-rose-400';
+  if (dot === 'tie') return 'bg-white/70 border-white/70';
+  return 'bg-transparent border-white/20';
 }
 
 export function RoundStatusBar({
-  message,
-  trickDots,
-  isWaiting,
-  vira,
-  manilhaRank,
+  banner,
+  commandPending,
   currentRoundPoints,
+  isWaiting,
+  manilhaRank,
+  trickDots,
+  vira,
 }: RoundStatusBarProps) {
+  const bannerToneClass =
+    banner?.tone === 'player'
+      ? 'border-emerald-400/40 bg-emerald-500/12 text-emerald-200'
+      : banner?.tone === 'opponent'
+        ? 'border-rose-400/35 bg-rose-500/12 text-rose-200'
+        : banner?.tone === 'warning'
+          ? 'border-amber-300/35 bg-amber-500/12 text-amber-200'
+          : banner?.tone === 'finished'
+            ? 'border-sky-300/25 bg-sky-500/10 text-sky-100'
+            : 'border-white/10 bg-white/5 text-white/60';
+
   return (
-    <section className="table-surface mx-3 mt-3 rounded-[24px] px-3 py-3 sm:rounded-[28px] sm:px-5 sm:py-4">
-      <div className="grid gap-3 xl:grid-cols-[1.2fr_minmax(0,1fr)] xl:items-center">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.28em] text-white/35">
-            Estado da rodada
-          </p>
-          <h2 className="mt-1.5 text-lg font-black leading-tight text-white sm:mt-2 sm:text-[2rem]">
-            {message}
-          </h2>
+    <section className="table-surface mx-3 mt-2 flex min-h-0 items-center gap-2.5 rounded-[20px] px-3 py-2 sm:gap-3 sm:rounded-[24px] sm:px-4">
+      {/* Phase/turn pill */}
+      {!isWaiting && banner && (
+        <div
+          className={`flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${bannerToneClass}`}
+        >
+          <div className="h-1.5 w-1.5 rounded-full bg-current opacity-80" />
+          {banner.title}
         </div>
+      )}
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {!isWaiting && (
-            <div className="col-span-2 rounded-[18px] border border-white/10 bg-black/25 px-3 py-2.5 sm:col-span-1 sm:rounded-[22px] sm:py-3">
-              <p className="text-[10px] uppercase tracking-[0.24em] text-white/40">
-                Vazas
-              </p>
-              <div className="mt-2 flex items-center gap-2 sm:mt-3">
-                {trickDots.map((dot, index) => (
-                  <div
-                    key={`${dot}-${index}`}
-                    className={`h-3.5 w-3.5 rounded-full border ${
-                      dot === 'us'
-                        ? 'border-emerald-400 bg-emerald-400'
-                        : dot === 'them'
-                          ? 'border-rose-400 bg-rose-400'
-                          : dot === 'tie'
-                            ? 'border-white/70 bg-white/70'
-                            : 'border-white/20 bg-transparent'
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+      {/* Context detail — takes remaining space, truncated */}
+      <p className="min-w-0 flex-1 truncate text-xs font-medium text-white/55 sm:text-[13px]">
+        {isWaiting ? 'Aguardando jogadores...' : (banner?.detail ?? '')}
+      </p>
 
+      {/* Inline game facts — right side */}
+      {!isWaiting && (
+        <div className="flex shrink-0 items-center gap-2.5">
+          {/* Trick dots */}
+          <div className="flex items-center gap-1">
+            {trickDots.map((dot, index) => (
+              <div
+                key={`${dot}-${index}`}
+                className={`h-2 w-2 rounded-full border ${dotClass(dot)}`}
+              />
+            ))}
+          </div>
+
+          {/* Vira */}
           {vira && (
-            <StatCard label="Vira" value={`${vira.rank} de ${vira.suit}`} />
+            <span className="text-[10px] font-black tabular-nums text-white/50 sm:text-xs">
+              {vira.rank}
+              <span className="ml-0.5 font-normal text-white/30">Vira</span>
+            </span>
           )}
 
+          {/* Manilha */}
           {manilhaRank && (
-            <StatCard label="Manilha" value={manilhaRank} tone="accent" />
+            <span className="rounded-full border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-black text-amber-300/85">
+              {manilhaRank}★
+            </span>
           )}
 
-          <StatCard label="Vale" value={String(currentRoundPoints)} />
+          {/* Points */}
+          <span className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[10px] font-black text-white/70">
+            {currentRoundPoints}pt
+          </span>
+
+          {/* Sync spinner */}
+          {commandPending && (
+            <LoaderCircle className="h-3.5 w-3.5 animate-spin text-white/35" />
+          )}
         </div>
-      </div>
+      )}
     </section>
   );
 }
