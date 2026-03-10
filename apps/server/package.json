@@ -1,0 +1,25 @@
+{
+  "name": "@truco/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup src/index.ts --format esm --target node20 --out-dir dist",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@colyseus/schema": "^4.0.17",
+    "@colyseus/tools": "^0.17.0",
+    "@truco/contracts": "*",
+    "@truco/engine": "*",
+    "colyseus": "^0.17.8",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@colyseus/sdk": "^0.17.17",
+    "@colyseus/testing": "^0.17.10",
+    "@types/express": "^5.0.3",
+    "tsup": "^8.5.0"
+  }
+}

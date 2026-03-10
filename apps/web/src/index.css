@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+@layer base {
+  html, body, #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-[#07110d] text-slate-50 antialiased;
+    background-image:
+      radial-gradient(circle at top, rgba(16, 185, 129, 0.16), transparent 30%),
+      linear-gradient(180deg, #082117 0%, #04100b 100%);
+  }
+
+  button {
+    @apply disabled:cursor-not-allowed disabled:opacity-40;
+  }
+}
+
+@layer utilities {
+  .felt-noise {
+    background-color: #0b3b28;
+    background-image:
+      radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 22%),
+      radial-gradient(circle at 80% 10%, rgba(255,255,255,0.05), transparent 20%),
+      radial-gradient(circle at 50% 100%, rgba(0,0,0,0.24), transparent 35%);
+  }
+
+  .glass {
+    @apply border border-white/10 bg-black/30 backdrop-blur-xl;
+  }
+}

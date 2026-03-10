@@ -1,0 +1,15 @@
+{
+  "name": "@truco/engine",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@truco/contracts": "*"
+  },
+  "scripts": {
+    "lint": "tsc --noEmit -p tsconfig.json"
+  }
+}
