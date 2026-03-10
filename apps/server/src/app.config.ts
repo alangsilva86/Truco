@@ -20,8 +20,17 @@ const app = defineServer({
       const roomCode = String(req.params.roomCode ?? '').toUpperCase();
       const room = roomDirectory.resolve(roomCode);
 
-      if (!room || !room.joinable) {
-        res.status(404).json({ message: 'Sala nao encontrada.' });
+      if (!room) {
+        res.status(404).json({ error: 'NOT_FOUND', message: 'Sala nao encontrada.' });
+        return;
+      }
+
+      if (!room.joinable) {
+        if (room.lifecycle === 'CLOSED') {
+          res.status(410).json({ error: 'CLOSED', message: 'Esta sala foi encerrada.' });
+        } else {
+          res.status(409).json({ error: 'LOCKED', message: 'Esta sala ja esta cheia ou em andamento.' });
+        }
         return;
       }
 

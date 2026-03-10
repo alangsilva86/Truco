@@ -160,11 +160,18 @@ export type EngineEvent =
 
 export type ClientMatchEvent = EngineEvent;
 
+export interface SessionInfo {
+  teamId: TeamId;
+  ownedSeatIds: SeatId[];
+  roomCode: string;
+}
+
 export interface ClientStorageSnapshot {
   nickname: string;
   roomCode: string;
   roomId: string;
   ownedSeatIds: SeatId[];
+  viewerTeamId?: TeamId;
   reconnectionToken: string;
   sessionId?: string;
 }

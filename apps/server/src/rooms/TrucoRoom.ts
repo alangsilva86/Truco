@@ -1,6 +1,6 @@
 import { StateView } from '@colyseus/schema';
 import { Client, CloseCode, Room } from 'colyseus';
-import { GameCommand, RoomLifecycle, TEAM_SEATS, TeamId } from '@truco/contracts';
+import { GameCommand, RoomLifecycle, SessionInfo, TEAM_SEATS, TeamId } from '@truco/contracts';
 import { MatchRuntime } from '../runtime/MatchRuntime.js';
 import { ReconnectManager } from '../runtime/ReconnectManager.js';
 import { TEAM_VIEW_TAGS } from '../runtime/constants.js';
@@ -19,8 +19,20 @@ interface Participant {
   connected: boolean;
 }
 
-function createRoomCode(): string {
-  return Math.random().toString(36).slice(2, 6).toUpperCase();
+// Unambiguous charset: excludes 0/O, 1/I, 2/Z, 5/S, 8/B
+const ROOM_CODE_CHARS = 'ACDEFGHJKMNPQRTUVWXY34679';
+
+function createRoomCode(existingCodeCheck: (code: string) => boolean): string {
+  for (let attempt = 0; attempt < 20; attempt++) {
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+      code += ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
+    }
+    if (!existingCodeCheck(code)) {
+      return code;
+    }
+  }
+  throw new Error('Failed to generate a unique room code after 20 attempts.');
 }
 
 function buildPlayers(participants: Record<TeamId, Participant | null>) {
@@ -62,7 +74,7 @@ export class TrucoRoom extends Room<{ state: TrucoRoomState }> {
   };
 
   onCreate(): void {
-    this.roomCode = createRoomCode();
+    this.roomCode = createRoomCode((code) => Boolean(roomDirectory.resolve(code)));
     roomDirectory.register(this.roomId, this.roomCode);
     void this.setPrivate(true);
     this.syncState();
@@ -79,6 +91,15 @@ export class TrucoRoom extends Room<{ state: TrucoRoomState }> {
     this.clientsByTeam.set(teamId, client);
     const view = client.view ?? (client.view = new StateView());
     view.add(this.state, TEAM_VIEW_TAGS[teamId]);
+
+    // Send canonical identity before any state patch so the client knows
+    // which team it belongs to without heuristics.
+    const sessionInfo: SessionInfo = {
+      teamId,
+      ownedSeatIds: TEAM_SEATS[teamId],
+      roomCode: this.roomCode,
+    };
+    client.send('session_info', sessionInfo);
 
     if (!this.runtime && this.participants[0] && this.participants[1]) {
       this.lifecycle = 'LOCKED';

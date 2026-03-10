@@ -8,7 +8,6 @@ import {
   PlayedCardView,
   PlayerInfo,
   SeatId,
-  TEAM_SEATS,
   TeamId,
 } from '@truco/contracts';
 
@@ -118,24 +117,19 @@ function toRoundCards(raw: unknown): PlayedCardView[] {
     .filter((card): card is PlayedCardView => Boolean(card));
 }
 
-export function buildClientView(rawState: unknown, connectionState: ConnectionState): ClientGameView | null {
+// viewerTeamId is provided explicitly by the server via session_info — no heuristics needed.
+export function buildClientView(rawState: unknown, connectionState: ConnectionState, viewerTeamId: TeamId): ClientGameView | null {
   if (!rawState || typeof rawState !== 'object') {
     return null;
   }
 
   const state = rawState as RawSchemaState;
-  const team0OwnedSeats = parseJsonArray<SeatId[]>(state.team0OwnedSeatIdsJson, []);
-  const team1OwnedSeats = parseJsonArray<SeatId[]>(state.team1OwnedSeatIdsJson, []);
-  const ownedSeatIds = team0OwnedSeats.length > 0 ? team0OwnedSeats : team1OwnedSeats;
+  // ownedSeatIds is derived directly from the canonical viewerTeamId.
+  const ownedSeatIds: SeatId[] = viewerTeamId === 0 ? [0, 2] : [1, 3];
 
-  if (ownedSeatIds.length === 0) {
-    return null;
-  }
-
-  const teamId = TEAM_SEATS[0].includes(ownedSeatIds[0]) ? 0 : 1;
   const visibleHands: Partial<Record<SeatId, Card[]>> = {};
 
-  if (teamId === 0) {
+  if (viewerTeamId === 0) {
     visibleHands[0] = parseJsonArray<Card[]>(state.team0Seat0HandJson, []);
     visibleHands[2] = parseJsonArray<Card[]>(state.team0Seat2HandJson, []);
   } else {
@@ -151,7 +145,7 @@ export function buildClientView(rawState: unknown, connectionState: ConnectionSt
   };
 
   const availableActions = parseJsonArray<AvailableAction[]>(
-    teamId === 0 ? state.team0AvailableActionsJson : state.team1AvailableActionsJson,
+    viewerTeamId === 0 ? state.team0AvailableActionsJson : state.team1AvailableActionsJson,
     [],
   );
 
@@ -207,24 +201,33 @@ export function buildClientView(rawState: unknown, connectionState: ConnectionSt
   };
 }
 
-export function describeEvent(event: ClientMatchEvent): string {
+export function describeEvent(
+  event: ClientMatchEvent,
+  players?: Record<SeatId, PlayerInfo>,
+): string {
+  const name = (seatId: SeatId) => players?.[seatId]?.nickname ?? `Assento ${seatId}`;
+
   switch (event.type) {
     case 'ROUND_STARTED':
-      return `Nova rodada valendo ${event.payload.currentRoundPoints}`;
+      return `Nova rodada · vale ${event.payload.currentRoundPoints}`;
     case 'CARD_PLAYED':
-      return event.payload.hidden ? 'Carta coberta jogada' : `Carta aberta na mesa`;
+      return event.payload.hidden
+        ? `${name(event.payload.seatId)} jogou coberta`
+        : `${name(event.payload.seatId)} jogou carta`;
     case 'TRUCO_REQUESTED':
-      return `Pedido de ${event.payload.requestedValue}`;
+      return `${name(event.payload.seatId)} pediu ${event.payload.requestedValue}`;
     case 'TRUCO_ACCEPTED':
-      return `Truco aceito: ${event.payload.acceptedValue}`;
+      return `Truco aceito · vale ${event.payload.acceptedValue}`;
     case 'TRUCO_RAISED':
-      return `Aumento para ${event.payload.requestedValue}`;
+      return `${name(event.payload.seatId)} aumentou para ${event.payload.requestedValue}`;
     case 'TRUCO_RUN':
-      return `Correram da rodada`;
+      return `Correram · ${event.payload.awardedPoints} pts para eles`;
     case 'TRICK_WON':
-      return event.payload.winnerSeatId === 'tie' ? 'Vaza empatada' : `Vaza resolvida`;
+      return event.payload.winnerSeatId === 'tie'
+        ? 'Vaza empatada'
+        : `${name(event.payload.winnerSeatId)} ganhou a vaza`;
     case 'ROUND_ENDED':
-      return `Rodada encerrada`;
+      return `Rodada encerrada · +${event.payload.awardedPoints} pts`;
     case 'GAME_ENDED':
       return `Partida encerrada`;
     case 'PLAYER_DROPPED':
