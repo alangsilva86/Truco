@@ -152,9 +152,12 @@ export function GameTable({
             </div>
           )}
 
-          <div className="flex min-h-0 flex-1 flex-col px-3 pb-2 pt-2 sm:px-4 sm:pt-3">
-            {!presentation.isWaiting && !presentation.isGameEnd && (
-              <div className="relative z-10 flex shrink-0 justify-center pb-3 sm:pb-4">
+          {/* CSS Grid: partner (auto) | felt zone (1fr) | player+actions (auto) */}
+          <div className="grid min-h-0 flex-1 grid-rows-[auto_1fr_auto] gap-y-2 px-3 pb-2 pt-2 sm:gap-y-3 sm:px-4 sm:pt-3">
+
+            {/* Row 1 — Partner */}
+            {!presentation.isWaiting && !presentation.isGameEnd ? (
+              <div className="relative z-10 flex justify-center pb-1 sm:pb-2">
                 <SeatPanel
                   mode="visible"
                   orientation="top"
@@ -170,37 +173,15 @@ export function GameTable({
                   disabled={!presentation.topSeat.active || commandPending}
                 />
               </div>
+            ) : (
+              <div />
             )}
 
-            <div className="mt-2 flex shrink-0 justify-between gap-2 lg:hidden">
+            {/* Row 2 — Felt zone: side opponents overlay + center table */}
+            <div className="relative min-h-0">
               {!presentation.isWaiting && !presentation.isGameEnd && (
                 <>
-                  <SeatPanel
-                    mode="hidden"
-                    orientation="left"
-                    tone="opponent"
-                    nickname={presentation.leftSeat.nickname}
-                    dealer={presentation.leftSeat.dealer}
-                    active={presentation.leftSeat.active}
-                    count={presentation.leftSeat.hiddenCount}
-                  />
-                  <SeatPanel
-                    mode="hidden"
-                    orientation="right"
-                    tone="opponent"
-                    nickname={presentation.rightSeat.nickname}
-                    dealer={presentation.rightSeat.dealer}
-                    active={presentation.rightSeat.active}
-                    count={presentation.rightSeat.hiddenCount}
-                  />
-                </>
-              )}
-            </div>
-
-            <div className="relative flex min-h-0 flex-1 items-center justify-center py-2 sm:py-3">
-              {!presentation.isWaiting && !presentation.isGameEnd && (
-                <>
-                  <div className="absolute left-0 top-1/2 hidden -translate-y-1/2 lg:block">
+                  <div className="absolute left-0 top-1/2 z-10 -translate-y-1/2">
                     <SeatPanel
                       mode="hidden"
                       orientation="left"
@@ -212,7 +193,7 @@ export function GameTable({
                     />
                   </div>
 
-                  <div className="absolute right-0 top-1/2 hidden -translate-y-1/2 lg:block">
+                  <div className="absolute right-0 top-1/2 z-10 -translate-y-1/2">
                     <SeatPanel
                       mode="hidden"
                       orientation="right"
@@ -226,20 +207,25 @@ export function GameTable({
                 </>
               )}
 
-              <CenterTable
-                mode={presentation.isWaiting ? 'waiting' : 'table'}
-                roomCode={view.roomCode}
-                codeCopied={codeCopied}
-                onCopyCode={() => onCopyCode(view.roomCode)}
-                roundCards={view.roundCards}
-                seatLayout={presentation.seatLayout}
-                message={view.message}
-                phaseLabel={presentation.phaseLabel}
-                manilhaRank={view.manilhaRank}
-              />
+              {/* Center table centered inside the felt zone with horizontal padding
+                  to leave room for the side opponent panels */}
+              <div className="flex h-full items-center justify-center px-[5.5rem] sm:px-36">
+                <CenterTable
+                  mode={presentation.isWaiting ? 'waiting' : 'table'}
+                  roomCode={view.roomCode}
+                  codeCopied={codeCopied}
+                  onCopyCode={() => onCopyCode(view.roomCode)}
+                  roundCards={view.roundCards}
+                  seatLayout={presentation.seatLayout}
+                  message={view.message}
+                  phaseLabel={presentation.phaseLabel}
+                  manilhaRank={view.manilhaRank}
+                />
+              </div>
             </div>
 
-            <div className="mt-2 flex shrink-0 flex-col items-center gap-2 sm:mt-3 sm:gap-3">
+            {/* Row 3 — Action pills + Player */}
+            <div className="flex flex-col items-center gap-2 sm:gap-2.5">
               <BottomActionBar
                 show={showBottomActions}
                 coveredActive={coveredMode}

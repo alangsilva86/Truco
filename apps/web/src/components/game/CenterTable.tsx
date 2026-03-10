@@ -63,20 +63,24 @@ export function CenterTable({
     );
   }
 
+  // Table mode: transparent zone — cards float on the felt, no opaque box
   return (
-    <div className="relative flex h-[8.75rem] w-full max-w-[14rem] items-center justify-center sm:h-[15rem] sm:max-w-[21rem]">
-      <div className="table-surface table-glow absolute inset-0 rounded-[28px] sm:rounded-[40px]" />
-      <div className="absolute inset-x-8 top-4 h-10 rounded-full bg-white/6 blur-2xl sm:inset-x-14 sm:top-7 sm:h-12" />
+    <div className="relative h-full w-full">
+      {/* Ambient felt highlight — purely decorative, no height constraints */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <div className="h-24 w-full rounded-full bg-emerald-950/60 blur-3xl sm:h-36" />
+      </div>
 
+      {/* Played cards — absolutely positioned on the felt */}
       {roundCards.map((playedCard) => {
         const position =
           playedCard.seatId === seatLayout.bottom
-            ? 'left-1/2 top-[64%] -translate-x-1/2'
+            ? 'left-1/2 bottom-[8%] -translate-x-1/2'
             : playedCard.seatId === seatLayout.top
-              ? 'left-1/2 top-[4%] -translate-x-1/2'
+              ? 'left-1/2 top-[8%] -translate-x-1/2'
               : playedCard.seatId === seatLayout.left
-                ? 'left-[3%] top-1/2 -translate-y-1/2'
-                : 'right-[3%] top-1/2 -translate-y-1/2';
+                ? 'left-[4%] top-1/2 -translate-y-1/2'
+                : 'right-[4%] top-1/2 -translate-y-1/2';
 
         return (
           <div
@@ -93,11 +97,12 @@ export function CenterTable({
         );
       })}
 
-      <div className="relative z-10 max-w-[8.75rem] rounded-[20px] border border-white/10 bg-black/50 px-3 py-2.5 text-center shadow-xl sm:max-w-[10rem] sm:rounded-[24px] sm:px-4 sm:py-3">
-        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/35 sm:text-[10px] sm:tracking-[0.24em]">
+      {/* Message badge — centered, compact, semi-transparent */}
+      <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 w-max max-w-[9.5rem] rounded-[18px] border border-white/8 bg-black/50 px-3 py-2 text-center shadow-xl backdrop-blur-md sm:max-w-[11rem] sm:rounded-[22px] sm:px-4 sm:py-2.5">
+        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30 sm:text-[10px] sm:tracking-[0.24em]">
           {phaseLabel}
         </p>
-        <p className="mt-1 text-xs font-black leading-tight text-white sm:text-sm">
+        <p className="mt-0.5 text-xs font-bold leading-snug text-white/65 sm:text-sm">
           {message}
         </p>
       </div>
