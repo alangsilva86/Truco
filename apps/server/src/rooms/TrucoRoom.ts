@@ -24,6 +24,8 @@ interface Participant {
 
 // Unambiguous charset: excludes 0/O, 1/I, 2/Z, 5/S, 8/B
 const ROOM_CODE_CHARS = 'ACDEFGHJKMNPQRTUVWXY34679';
+const DISCONNECT_GRACE_MS = 2_000;
+const RECONNECT_WINDOW_SECONDS = 60;
 
 function createRoomCode(existingCodeCheck: (code: string) => boolean): string {
   for (let attempt = 0; attempt < 20; attempt++) {
@@ -78,7 +80,7 @@ export class TrucoRoom extends Room<{ state: TrucoRoomState }> {
   maxClients = 2;
   state = new TrucoRoomState();
 
-  private readonly reconnectManager = new ReconnectManager();
+  private readonly disconnectGraceManager = new ReconnectManager();
   private readonly participants: Record<TeamId, Participant | null> = {
     0: null,
     1: null,
@@ -134,65 +136,14 @@ export class TrucoRoom extends Room<{ state: TrucoRoomState }> {
       throw new Error('Room is already full.');
     }
 
+    this.disconnectGraceManager.clear(teamId);
+
     const nickname = sanitizeNickname(options.nickname);
     this.participants[teamId] = { nickname, connected: true };
     this.clientsByTeam.set(teamId, client);
 
-    if (!this.runtime && this.participants[0] && this.participants[1]) {
-      this.lifecycle = 'LOCKED';
-      this.matchStartedAt = Date.now();
-      serverMetrics.increment('matchStartedTotal');
-
-      const initialState = createMatch(Date.now(), {
-        matchId: `${this.roomId}-${Date.now()}`,
-        players: buildPlayers(this.participants),
-      });
-
-      this.runtime = new MatchRuntime({
-        initialState,
-        onStateChange: (state) => {
-          this.syncState(state);
-          this.broadcastGameViews();
-        },
-        onEvent: (event) => {
-          for (const roomClient of this.clientsByTeam.values()) {
-            roomClient.send('match_event', event);
-          }
-
-          if (event.type === 'GAME_ENDED' && this.matchStartedAt !== null) {
-            this.lastMatchDurationMs = Date.now() - this.matchStartedAt;
-            serverMetrics.recordMatchDuration(this.lastMatchDurationMs);
-            logger.info('match.finished', {
-              roomCode: this.roomCode,
-              roomId: this.roomId,
-              durationMs: this.lastMatchDurationMs,
-              winnerTeam: event.payload.winnerTeam,
-            });
-          }
-        },
-        onReject: (ownerTeamId, message, commandId) => {
-          serverMetrics.increment('commandRejectedTotal');
-          logger.warn('command.rejected', {
-            roomCode: this.roomCode,
-            roomId: this.roomId,
-            ownerTeamId,
-            commandId,
-            message,
-          });
-          this.clientsByTeam
-            .get(ownerTeamId)
-            ?.send('command_rejected', { message, commandId });
-        },
-      });
-
-      logger.info('match.started', {
-        roomCode: this.roomCode,
-        roomId: this.roomId,
-      });
-      this.syncState(initialState);
-      this.clock.setTimeout(() => {
-        this.runtime?.start();
-      }, 25);
+    if (!this.runtime && this.canStartMatch()) {
+      this.startMatch();
     } else if (this.runtime) {
       this.lifecycle = 'LOCKED';
       this.runtime.markTeamConnection(teamId, true);
@@ -212,67 +163,60 @@ export class TrucoRoom extends Room<{ state: TrucoRoomState }> {
     });
   }
 
-  async onLeave(client: Client, _code: CloseCode): Promise<void> {
+  async onLeave(client: Client, code: CloseCode): Promise<void> {
     const teamId = this.sessionTeamMap.get(client.sessionId);
     if (teamId === undefined) {
       return;
     }
 
-    this.clientsByTeam.delete(teamId);
-    if (this.participants[teamId]) {
-      this.participants[teamId].connected = false;
+    if (this.clientsByTeam.get(teamId) === client) {
+      this.clientsByTeam.delete(teamId);
     }
 
-    if (!this.runtime) {
-      this.participants[teamId] = null;
-      this.sessionTeamMap.delete(client.sessionId);
-      this.lifecycle = 'OPEN';
-      this.syncState();
-      this.refreshDirectory();
-      logger.info('room.left.waiting', {
-        roomCode: this.roomCode,
-        roomId: this.roomId,
-        teamId,
-      });
+    if (code === CloseCode.CONSENTED) {
+      this.handleConsentedLeave(teamId, client.sessionId);
       return;
     }
 
-    this.lifecycle = 'PAUSED_RECONNECT';
-    serverMetrics.increment('reconnectAttemptTotal');
-    logger.warn('room.reconnect.waiting', {
-      roomCode: this.roomCode,
-      roomId: this.roomId,
-      teamId,
-    });
-
-    this.runtime.pauseTransitions();
-    this.runtime.markTeamConnection(teamId, false);
-    this.syncState(this.runtime.getState());
+    this.syncState(this.runtime?.getState());
     this.refreshDirectory();
-    this.reconnectManager.schedule(teamId, 60_000, () => {
-      this.runtime?.forceForfeit(teamId);
-      this.lifecycle = 'CLOSED';
-      this.syncState(this.runtime?.getState());
-      this.refreshDirectory();
-      logger.error('room.reconnect.expired', {
-        roomCode: this.roomCode,
-        roomId: this.roomId,
-        teamId,
-      });
-    });
+    this.scheduleDisconnectGrace(teamId);
 
     try {
-      const reconnectedClient = await this.allowReconnection(client, 60);
+      const reconnectedClient = await this.allowReconnection(
+        client,
+        RECONNECT_WINDOW_SECONDS,
+      );
+
+      this.disconnectGraceManager.clear(teamId);
       this.clientsByTeam.set(teamId, reconnectedClient);
-      if (this.participants[teamId]) {
-        this.participants[teamId].connected = true;
+
+      const participant = this.participants[teamId];
+      const wasMarkedDisconnected = participant?.connected === false;
+      if (participant) {
+        participant.connected = true;
       }
 
-      this.reconnectManager.clear(teamId);
-      this.lifecycle = 'LOCKED';
-      this.runtime.markTeamConnection(teamId, true);
-      this.runtime.resumeTransitions();
-      this.syncState(this.runtime.getState());
+      if (this.runtime) {
+        if (wasMarkedDisconnected) {
+          this.runtime.markTeamConnection(teamId, true);
+        }
+
+        this.lifecycle = this.hasDisconnectedParticipants()
+          ? 'PAUSED_RECONNECT'
+          : 'LOCKED';
+        if (this.lifecycle === 'LOCKED') {
+          this.runtime.resumeTransitions();
+        }
+
+        this.syncState(this.runtime.getState());
+      } else if (this.canStartMatch()) {
+        this.startMatch();
+      } else {
+        this.lifecycle = 'OPEN';
+        this.syncState();
+      }
+
       this.refreshDirectory();
       serverMetrics.increment('reconnectSuccessTotal');
       logger.info('room.reconnect.success', {
@@ -281,10 +225,27 @@ export class TrucoRoom extends Room<{ state: TrucoRoomState }> {
         teamId,
       });
     } catch {
-      this.reconnectManager.clear(teamId);
-      this.runtime.forceForfeit(teamId);
-      this.lifecycle = 'CLOSED';
-      this.syncState(this.runtime.getState());
+      this.disconnectGraceManager.clear(teamId);
+      const wasMarkedDisconnected = this.participants[teamId]?.connected === false;
+
+      if (this.runtime) {
+        if (!wasMarkedDisconnected) {
+          this.participants[teamId]!.connected = false;
+          this.runtime.pauseTransitions();
+          this.runtime.markTeamConnection(teamId, false);
+        }
+
+        this.runtime.forceForfeit(teamId);
+        this.sessionTeamMap.delete(client.sessionId);
+        this.lifecycle = 'CLOSED';
+        this.syncState(this.runtime.getState());
+      } else {
+        this.participants[teamId] = null;
+        this.sessionTeamMap.delete(client.sessionId);
+        this.lifecycle = 'OPEN';
+        this.syncState();
+      }
+
       this.refreshDirectory();
       serverMetrics.increment('reconnectFailureTotal');
       logger.error('room.reconnect.failed', {
@@ -297,7 +258,7 @@ export class TrucoRoom extends Room<{ state: TrucoRoomState }> {
 
   onDispose(): void {
     roomDirectory.unregister(this.roomCode);
-    this.reconnectManager.clearAll();
+    this.disconnectGraceManager.clearAll();
     this.runtime?.dispose();
     logger.info('room.disposed', {
       roomCode: this.roomCode,
@@ -323,6 +284,145 @@ export class TrucoRoom extends Room<{ state: TrucoRoomState }> {
 
     this.sessionTeamMap.set(client.sessionId, teamId);
     return teamId;
+  }
+
+  private canStartMatch(): boolean {
+    return (
+      !this.runtime &&
+      this.participants[0] !== null &&
+      this.participants[1] !== null &&
+      this.clientsByTeam.has(0) &&
+      this.clientsByTeam.has(1)
+    );
+  }
+
+  private startMatch(): void {
+    this.lifecycle = 'LOCKED';
+    this.matchStartedAt = Date.now();
+    serverMetrics.increment('matchStartedTotal');
+
+    const initialState = createMatch(Date.now(), {
+      matchId: `${this.roomId}-${Date.now()}`,
+      players: buildPlayers(this.participants),
+    });
+
+    this.runtime = new MatchRuntime({
+      initialState,
+      onStateChange: (state) => {
+        this.syncState(state);
+        this.broadcastGameViews();
+      },
+      onEvent: (event) => {
+        for (const roomClient of this.clientsByTeam.values()) {
+          roomClient.send('match_event', event);
+        }
+
+        if (event.type === 'GAME_ENDED' && this.matchStartedAt !== null) {
+          this.lastMatchDurationMs = Date.now() - this.matchStartedAt;
+          serverMetrics.recordMatchDuration(this.lastMatchDurationMs);
+          logger.info('match.finished', {
+            roomCode: this.roomCode,
+            roomId: this.roomId,
+            durationMs: this.lastMatchDurationMs,
+            winnerTeam: event.payload.winnerTeam,
+          });
+        }
+      },
+      onReject: (ownerTeamId, message, commandId) => {
+        serverMetrics.increment('commandRejectedTotal');
+        logger.warn('command.rejected', {
+          roomCode: this.roomCode,
+          roomId: this.roomId,
+          ownerTeamId,
+          commandId,
+          message,
+        });
+        this.clientsByTeam
+          .get(ownerTeamId)
+          ?.send('command_rejected', { message, commandId });
+      },
+    });
+
+    logger.info('match.started', {
+      roomCode: this.roomCode,
+      roomId: this.roomId,
+    });
+    this.syncState(initialState);
+    this.clock.setTimeout(() => {
+      this.runtime?.start();
+    }, 25);
+  }
+
+  private handleConsentedLeave(teamId: TeamId, sessionId: string): void {
+    this.disconnectGraceManager.clear(teamId);
+
+    if (!this.participants[teamId]) {
+      this.sessionTeamMap.delete(sessionId);
+      return;
+    }
+
+    if (!this.runtime) {
+      this.participants[teamId] = null;
+      this.sessionTeamMap.delete(sessionId);
+      this.lifecycle = 'OPEN';
+      this.syncState();
+      this.refreshDirectory();
+      logger.info('room.left.waiting', {
+        roomCode: this.roomCode,
+        roomId: this.roomId,
+        teamId,
+      });
+      return;
+    }
+
+    this.participants[teamId].connected = false;
+    this.runtime.pauseTransitions();
+    this.runtime.markTeamConnection(teamId, false);
+    this.runtime.forceForfeit(teamId);
+    this.sessionTeamMap.delete(sessionId);
+    this.lifecycle = 'CLOSED';
+    this.syncState(this.runtime.getState());
+    this.refreshDirectory();
+    logger.info('room.left.match', {
+      roomCode: this.roomCode,
+      roomId: this.roomId,
+      teamId,
+    });
+  }
+
+  private scheduleDisconnectGrace(teamId: TeamId): void {
+    this.disconnectGraceManager.schedule(teamId, DISCONNECT_GRACE_MS, () => {
+      const participant = this.participants[teamId];
+      if (!participant || this.clientsByTeam.has(teamId)) {
+        return;
+      }
+
+      participant.connected = false;
+      serverMetrics.increment('reconnectAttemptTotal');
+
+      if (this.runtime) {
+        this.lifecycle = 'PAUSED_RECONNECT';
+        this.runtime.pauseTransitions();
+        this.runtime.markTeamConnection(teamId, false);
+        this.syncState(this.runtime.getState());
+      } else {
+        this.lifecycle = 'OPEN';
+        this.syncState();
+      }
+
+      this.refreshDirectory();
+      logger.warn('room.reconnect.waiting', {
+        roomCode: this.roomCode,
+        roomId: this.roomId,
+        teamId,
+      });
+    });
+  }
+
+  private hasDisconnectedParticipants(): boolean {
+    return Object.values(this.participants).some(
+      (participant) => participant !== null && !participant.connected,
+    );
   }
 
   private broadcastGameViews(): void {
@@ -406,7 +506,9 @@ export class TrucoRoom extends Room<{ state: TrucoRoomState }> {
   private refreshDirectory(): void {
     roomDirectory.update(this.roomCode, {
       currentClients: this.clientsByTeam.size,
-      joinable: this.lifecycle === 'OPEN' && this.participants[1] === null,
+      joinable:
+        this.lifecycle === 'OPEN' &&
+        (this.participants[0] === null || this.participants[1] === null),
       lifecycle: this.lifecycle,
     });
   }

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ColyseusTestServer, boot } from '@colyseus/testing';
-import { ClientGameView, GameCommand } from '@truco/contracts';
+import { ClientGameView, ClientMatchEvent, GameCommand } from '@truco/contracts';
 import app from '../src/app.config.js';
 
 async function waitFor(
@@ -32,6 +32,14 @@ async function bootstrapView(room: {
   const response = onceMessage<ClientGameView>(room, 'game_view');
   room.send('bootstrap');
   return response;
+}
+
+function dropConnection(room: {
+  connection: { close: () => void };
+  reconnection: { maxRetries: number };
+}): void {
+  room.reconnection.maxRetries = 0;
+  room.connection.close();
 }
 
 describe('TrucoRoom', () => {
@@ -144,5 +152,74 @@ describe('TrucoRoom', () => {
     const nextView = await bootstrapView(guest);
 
     expect(nextView.visibleHands[1]).toHaveLength(2);
+  });
+
+  it('keeps the host seat reserved while reconnecting before the match starts', async () => {
+    const room = await colyseus.createRoom('truco_room', {});
+    const host = await colyseus.connectTo(room, { nickname: 'Ana' });
+    host.onMessage('game_view', () => undefined);
+
+    const reconnectionToken = host.reconnectionToken;
+    dropConnection(host);
+
+    await waitFor(() => room.clients.length === 0);
+
+    const guest = await colyseus.connectTo(room, { nickname: 'Bia' });
+    guest.onMessage('game_view', () => undefined);
+    guest.onMessage('match_event', () => undefined);
+
+    await waitFor(() => guest.state.gamePhase === 'WAITING_PLAYERS');
+
+    const reconnectedHost = await colyseus.sdk.reconnect(reconnectionToken);
+    reconnectedHost.onMessage('game_view', () => undefined);
+    reconnectedHost.onMessage('match_event', () => undefined);
+
+    await waitFor(
+      () =>
+        reconnectedHost.state.gamePhase === 'PLAYING' &&
+        guest.state.gamePhase === 'PLAYING',
+    );
+
+    const hostView = await bootstrapView(reconnectedHost);
+    expect(hostView.players[0].nickname).toBe('Ana');
+    expect(hostView.players[1].nickname).toBe('Bia');
+  });
+
+  it('does not emit drop events when a player reconnects quickly', async () => {
+    const room = await colyseus.createRoom('truco_room', {});
+    const host = await colyseus.connectTo(room, { nickname: 'Ana' });
+    const guest = await colyseus.connectTo(room, { nickname: 'Bia' });
+    const hostEvents: ClientMatchEvent[] = [];
+
+    host.onMessage('game_view', () => undefined);
+    guest.onMessage('game_view', () => undefined);
+    host.onMessage('match_event', (event: ClientMatchEvent) => {
+      hostEvents.push(event);
+    });
+    guest.onMessage('match_event', () => undefined);
+
+    await waitFor(() => host.state.gamePhase === 'PLAYING');
+
+    const reconnectionToken = guest.reconnectionToken;
+    dropConnection(guest);
+
+    await waitFor(() => room.clients.length === 1);
+
+    const reconnectedGuest = await colyseus.sdk.reconnect(reconnectionToken);
+    reconnectedGuest.onMessage('game_view', () => undefined);
+    reconnectedGuest.onMessage('match_event', () => undefined);
+
+    await waitFor(() => room.clients.length === 2);
+    await new Promise((resolve) => setTimeout(resolve, 2_400));
+
+    expect(hostEvents.some((event) => event.type === 'PLAYER_DROPPED')).toBe(
+      false,
+    );
+    expect(
+      hostEvents.some((event) => event.type === 'PLAYER_RECONNECTED'),
+    ).toBe(false);
+
+    const guestView = await bootstrapView(reconnectedGuest);
+    expect(guestView.players[1].connected).toBe(true);
   });
 });
