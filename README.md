@@ -57,6 +57,7 @@ O `apps/web` usa proxy do Vite para `/api`, `/health`, `/version` e `/monitor`, 
 Todas as variáveis são lidas a partir do root do monorepo.
 
 - `TRUCO_PROXY_TARGET`: alvo do proxy HTTP do Vite em desenvolvimento. Default: `http://127.0.0.1:2567`
+- `TRUCO_ALLOWED_ORIGINS`: lista separada por virgula das origens HTTP aceitas pelo backend. Suporta curingas como `https://*.vercel.app`
 - `VITE_SERVER_HTTP_URL`: sobrescreve a origem HTTP usada pelo cliente para lookup de sala e endpoints auxiliares. Em dev local pode ficar vazio para usar o proxy.
 - `VITE_SERVER_WS_URL`: sobrescreve a origem websocket do Colyseus. Em dev local, o cliente usa `ws://<host-atual>:2567`.
 

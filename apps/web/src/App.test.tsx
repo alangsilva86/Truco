@@ -61,14 +61,26 @@ const mocks = vi.hoisted(() => {
     roomId = 'room-1';
     reconnectionToken = 'token-123';
     sessionId = 'session-123';
+    reconnection = {
+      maxDelay: 5_000,
+      maxRetries: 15,
+      minDelay: 100,
+      minUptime: 5_000,
+    };
     private readonly messageHandlers = new Map<
       string,
       Array<(payload: unknown) => void>
     >();
+    private dropHandler: (() => void) | null = null;
     private leaveHandler: (() => void) | null = null;
+    private reconnectHandler: (() => void) | null = null;
 
     leave(): void {
       this.leaveHandler?.();
+    }
+
+    onDrop(handler: () => void): void {
+      this.dropHandler = handler;
     }
 
     onLeave(handler: () => void): void {
@@ -79,6 +91,10 @@ const mocks = vi.hoisted(() => {
       const handlers = this.messageHandlers.get(type) ?? [];
       handlers.push(handler);
       this.messageHandlers.set(type, handlers);
+    }
+
+    onReconnect(handler: () => void): void {
+      this.reconnectHandler = handler;
     }
 
     send(type: string): void {

@@ -105,6 +105,10 @@ export function useRoomConnection({
     fallbackNickname: string,
   ): Promise<void> {
     roomRef.current = room;
+    room.reconnection.minUptime = 0;
+    room.reconnection.maxRetries = 6;
+    room.reconnection.minDelay = 200;
+    room.reconnection.maxDelay = 2_000;
     setBusy(false);
     setCommandPending(false);
     setConnectionState('connected');
@@ -149,6 +153,15 @@ export function useRoomConnection({
 
     room.onLeave(() => {
       setConnectionState('disconnected');
+    });
+
+    room.onDrop(() => {
+      setConnectionState('reconnecting');
+    });
+
+    room.onReconnect(() => {
+      setConnectionState('connected');
+      room.send('bootstrap');
     });
 
     room.send('bootstrap');
