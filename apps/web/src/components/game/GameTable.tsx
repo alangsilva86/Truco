@@ -308,17 +308,26 @@ export function GameTable({
   const phoneTrayHand =
     !presentation.isWaiting && !presentation.isGameEnd ? (
       presentation.topSeatFocus ? (
+        // Partner's turn: bring PARTNER cards to the bottom tray so the
+        // felt (played cards) stays fully visible for decision-making.
         <SeatPanel
           mode="visible"
           orientation="bottom"
-          tone="player"
-          nickname={presentation.bottomSeat.nickname}
-          dealer={presentation.bottomSeat.dealer}
-          active={false}
-          cards={presentation.bottomCards}
+          tone="partner"
+          nickname={presentation.topSeat.nickname}
+          dealer={presentation.topSeat.dealer}
+          active={presentation.topSeat.active}
+          cards={presentation.topCards}
           manilhaRank={view.manilhaRank}
-          disabled
+          onPlayCard={(card) =>
+            handleSelectCard(presentation.topSeat.seatId, card)
+          }
+          disabled={
+            !presentation.topSeat.active || commandPending || trucoSheetOpen
+          }
           highlightCards={false}
+          pendingCardId={pendingPlayCardId}
+          selectedCardId={selectedCard?.id ?? null}
         />
       ) : (
         <SeatPanel
@@ -468,27 +477,7 @@ export function GameTable({
                   {presentation.topSeatFocus && !trucoSheetOpen && (
                     <TopSeatFocusOverlay
                       nickname={presentation.topSeat.nickname}
-                    >
-                      <SeatPanel
-                        mode="visible"
-                        orientation="top"
-                        tone="partner"
-                        nickname={presentation.topSeat.nickname}
-                        dealer={presentation.topSeat.dealer}
-                        active={presentation.topSeat.active}
-                        cards={presentation.topCards}
-                        manilhaRank={view.manilhaRank}
-                        onPlayCard={(card) =>
-                          handleSelectCard(presentation.topSeat.seatId, card)
-                        }
-                        disabled={
-                          !presentation.topSeat.active || commandPending
-                        }
-                        highlightCards={false}
-                        pendingCardId={pendingPlayCardId}
-                        selectedCardId={selectedCard?.id ?? null}
-                      />
-                    </TopSeatFocusOverlay>
+                    />
                   )}
                 </div>
 
