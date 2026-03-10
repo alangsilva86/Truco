@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsup src/index.ts --format esm --target node20 --out-dir dist",
+    "build": "tsup --config tsup.config.ts",
+    "start": "tsx src/index.ts",
     "lint": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

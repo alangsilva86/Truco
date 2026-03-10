@@ -1,0 +1,18 @@
+services:
+  - type: web
+    runtime: node
+    name: truco-server
+    plan: free
+    region: oregon
+    buildCommand: npm ci && npm run build:server
+    startCommand: npm run start:server
+    healthCheckPath: /health
+    buildFilter:
+      paths:
+        - apps/server/**
+        - packages/**
+        - package.json
+        - package-lock.json
+        - tsconfig.base.json
+        - .node-version
+        - render.yaml

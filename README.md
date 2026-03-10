@@ -68,10 +68,52 @@ Se você for apontar o frontend para um servidor remoto, defina `VITE_SERVER_HTT
 - `npm run dev:proxy`: alias de `npm run dev`
 - `npm run dev:server`: sobe apenas o servidor
 - `npm run dev:web`: sobe apenas o frontend
+- `npm run build:web`: gera apenas o bundle do frontend
 - `npm run lint`: valida TypeScript em todos os workspaces
 - `npm test`: roda unitários da engine e integração do room
 - `npm run build`: gera build do servidor e do frontend
 - `npm run clean`: remove artefatos de build e cobertura
+
+## Deploy no Vercel
+
+O projeto do Vercel deve publicar apenas `apps/web`. O repositório já inclui [vercel.json](/Users/momentum1/Documents/GitHub/Truco/vercel.json) para isso:
+
+- `buildCommand`: `npm run build:web`
+- `outputDirectory`: `apps/web/dist`
+
+Importante: o backend realtime em Colyseus nao deve rodar no Vercel. O frontend pode ficar no Vercel, mas o servidor precisa ficar em outra infra stateful e expor:
+
+- `VITE_SERVER_HTTP_URL`
+- `VITE_SERVER_WS_URL`
+
+Sem essas variaveis em Preview/Production, o frontend sobe, mas nao consegue criar/entrar em salas.
+
+## Deploy do backend no Render
+
+O backend realtime deve subir como `Web Service` no Render. O repositório já inclui [render.yaml](/Users/momentum1/Documents/GitHub/Truco/render.yaml) com a configuracao base:
+
+- `runtime`: `node`
+- `buildCommand`: `npm ci && npm run build:server`
+- `startCommand`: `npm run start:server`
+- `healthCheckPath`: `/health`
+- `plan`: `free`
+- `region`: `oregon`
+
+Se voce configurar manualmente pelo painel, use estes valores:
+
+- `Root Directory`: vazio
+- `Build Command`: `npm ci && npm run build:server`
+- `Start Command`: `npm run start:server`
+- `Health Check Path`: `/health`
+
+O servidor usa a porta de `process.env.PORT` automaticamente via `@colyseus/tools`, entao nao e necessario fixar uma porta manualmente no Render.
+
+Render recomenda fixar a versao do Node para evitar mudancas no runtime. O repositório inclui [.node-version](/Users/momentum1/Documents/GitHub/Truco/.node-version) com `22.22.0`.
+
+Depois do backend subir, configure no Vercel:
+
+- `VITE_SERVER_HTTP_URL=https://SEU-SERVICO.onrender.com`
+- `VITE_SERVER_WS_URL=wss://SEU-SERVICO.onrender.com`
 
 ## Validação rápida
 
