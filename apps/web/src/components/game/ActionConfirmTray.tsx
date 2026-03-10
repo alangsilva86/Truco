@@ -24,18 +24,11 @@ interface ActionConfirmTrayProps {
 }
 
 function getSelectedCardLabel(card: Card | null): string {
-  if (!card) {
-    return '';
-  }
-
+  if (!card) return '';
   return `${card.rank} de ${card.suit}`;
 }
 
 export function ActionConfirmTray({
-  activeSeatLabel,
-  activeSeatName,
-  bannerDetail,
-  bannerTitle,
   canPlayCovered,
   canRequestTruco,
   children,
@@ -52,52 +45,30 @@ export function ActionConfirmTray({
   onRequestTruco,
 }: ActionConfirmTrayProps) {
   const isSelectionActive = Boolean(selectedCard);
-  const contextLine =
-    activeSeatName && activeSeatLabel
-      ? `${activeSeatName} joga no assento ${activeSeatLabel}.`
-      : bannerDetail;
 
   return (
     <div
-      className={`table-surface safe-bottom mt-2 rounded-[24px] px-3 py-3 transition ${dimmed ? 'pointer-events-none opacity-40' : ''}`}
+      className={`table-surface safe-bottom mt-2 rounded-[22px] px-3 pb-3 pt-2.5 transition ${dimmed ? 'pointer-events-none opacity-40' : ''}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
-            {isSelectionActive ? 'Carta selecionada' : bannerTitle}
-          </p>
-          <p className="mt-1 text-sm font-semibold leading-snug text-white">
-            {isSelectionActive
-              ? getSelectedCardLabel(selectedCard)
-              : contextLine}
-          </p>
-        </div>
+      {/* Player hand — primary, always at top of tray */}
+      {children && <div>{children}</div>}
 
-        {commandPending && (
-          <div className="flex min-h-11 items-center gap-2 rounded-2xl border border-white/10 bg-black/25 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/60">
-            <LoaderCircle className="h-4 w-4 animate-spin" />
-            {pendingPlay ? 'Enviando jogada' : 'Sincronizando'}
-          </div>
-        )}
-      </div>
-
-      {error && (
-        <div className="mt-3 flex items-center gap-2 rounded-[18px] border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          {error}
-        </div>
-      )}
-
-      <div className="mt-3 flex flex-wrap gap-2">
+      {/* Action dock — below the hand */}
+      <div className="mt-2 flex items-center gap-2">
         {isSelectionActive ? (
+          /* ── Confirm row when a card is selected ── */
           <>
             <button
               type="button"
               onClick={onConfirmOpen}
               disabled={commandPending}
-              className="min-h-12 rounded-2xl bg-emerald-400 px-4 py-3 text-sm font-black uppercase tracking-[0.16em] text-black"
+              className="flex min-h-11 flex-1 items-center justify-center rounded-2xl bg-emerald-400 text-xs font-black uppercase tracking-[0.14em] text-black transition active:brightness-90"
             >
-              Jogar aberta
+              {commandPending && pendingPlay ? (
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+              ) : (
+                'Jogar aberta'
+              )}
             </button>
 
             {canPlayCovered && (
@@ -105,10 +76,10 @@ export function ActionConfirmTray({
                 type="button"
                 onClick={onConfirmCovered}
                 disabled={commandPending}
-                className="flex min-h-12 items-center gap-2 rounded-2xl border border-amber-300/30 bg-amber-400/10 px-4 py-3 text-sm font-black uppercase tracking-[0.16em] text-amber-100"
+                className="flex min-h-11 items-center gap-1.5 rounded-2xl border border-amber-300/30 bg-amber-400/10 px-3.5 text-xs font-black uppercase tracking-[0.14em] text-amber-100 transition active:brightness-90"
               >
-                <EyeOff className="h-4 w-4" />
-                Jogar coberta
+                <EyeOff className="h-3.5 w-3.5" />
+                Coberta
               </button>
             )}
 
@@ -116,26 +87,60 @@ export function ActionConfirmTray({
               type="button"
               onClick={onCancelSelection}
               disabled={commandPending}
-              className="min-h-12 rounded-2xl border border-white/12 bg-white/5 px-4 py-3 text-sm font-black uppercase tracking-[0.16em] text-white/70"
+              aria-label="Cancelar seleção"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-white/5 text-sm font-black text-white/55 transition active:brightness-75"
             >
-              Cancelar
+              ✕
             </button>
           </>
         ) : (
-          <button
-            type="button"
-            onClick={onRequestTruco}
-            disabled={!canRequestTruco || commandPending}
-            title={trucoHint}
-            className="flex min-h-12 items-center gap-2 rounded-2xl border border-amber-400/35 bg-amber-400/10 px-4 py-3 text-sm font-black uppercase tracking-[0.16em] text-amber-100"
-          >
-            <Swords className="h-4 w-4" />
-            {trucoLabel}
-          </button>
+          /* ── Idle row: sync status left + TRUCAR right ── */
+          <>
+            <div className="flex min-w-0 flex-1 items-center">
+              {commandPending ? (
+                <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-white/40">
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                  {pendingPlay ? 'Enviando' : 'Sync'}
+                </div>
+              ) : selectedCard ? (
+                <span className="text-xs font-bold text-white/50">
+                  {getSelectedCardLabel(selectedCard)}
+                </span>
+              ) : null}
+            </div>
+
+            {/* TRUCAR — secondary pill, not dominant */}
+            <button
+              type="button"
+              onClick={onRequestTruco}
+              disabled={!canRequestTruco || commandPending}
+              title={trucoHint}
+              className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] transition ${
+                canRequestTruco
+                  ? 'border-amber-400/35 bg-amber-400/10 text-amber-300/80 active:bg-amber-400/20'
+                  : 'border-white/8 bg-transparent text-white/20'
+              }`}
+            >
+              <Swords className="h-3.5 w-3.5 shrink-0" />
+              {trucoLabel}
+            </button>
+          </>
         )}
       </div>
 
-      {children && <div className="mt-3">{children}</div>}
+      {/* Selected card label */}
+      {isSelectionActive && (
+        <p className="mt-1.5 text-center text-[11px] font-bold text-white/40">
+          {getSelectedCardLabel(selectedCard)}
+        </p>
+      )}
+
+      {error && (
+        <div className="mt-2 flex items-center gap-2 rounded-[14px] border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-100">
+          <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+          {error}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { Card, Rank } from '@truco/contracts';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { useState } from 'react';
 import { TableBannerModel, TrickDotTone } from '../../lib/tablePresentation.js';
 
 interface RoundContextRailProps {
@@ -16,136 +16,150 @@ interface RoundContextRailProps {
   vira: Card | null;
 }
 
-function FactChip({
-  label,
-  value,
-  tone = 'default',
-}: {
-  label: string;
-  value: string;
-  tone?: 'accent' | 'default';
-}) {
-  const className =
-    tone === 'accent'
-      ? 'border-amber-300/30 bg-amber-400/12 text-amber-100'
-      : 'border-white/10 bg-black/20 text-white/85';
-
-  return (
-    <div className={`rounded-full border px-3 py-2 ${className}`}>
-      <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/45">
-        {label}
-      </p>
-      <p className="mt-1 text-sm font-black leading-none">{value}</p>
-    </div>
-  );
-}
-
-function TrickDots({ trickDots }: { trickDots: TrickDotTone[] }) {
-  return (
-    <div className="mt-1 flex items-center gap-1.5">
-      {trickDots.map((dot, index) => (
-        <div
-          key={`${dot}-${index}`}
-          className={`h-2.5 w-2.5 rounded-full border ${
-            dot === 'us'
-              ? 'border-emerald-400 bg-emerald-400'
-              : dot === 'them'
-                ? 'border-rose-400 bg-rose-400'
-                : dot === 'tie'
-                  ? 'border-white/70 bg-white/70'
-                  : 'border-white/20 bg-transparent'
-          }`}
-        />
-      ))}
-    </div>
-  );
+function dotClass(dot: TrickDotTone): string {
+  if (dot === 'us') return 'bg-emerald-400 border-emerald-400';
+  if (dot === 'them') return 'bg-rose-400 border-rose-400';
+  if (dot === 'tie') return 'bg-white/70 border-white/70';
+  return 'bg-transparent border-white/25';
 }
 
 export function RoundContextRail({
   activeSeatLabel,
   activeSeatName,
   banner,
-  compactFactsInFelt,
   currentRoundPoints,
-  defaultCollapsed,
   dimmed = false,
   manilhaRank,
   trickDots,
   vira,
 }: RoundContextRailProps) {
-  const [expanded, setExpanded] = useState(!defaultCollapsed);
+  const [expanded, setExpanded] = useState(false);
 
-  useEffect(() => {
-    setExpanded(!defaultCollapsed);
-  }, [defaultCollapsed]);
-
-  const canToggle = Boolean(vira || trickDots.length > 0);
-  const showExpandedFacts = expanded || !compactFactsInFelt;
   const identityLine =
     activeSeatName && activeSeatLabel
-      ? `Jogando agora: ${activeSeatName} · assento ${activeSeatLabel}`
-      : (banner?.detail ?? '');
+      ? `${activeSeatName} · assento ${activeSeatLabel}`
+      : (banner?.detail ?? banner?.title ?? '');
+
+  const titleLabel = banner?.title ?? 'Mesa';
 
   return (
     <section
-      className={`table-surface mx-2 mt-2 rounded-[22px] px-3 py-3 transition sm:mx-3 ${dimmed ? 'opacity-45' : ''}`}
+      className={`table-surface mx-2 mt-2 overflow-hidden rounded-[18px] transition ${dimmed ? 'opacity-45' : ''}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-white/35">
-            {banner?.title ?? 'Mesa'}
-          </p>
-          <p className="mt-1.5 text-sm font-semibold leading-snug text-white">
-            {identityLine}
-          </p>
+      {/* Compact single-line strip — always visible */}
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((s) => !s)}
+        className="flex w-full items-center gap-2.5 px-3 py-2.5"
+      >
+        {/* Tone dot */}
+        <div
+          className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+            banner?.tone === 'player'
+              ? 'bg-emerald-400'
+              : banner?.tone === 'opponent'
+                ? 'bg-rose-400'
+                : banner?.tone === 'warning'
+                  ? 'bg-amber-400'
+                  : 'bg-white/30'
+          }`}
+        />
+
+        {/* Context line */}
+        <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
+          <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.2em] text-white/35">
+            {titleLabel}
+          </span>
+          {identityLine && (
+            <span className="min-w-0 truncate text-xs font-medium text-white/65">
+              {identityLine}
+            </span>
+          )}
         </div>
 
-        {canToggle && (
-          <button
-            type="button"
-            aria-expanded={expanded}
-            aria-label={
-              expanded
-                ? 'Ocultar detalhes da rodada'
-                : 'Mostrar detalhes da rodada'
-            }
-            onClick={() => setExpanded((current) => !current)}
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-white/65"
-          >
-            {expanded ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-          </button>
-        )}
-      </div>
+        {/* Inline fact summary */}
+        <div className="flex shrink-0 items-center gap-2">
+          {/* VALE */}
+          <span className="text-[10px] font-black tabular-nums text-white/80">
+            {currentRoundPoints}
+            <span className="ml-0.5 text-white/30">pts</span>
+          </span>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <FactChip label="Vale" value={String(currentRoundPoints)} />
-        {manilhaRank && (
-          <FactChip label="Manilha" value={manilhaRank} tone="accent" />
-        )}
-      </div>
+          {/* Manilha */}
+          {manilhaRank && (
+            <span className="rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-black text-amber-300/90">
+              {manilhaRank}★
+            </span>
+          )}
 
-      {showExpandedFacts && (
-        <div className="mt-3 grid grid-cols-2 gap-2">
+          {/* Trick dots mini */}
+          <div className="flex items-center gap-0.5">
+            {trickDots.map((dot, index) => (
+              <div
+                key={`${dot}-${index}`}
+                className={`h-1.5 w-1.5 rounded-full border ${dotClass(dot)}`}
+              />
+            ))}
+          </div>
+
+          {/* Expand chevron */}
+          <ChevronDown
+            className={`h-3.5 w-3.5 text-white/35 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+          />
+        </div>
+      </button>
+
+      {/* Expandable detail drawer */}
+      {expanded && (
+        <div className="grid grid-cols-2 gap-2 border-t border-white/8 px-3 pb-3 pt-2.5">
+          {/* VALE chip */}
+          <div className="rounded-[14px] border border-white/10 bg-black/20 px-3 py-2">
+            <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/40">
+              Vale
+            </p>
+            <p className="mt-0.5 text-sm font-black leading-none text-white">
+              {currentRoundPoints}
+            </p>
+          </div>
+
+          {/* Manilha chip */}
+          {manilhaRank && (
+            <div className="rounded-[14px] border border-amber-300/25 bg-amber-400/10 px-3 py-2">
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/40">
+                Manilha
+              </p>
+              <p className="mt-0.5 text-sm font-black leading-none text-amber-200">
+                {manilhaRank}
+              </p>
+            </div>
+          )}
+
+          {/* Vira */}
           {vira && (
-            <div className="rounded-[18px] border border-white/10 bg-black/20 px-3 py-2.5">
+            <div className="rounded-[14px] border border-white/10 bg-black/20 px-3 py-2">
               <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/40">
                 Vira
               </p>
-              <p className="mt-1 text-sm font-black text-white">
+              <p className="mt-0.5 text-sm font-black leading-none text-white">
                 {vira.rank} de {vira.suit}
               </p>
             </div>
           )}
 
-          <div className="rounded-[18px] border border-white/10 bg-black/20 px-3 py-2.5">
+          {/* Vazas */}
+          <div className="rounded-[14px] border border-white/10 bg-black/20 px-3 py-2">
             <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/40">
               Vazas
             </p>
-            <TrickDots trickDots={trickDots} />
+            <div className="mt-1.5 flex items-center gap-1.5">
+              {trickDots.map((dot, index) => (
+                <div
+                  key={`big-${dot}-${index}`}
+                  className={`h-2.5 w-2.5 rounded-full border ${dotClass(dot)}`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       )}

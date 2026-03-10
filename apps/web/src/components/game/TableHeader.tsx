@@ -1,13 +1,5 @@
 import { ConnectionState } from '@truco/contracts';
-import {
-  AlertCircle,
-  Check,
-  Copy,
-  List,
-  LoaderCircle,
-  LogOut,
-  Swords,
-} from 'lucide-react';
+import { Check, Copy, LogOut } from 'lucide-react';
 
 interface TableHeaderProps {
   roomCode: string;
@@ -48,97 +40,49 @@ export function TableHeader({
         : 'border-white/10 bg-white/5 text-white/60';
 
   if (phoneMode) {
-    const connectionIcon =
-      connectionState === 'reconnecting' ? (
-        <LoaderCircle className="h-3.5 w-3.5 animate-spin text-amber-300" />
-      ) : connectionState === 'disconnected' ? (
-        <AlertCircle className="h-3.5 w-3.5 text-rose-300" />
-      ) : (
-        <Swords className="h-3.5 w-3.5 text-emerald-300" />
-      );
+    const connectionDot =
+      connectionState === 'reconnecting'
+        ? 'bg-amber-400 animate-pulse'
+        : connectionState === 'disconnected'
+          ? 'bg-rose-400'
+          : 'bg-emerald-400';
 
     return (
-      <header className="table-surface safe-top flex flex-col gap-2 rounded-[22px] px-3 py-2.5">
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.24em] text-emerald-300/70">
-              Truco online
-            </p>
-            <div className="mt-1 flex items-center gap-2">
-              <h1 className="truncate text-lg font-black leading-none text-white">
-                Sala {roomCode}
-              </h1>
-              <button
-                type="button"
-                onClick={onCopyCode}
-                title="Copiar codigo da sala"
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/65"
-              >
-                {codeCopied ? (
-                  <Check className="h-4 w-4 text-emerald-400" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={onLeave}
-            title="Sair da sala"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/65"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="grid min-w-[6.25rem] grid-cols-2 overflow-hidden rounded-[18px] border border-white/10 bg-black/30">
-            <div className="px-2.5 py-2 text-center">
-              <p className="text-[9px] uppercase tracking-[0.2em] text-white/35">
-                Nos
-              </p>
-              <p className="font-mono text-2xl font-black leading-none text-emerald-300">
-                {scoreUs}
-              </p>
-            </div>
-            <div className="border-l border-white/10 px-2.5 py-2 text-center">
-              <p className="text-[9px] uppercase tracking-[0.2em] text-white/35">
-                Eles
-              </p>
-              <p className="font-mono text-2xl font-black leading-none text-rose-300">
-                {scoreThem}
-              </p>
-            </div>
-          </div>
-
-          <div
-            className={`rounded-xl border px-2.5 py-2 text-[10px] font-black uppercase tracking-[0.16em] ${statusClass}`}
-          >
-            {roomLifecycle}
-          </div>
-
-          {logCount > 0 && onToggleLogs && (
-            <button
-              type="button"
-              onClick={onToggleLogs}
-              className={`flex min-h-10 items-center gap-2 rounded-xl border px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] ${
-                logsOpen
-                  ? 'border-emerald-300/25 bg-emerald-500/10 text-emerald-100'
-                  : 'border-white/10 bg-white/5 text-white/65'
-              }`}
-            >
-              <List className="h-4 w-4" />
-              Log {logCount > 9 ? '9+' : logCount}
-            </button>
+      <header className="table-surface safe-top flex items-center gap-2 rounded-[20px] px-3 py-2">
+        {/* Room code as compact copy pill — takes remaining space */}
+        <button
+          type="button"
+          onClick={onCopyCode}
+          title="Copiar código da sala"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border border-white/10 bg-white/5 px-2.5 py-1.5 text-left"
+        >
+          <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${connectionDot}`} />
+          <span className="min-w-0 flex-1 truncate font-mono text-sm font-black uppercase tracking-[0.14em] text-white/80">
+            {roomCode}
+          </span>
+          {codeCopied ? (
+            <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+          ) : (
+            <Copy className="h-3.5 w-3.5 shrink-0 text-white/35" />
           )}
+        </button>
 
-          <div className="flex min-h-10 items-center gap-2 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-[10px] font-black uppercase tracking-[0.16em] text-white/65">
-            {connectionIcon}
-            {connectionState}
-          </div>
+        {/* Score — compact monospace */}
+        <div className="flex shrink-0 items-center gap-1 font-mono text-sm font-black tabular-nums">
+          <span className="text-emerald-300">{scoreUs}</span>
+          <span className="text-white/25">–</span>
+          <span className="text-rose-300">{scoreThem}</span>
         </div>
+
+        {/* Leave */}
+        <button
+          type="button"
+          onClick={onLeave}
+          title="Sair da sala"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border border-white/10 bg-white/5 text-white/55"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
       </header>
     );
   }

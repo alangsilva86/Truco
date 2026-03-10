@@ -397,7 +397,7 @@ export function GameTable({
                 </div>
               )}
 
-              <div className="relative flex min-h-0 flex-1 flex-col px-2 pb-2">
+              <div className="relative flex min-h-0 flex-1 flex-col px-2 pb-1.5">
                 {!presentation.isWaiting && !presentation.isGameEnd && (
                   <div className="relative z-10 flex justify-center pt-1">
                     <SeatPanel
@@ -421,7 +421,7 @@ export function GameTable({
                   </div>
                 )}
 
-                <div className="relative mt-2 flex min-h-0 flex-1 items-center justify-center">
+                <div className="relative mt-1 flex min-h-0 flex-1 items-center justify-center">
                   {!presentation.isWaiting && !presentation.isGameEnd && (
                     <>
                       <div className="absolute left-0 top-1/2 z-10 -translate-y-1/2">
