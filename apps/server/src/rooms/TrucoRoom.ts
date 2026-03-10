@@ -6,7 +6,10 @@ import { logger } from '../observability/logger.js';
 import { serverMetrics } from '../observability/metrics.js';
 import { MatchRuntime } from '../runtime/MatchRuntime.js';
 import { ReconnectManager } from '../runtime/ReconnectManager.js';
-import { roomDirectory } from '../services/roomDirectory.js';
+import {
+  findTrucoRoomByCode,
+  type TrucoRoomMetadata,
+} from '../services/matchmakingRooms.js';
 import { createEngineGameView, createWaitingGameView } from './gameView.js';
 import {
   StateSyncSnapshot,
@@ -27,14 +30,16 @@ const ROOM_CODE_CHARS = 'ACDEFGHJKMNPQRTUVWXY34679';
 const DISCONNECT_GRACE_MS = 2_000;
 const RECONNECT_WINDOW_SECONDS = 60;
 
-function createRoomCode(existingCodeCheck: (code: string) => boolean): string {
-  for (let attempt = 0; attempt < 20; attempt++) {
+async function createRoomCode(
+  existingCodeCheck: (code: string) => Promise<boolean>,
+): Promise<string> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
     let code = '';
     for (let i = 0; i < 6; i++) {
       code +=
         ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
     }
-    if (!existingCodeCheck(code)) {
+    if (!(await existingCodeCheck(code))) {
       return code;
     }
   }
@@ -76,7 +81,10 @@ function buildPlayers(participants: Record<TeamId, Participant | null>) {
   return players;
 }
 
-export class TrucoRoom extends Room<{ state: TrucoRoomState }> {
+export class TrucoRoom extends Room<{
+  metadata: TrucoRoomMetadata;
+  state: TrucoRoomState;
+}> {
   maxClients = 2;
   state = new TrucoRoomState();
 
@@ -116,16 +124,16 @@ export class TrucoRoom extends Room<{ state: TrucoRoomState }> {
     },
   };
 
-  onCreate(): void {
-    this.roomCode = createRoomCode((code) =>
-      Boolean(roomDirectory.resolve(code)),
+  async onCreate(): Promise<void> {
+    this.roomCode = await createRoomCode(async (code) =>
+      Boolean(await findTrucoRoomByCode(code)),
     );
-    roomDirectory.register(this.roomId, this.roomCode);
     serverMetrics.increment('roomCreatedTotal');
     logger.info('room.created', {
       roomCode: this.roomCode,
       roomId: this.roomId,
     });
+    this.metadata = this.createMatchmakingMetadata();
     void this.setPrivate(true);
     this.syncState();
   }
@@ -257,7 +265,6 @@ export class TrucoRoom extends Room<{ state: TrucoRoomState }> {
   }
 
   onDispose(): void {
-    roomDirectory.unregister(this.roomCode);
     this.disconnectGraceManager.clearAll();
     this.runtime?.dispose();
     logger.info('room.disposed', {
@@ -425,6 +432,17 @@ export class TrucoRoom extends Room<{ state: TrucoRoomState }> {
     );
   }
 
+  private createMatchmakingMetadata(): TrucoRoomMetadata {
+    return {
+      currentClients: this.clientsByTeam.size,
+      joinable:
+        this.lifecycle === 'OPEN' &&
+        (this.participants[0] === null || this.participants[1] === null),
+      lifecycle: this.lifecycle,
+      roomCode: this.roomCode,
+    };
+  }
+
   private broadcastGameViews(): void {
     for (const [teamId, client] of this.clientsByTeam.entries()) {
       client.send('game_view', this.createGameView(teamId));
@@ -504,12 +522,10 @@ export class TrucoRoom extends Room<{ state: TrucoRoomState }> {
   }
 
   private refreshDirectory(): void {
-    roomDirectory.update(this.roomCode, {
-      currentClients: this.clientsByTeam.size,
-      joinable:
-        this.lifecycle === 'OPEN' &&
-        (this.participants[0] === null || this.participants[1] === null),
-      lifecycle: this.lifecycle,
-    });
+    if (!this.roomCode) {
+      return;
+    }
+
+    void this.setMetadata(this.createMatchmakingMetadata());
   }
 }

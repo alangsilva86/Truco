@@ -1,4 +1,4 @@
-import { roomDirectory } from '../services/roomDirectory.js';
+import type { RoomDirectoryEntry } from '../services/matchmakingRooms.js';
 
 interface TimingMetric {
   count: number;
@@ -77,7 +77,7 @@ class ServerMetrics {
     };
   }
 
-  snapshot(): Record<string, unknown> {
+  snapshot(roomDirectory: RoomDirectoryEntry[] = []): Record<string, unknown> {
     return {
       counters: { ...this.counters },
       timings: {
@@ -97,7 +97,7 @@ class ServerMetrics {
           maxMs: this.timings.stateSyncMs.maxMs,
         },
       },
-      roomDirectory: roomDirectory.list(),
+      roomDirectory,
     };
   }
 }

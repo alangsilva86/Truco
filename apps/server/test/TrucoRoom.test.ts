@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ColyseusTestServer, boot } from '@colyseus/testing';
+import { matchMaker } from 'colyseus';
 import { ClientGameView, ClientMatchEvent, GameCommand } from '@truco/contracts';
 import app from '../src/app.config.js';
 
@@ -42,6 +43,20 @@ function dropConnection(room: {
   room.connection.close();
 }
 
+async function expectHttpError(
+  operation: Promise<unknown>,
+): Promise<{ data: { error?: string; message?: string }; statusCode: number }> {
+  try {
+    await operation;
+    throw new Error('Expected HTTP request to fail.');
+  } catch (error) {
+    return error as {
+      data: { error?: string; message?: string };
+      statusCode: number;
+    };
+  }
+}
+
 describe('TrucoRoom', () => {
   let colyseus: ColyseusTestServer<typeof app>;
 
@@ -82,6 +97,49 @@ describe('TrucoRoom', () => {
     expect(guestView.visibleHands[1]).toHaveLength(3);
     expect(guestView.visibleHands[3]).toHaveLength(3);
     expect(guestView.visibleHands[0]).toBeUndefined();
+  });
+
+  it('publishes room metadata for lookup and metrics while waiting for a guest', async () => {
+    const room = await colyseus.createRoom('truco_room', {});
+    const host = await colyseus.connectTo(room, { nickname: 'Ana' });
+    host.onMessage('game_view', () => undefined);
+
+    await waitFor(
+      () =>
+        typeof host.state.roomCode === 'string' && host.state.roomCode.length === 6,
+    );
+    const roomCode = host.state.roomCode;
+
+    const listedRooms = await matchMaker.query({ name: 'truco_room' });
+    const listedRoom = listedRooms.find(
+      (entry) =>
+        (entry.metadata as { roomCode?: string } | undefined)?.roomCode ===
+        roomCode,
+    );
+
+    expect(listedRoom).toBeDefined();
+    expect(listedRoom?.roomId).toBe(room.roomId);
+
+    const lookupResponse = await colyseus.http.get(`/api/rooms/${roomCode}`);
+    expect(lookupResponse.statusCode).toBe(200);
+    expect(lookupResponse.data).toMatchObject({
+      roomCode,
+      roomId: room.roomId,
+    });
+
+    const metricsResponse = await colyseus.http.get('/metrics');
+    expect(metricsResponse.statusCode).toBe(200);
+    expect(metricsResponse.data).toMatchObject({
+      roomDirectory: expect.arrayContaining([
+        expect.objectContaining({
+          currentClients: 1,
+          joinable: true,
+          lifecycle: 'OPEN',
+          roomCode,
+          roomId: room.roomId,
+        }),
+      ]),
+    });
   });
 
   it('rejects commands that target seats outside the player team', async () => {
@@ -221,5 +279,76 @@ describe('TrucoRoom', () => {
 
     const guestView = await bootstrapView(reconnectedGuest);
     expect(guestView.players[1].connected).toBe(true);
+  });
+
+  it('ends the match and blocks reconnect after a consented leave', async () => {
+    const room = await colyseus.createRoom('truco_room', {});
+    const host = await colyseus.connectTo(room, { nickname: 'Ana' });
+    const guest = await colyseus.connectTo(room, { nickname: 'Bia' });
+    host.onMessage('game_view', () => undefined);
+    guest.onMessage('game_view', () => undefined);
+    host.onMessage('match_event', () => undefined);
+    guest.onMessage('match_event', () => undefined);
+
+    await waitFor(
+      () =>
+        host.state.gamePhase === 'PLAYING' &&
+        guest.state.gamePhase === 'PLAYING',
+    );
+
+    const reconnectionToken = host.reconnectionToken;
+    await host.leave();
+
+    await waitFor(
+      () =>
+        room.state.roomLifecycle === 'CLOSED' &&
+        guest.state.gamePhase === 'GAME_END',
+    );
+
+    await expect(colyseus.sdk.reconnect(reconnectionToken)).rejects.toBeTruthy();
+  });
+
+  it('returns 404, 409 and 410 from room lookup for missing, locked and closed rooms', async () => {
+    const missingRoomError = await expectHttpError(
+      colyseus.http.get('/api/rooms/XXXXXX'),
+    );
+    expect(missingRoomError.statusCode).toBe(404);
+    expect(missingRoomError.data).toMatchObject({
+      error: 'NOT_FOUND',
+    });
+
+    const room = await colyseus.createRoom('truco_room', {});
+    const host = await colyseus.connectTo(room, { nickname: 'Ana' });
+    const guest = await colyseus.connectTo(room, { nickname: 'Bia' });
+    host.onMessage('game_view', () => undefined);
+    guest.onMessage('game_view', () => undefined);
+    host.onMessage('match_event', () => undefined);
+    guest.onMessage('match_event', () => undefined);
+
+    await waitFor(
+      () =>
+        host.state.gamePhase === 'PLAYING' &&
+        guest.state.gamePhase === 'PLAYING',
+    );
+
+    const lockedRoomError = await expectHttpError(
+      colyseus.http.get(`/api/rooms/${host.state.roomCode}`),
+    );
+    expect(lockedRoomError.statusCode).toBe(409);
+    expect(lockedRoomError.data).toMatchObject({
+      error: 'LOCKED',
+    });
+
+    await host.leave();
+
+    await waitFor(() => room.state.roomLifecycle === 'CLOSED');
+
+    const closedRoomError = await expectHttpError(
+      colyseus.http.get(`/api/rooms/${guest.state.roomCode}`),
+    );
+    expect(closedRoomError.statusCode).toBe(410);
+    expect(closedRoomError.data).toMatchObject({
+      error: 'CLOSED',
+    });
   });
 });

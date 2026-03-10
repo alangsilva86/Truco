@@ -10,7 +10,6 @@ import {
   RefObject,
   startTransition,
   useEffect,
-  useEffectEvent,
   useRef,
   useState,
 } from 'react';
@@ -39,6 +38,10 @@ function getErrorMessage(caught: unknown, fallback: string): string {
 function getJoinRoomError(caught: unknown): string {
   if (caught && typeof caught === 'object' && 'body' in caught) {
     const body = (caught as { body?: { error?: string } }).body;
+    if (body?.error === 'NOT_FOUND') {
+      return 'Sala nao encontrada ou expirada.';
+    }
+
     if (body?.error === 'CLOSED') {
       return 'Esta sala foi encerrada.';
     }
@@ -65,27 +68,13 @@ export function useRoomConnection({
     useState<ConnectionState>('disconnected');
   const [commandPending, setCommandPending] = useState(false);
 
-  const autoReconnectAttemptedRef = useRef(false);
   const connectionStateRef = useRef<ConnectionState>('disconnected');
   const playersRef = useRef<ClientGameView['players'] | null>(null);
   const roomRef = useRef<Room | null>(null);
-  const reconnectOnMount = useEffectEvent((reconnectionToken: string) => {
-    void reconnect(reconnectionToken);
-  });
 
   useEffect(() => {
     connectionStateRef.current = connectionState;
   }, [connectionState]);
-
-  useEffect(() => {
-    const storedSession = sessionRef.current;
-    if (!storedSession || autoReconnectAttemptedRef.current) {
-      return;
-    }
-
-    autoReconnectAttemptedRef.current = true;
-    reconnectOnMount(storedSession.reconnectionToken);
-  }, [reconnectOnMount, sessionRef]);
 
   useEffect(() => {
     setView((current) => (current ? { ...current, connectionState } : current));
@@ -174,6 +163,7 @@ export function useRoomConnection({
       return;
     }
 
+    clearSession();
     setBusy(true);
     setError(null);
 
@@ -205,6 +195,7 @@ export function useRoomConnection({
       return;
     }
 
+    clearSession();
     setBusy(true);
     setError(null);
 
@@ -252,6 +243,12 @@ export function useRoomConnection({
       setBusy(false);
       setConnectionState('disconnected');
       clearSession();
+      roomRef.current = null;
+      playersRef.current = null;
+      setLogs([]);
+      setError(
+        'Sua sessao expirou ou foi invalidada. Entre novamente pelo codigo da sala.',
+      );
       setView(null);
     }
   }

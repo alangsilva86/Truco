@@ -10,6 +10,8 @@
     "lint": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@colyseus/redis-driver": "^0.17.6",
+    "@colyseus/redis-presence": "^0.17.6",
     "@colyseus/schema": "^4.0.17",
     "@colyseus/tools": "^0.17.0",
     "@truco/contracts": "*",

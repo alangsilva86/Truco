@@ -97,8 +97,9 @@ O backend realtime deve subir como `Web Service` no Render. O repositório já i
 - `buildCommand`: `npm ci && npm run build:server`
 - `startCommand`: `npm run start:server`
 - `healthCheckPath`: `/health`
-- `plan`: `free`
+- `plan`: `starter`
 - `region`: `oregon`
+- `REDIS_URI`: configurado como secret/env var no serviço
 
 Se voce configurar manualmente pelo painel, use estes valores:
 
@@ -106,8 +107,13 @@ Se voce configurar manualmente pelo painel, use estes valores:
 - `Build Command`: `npm ci && npm run build:server`
 - `Start Command`: `npm run start:server`
 - `Health Check Path`: `/health`
+- `REDIS_URI`: URL de um Redis compartilhado
 
 O servidor usa a porta de `process.env.PORT` automaticamente via `@colyseus/tools`, entao nao e necessario fixar uma porta manualmente no Render.
+
+Para producao realtime, use uma instancia always-on. O plano `free` do Render pode dormir/reiniciar o processo e perder o cache de salas ativas, quebrando reconexao e entrada por codigo.
+
+Se `REDIS_URI` estiver definido, o Colyseus passa a usar Redis shared presence/driver para room cache e matchmaking. Sem `REDIS_URI`, o ambiente local continua usando driver/presence em memoria.
 
 Render recomenda fixar a versao do Node para evitar mudancas no runtime. O repositório inclui [.node-version](/Users/momentum1/Documents/GitHub/Truco/.node-version) com `22.22.0`.
 
