@@ -23,6 +23,9 @@ interface VisibleSeatPanelProps extends BaseSeatPanelProps {
   manilhaRank: Rank | null;
   onPlayCard?: (card: Card) => void;
   disabled?: boolean;
+  highlightCards?: boolean;
+  pendingCardId?: string | null;
+  selectedCardId?: string | null;
 }
 
 type SeatPanelProps = HiddenSeatPanelProps | VisibleSeatPanelProps;
@@ -83,6 +86,7 @@ export function SeatPanel(props: SeatPanelProps) {
   const compact = props.orientation !== 'bottom';
   const isBottom = props.orientation === 'bottom';
   const isTop = props.orientation === 'top';
+  const highlightCards = props.highlightCards ?? true;
 
   return (
     <div
@@ -111,8 +115,10 @@ export function SeatPanel(props: SeatPanelProps) {
                 ? () => props.onPlayCard?.(card)
                 : undefined
             }
-            active={props.active && !props.disabled}
+            active={highlightCards && props.active && !props.disabled}
             muted={!props.active}
+            pending={props.pendingCardId === card.id}
+            selected={props.selectedCardId === card.id}
           />
         ))}
       </div>

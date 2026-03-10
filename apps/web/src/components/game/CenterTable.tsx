@@ -17,6 +17,12 @@ interface CenterTableProps {
   message: string;
   phaseLabel: string;
   manilhaRank: Rank | null;
+  compactFacts?: Array<{
+    label: string;
+    tone?: 'accent' | 'default';
+    value: string;
+  }>;
+  showMessageBadge?: boolean;
 }
 
 export function CenterTable({
@@ -29,6 +35,8 @@ export function CenterTable({
   message,
   phaseLabel,
   manilhaRank,
+  compactFacts = [],
+  showMessageBadge = true,
 }: CenterTableProps) {
   if (mode === 'waiting') {
     return (
@@ -71,6 +79,23 @@ export function CenterTable({
         <div className="h-24 w-full rounded-full bg-emerald-950/60 blur-3xl sm:h-36" />
       </div>
 
+      {compactFacts.length > 0 && (
+        <div className="pointer-events-none absolute left-2 top-2 z-10 flex flex-wrap gap-1.5">
+          {compactFacts.map((fact) => (
+            <div
+              key={`${fact.label}-${fact.value}`}
+              className={`rounded-full border px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] ${
+                fact.tone === 'accent'
+                  ? 'border-amber-300/30 bg-amber-400/12 text-amber-100'
+                  : 'border-white/10 bg-black/35 text-white/80'
+              }`}
+            >
+              {fact.label} · {fact.value}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Played cards — absolutely positioned on the felt */}
       {roundCards.map((playedCard) => {
         const position =
@@ -98,14 +123,16 @@ export function CenterTable({
       })}
 
       {/* Message badge — centered, compact, semi-transparent */}
-      <div className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 w-max max-w-[9.5rem] rounded-[18px] border border-white/8 bg-black/50 px-3 py-2 text-center shadow-xl backdrop-blur-md sm:max-w-[11rem] sm:rounded-[22px] sm:px-4 sm:py-2.5">
-        <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30 sm:text-[10px] sm:tracking-[0.24em]">
-          {phaseLabel}
-        </p>
-        <p className="mt-0.5 text-xs font-bold leading-snug text-white/65 sm:text-sm">
-          {message}
-        </p>
-      </div>
+      {showMessageBadge && (
+        <div className="absolute left-1/2 top-1/2 z-10 w-max max-w-[9.5rem] -translate-x-1/2 -translate-y-1/2 rounded-[18px] border border-white/8 bg-black/50 px-3 py-2 text-center shadow-xl backdrop-blur-md sm:max-w-[11rem] sm:rounded-[22px] sm:px-4 sm:py-2.5">
+          <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30 sm:text-[10px] sm:tracking-[0.24em]">
+            {phaseLabel}
+          </p>
+          <p className="mt-0.5 text-xs font-bold leading-snug text-white/65 sm:text-sm">
+            {message}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

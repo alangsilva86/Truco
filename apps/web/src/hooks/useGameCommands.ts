@@ -1,6 +1,7 @@
 import {
   AvailableAction,
   Card,
+  CardPlayMode,
   ClientGameView,
   GameCommand,
   SeatId,
@@ -43,7 +44,11 @@ export function useGameCommands({ sendCommand, view }: UseGameCommandsOptions) {
     }
   }, [view?.gamePhase]);
 
-  function handleCardPlay(seatId: SeatId, card: Card): void {
+  function handleCardPlay(
+    seatId: SeatId,
+    card: Card,
+    mode: CardPlayMode = coveredMode ? 'covered' : 'open',
+  ): void {
     if (!playAction || playAction.seatId !== seatId) {
       return;
     }
@@ -52,10 +57,9 @@ export function useGameCommands({ sendCommand, view }: UseGameCommandsOptions) {
       createCommand('PLAY_CARD', {
         seatId,
         cardId: card.id,
-        mode: coveredMode ? 'covered' : 'open',
+        mode,
       }),
     );
-    setCoveredMode(false);
   }
 
   function handleRequestTruco(): void {

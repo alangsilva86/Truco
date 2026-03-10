@@ -36,10 +36,13 @@ export interface TablePresentationModel {
   isWaiting: boolean;
   isGameEnd: boolean;
   isPausedReconnect: boolean;
+  activeOwnedSeatId: SeatId | null;
+  activeOwnedSeatLabel: 'baixo' | 'cima' | null;
   isBottomTurn: boolean;
   isTopTurn: boolean;
   isOpponentLeftTurn: boolean;
   isOpponentRightTurn: boolean;
+  topSeatFocus: boolean;
   scoreUs: number;
   scoreThem: number;
   gameWon: boolean;
@@ -58,6 +61,8 @@ export interface TablePresentationModel {
   trucoLabel: string;
   canToggleCovered: boolean;
   canRequestTruco: boolean;
+  contextFactsCollapsed: boolean;
+  showCompactFeltFacts: boolean;
 }
 
 function createBanner(params: {
@@ -232,6 +237,11 @@ export function createTablePresentation(params: {
   const scoreUs = viewerTeamId === 0 ? view.scores[0] : view.scores[1];
   const scoreThem = viewerTeamId === 0 ? view.scores[1] : view.scores[0];
   const gameWon = isGameEnd && scoreUs >= 12;
+  const activeOwnedSeatId = isBottomTurn
+    ? seatLayout.bottom
+    : isTopTurn
+      ? seatLayout.top
+      : null;
   const trickDots = Array.from({ length: 3 }).map((_, index) => {
     const trick = view.trickHistory[index];
     if (!trick) {
@@ -250,10 +260,18 @@ export function createTablePresentation(params: {
     isWaiting,
     isGameEnd,
     isPausedReconnect,
+    activeOwnedSeatId,
+    activeOwnedSeatLabel:
+      activeOwnedSeatId === seatLayout.bottom
+        ? 'baixo'
+        : activeOwnedSeatId === seatLayout.top
+          ? 'cima'
+          : null,
     isBottomTurn,
     isTopTurn,
     isOpponentLeftTurn,
     isOpponentRightTurn,
+    topSeatFocus: Boolean(isTopTurn),
     scoreUs,
     scoreThem,
     gameWon,
@@ -312,5 +330,7 @@ export function createTablePresentation(params: {
       : 'Trucar',
     canToggleCovered: Boolean(playAction?.canPlayCovered),
     canRequestTruco: Boolean(requestTrucoAction),
+    contextFactsCollapsed: view.gamePhase === 'PLAYING',
+    showCompactFeltFacts: view.gamePhase === 'PLAYING',
   };
 }

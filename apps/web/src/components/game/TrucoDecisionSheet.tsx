@@ -31,7 +31,12 @@ export function TrucoDecisionSheet({
 
   return (
     <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 px-3 pb-3 sm:items-center sm:px-4 sm:pb-0">
-      <div className="table-surface safe-bottom w-full max-w-md rounded-[30px] px-5 py-6 shadow-2xl shadow-black/60">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className="table-surface safe-bottom w-full max-w-md rounded-[30px] px-5 py-6 shadow-2xl shadow-black/60"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="mb-5 flex items-start gap-3">
           <div className="rounded-2xl border border-amber-300/20 bg-amber-400/12 p-3 text-amber-200">
             <Sparkles className="h-5 w-5" />

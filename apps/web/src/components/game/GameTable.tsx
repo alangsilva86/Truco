@@ -1,6 +1,7 @@
 import {
   AvailableAction,
   Card,
+  CardPlayMode,
   ClientGameView,
   ConnectionState,
   SeatId,
@@ -15,15 +16,20 @@ import {
   Trophy,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { usePhoneLayout } from '../../hooks/usePhoneLayout.js';
+import { triggerHaptic } from '../../lib/haptics.js';
 import { createTablePresentation } from '../../lib/tablePresentation.js';
+import { ActionConfirmTray } from './ActionConfirmTray.js';
 import { BottomActionBar } from './BottomActionBar.js';
 import { CenterTable } from './CenterTable.js';
 import { ConnectionStatus } from './ConnectionStatus.js';
 import { MatchLogDrawer } from './MatchLogDrawer.js';
+import { RoundContextRail } from './RoundContextRail.js';
 import { RoundStatusBar } from './RoundStatusBar.js';
 import { SeatPanel } from './SeatPanel.js';
 import { TableHeader } from './TableHeader.js';
+import { TopSeatFocusOverlay } from './TopSeatFocusOverlay.js';
 import { TrucoDecisionSheet } from './TrucoDecisionSheet.js';
 import { TurnBanner } from './TurnBanner.js';
 
@@ -48,12 +54,43 @@ interface GameTableProps {
   onCopyCode: (code: string) => void;
   onLeave: () => void;
   onToggleCovered: () => void;
-  onPlayCard: (seatId: SeatId, card: Card) => void;
+  onPlayCard: (seatId: SeatId, card: Card, mode?: CardPlayMode) => void;
   onRequestTruco: () => void;
   onRequestRematch: () => void;
   onAcceptTruco: () => void;
   onRaiseTruco: () => void;
   onRunTruco: () => void;
+}
+
+interface SelectedPlayState {
+  card: Card;
+  seatId: SeatId;
+}
+
+function formatCompactSuit(suit: Card['suit']): string {
+  if (suit === 'Espadas') {
+    return 'Esp.';
+  }
+
+  if (suit === 'Ouros') {
+    return 'Our.';
+  }
+
+  if (suit === 'Copas') {
+    return 'Cop.';
+  }
+
+  return 'Paus';
+}
+
+function formatCompactTrickDots(
+  trickDots: ReturnType<typeof createTablePresentation>['trickDots'],
+): string {
+  return trickDots
+    .map((dot) =>
+      dot === 'us' ? '●' : dot === 'them' ? '◐' : dot === 'tie' ? '◆' : '○',
+    )
+    .join(' ');
 }
 
 export function GameTable({
@@ -81,6 +118,14 @@ export function GameTable({
   onRunTruco,
 }: GameTableProps) {
   const [logsOpen, setLogsOpen] = useState(false);
+  const [pendingPlayCardId, setPendingPlayCardId] = useState<string | null>(
+    null,
+  );
+  const [selectedPlay, setSelectedPlay] = useState<SelectedPlayState | null>(
+    null,
+  );
+  const { isCompactContext, isPhoneLayout } = usePhoneLayout();
+  const lastPhaseRef = useRef(view.gamePhase);
 
   const presentation = useMemo(
     () =>
@@ -99,6 +144,26 @@ export function GameTable({
     }
   }, [logs.length, presentation.isWaiting]);
 
+  useEffect(() => {
+    if (!isPhoneLayout) {
+      setSelectedPlay(null);
+      setPendingPlayCardId(null);
+    }
+  }, [isPhoneLayout]);
+
+  useEffect(() => {
+    const previousPhase = lastPhaseRef.current;
+
+    if (
+      previousPhase !== view.gamePhase &&
+      (view.gamePhase === 'TRICK_END' || view.gamePhase === 'ROUND_END')
+    ) {
+      triggerHaptic([18, 48, 18]);
+    }
+
+    lastPhaseRef.current = view.gamePhase;
+  }, [view.gamePhase]);
+
   const statusTone = presentation.isPausedReconnect
     ? 'warning'
     : presentation.isGameEnd
@@ -106,6 +171,180 @@ export function GameTable({
       : 'neutral';
 
   const showBottomActions = !presentation.isWaiting && !presentation.isGameEnd;
+  const trucoSheetOpen = Boolean(
+    respondTrucoAction && view.trucoPending && !presentation.isPausedReconnect,
+  );
+  const contextFactsCollapsed =
+    isPhoneLayout &&
+    presentation.contextFactsCollapsed &&
+    isCompactContext &&
+    view.gamePhase === 'PLAYING';
+  const showCompactFeltFacts =
+    isPhoneLayout &&
+    contextFactsCollapsed &&
+    presentation.showCompactFeltFacts &&
+    !presentation.isWaiting;
+  const selectedCard = selectedPlay?.card ?? null;
+  const activeSeatName =
+    presentation.activeOwnedSeatId !== null
+      ? (view.players[presentation.activeOwnedSeatId]?.nickname ?? null)
+      : null;
+
+  useEffect(() => {
+    if (trucoSheetOpen) {
+      setSelectedPlay(null);
+      setPendingPlayCardId(null);
+    }
+  }, [trucoSheetOpen]);
+
+  useEffect(() => {
+    if (!selectedPlay) {
+      return;
+    }
+
+    const visibleCards = view.visibleHands[selectedPlay.seatId] ?? [];
+    const cardStillVisible = visibleCards.some(
+      (card) => card.id === selectedPlay.card.id,
+    );
+
+    if (pendingPlayCardId) {
+      if (!cardStillVisible) {
+        setPendingPlayCardId(null);
+        setSelectedPlay(null);
+        return;
+      }
+
+      if (!commandPending) {
+        setPendingPlayCardId(null);
+      }
+
+      return;
+    }
+
+    const playStillAvailable =
+      playAction?.seatId === selectedPlay.seatId &&
+      playAction.cardIds.includes(selectedPlay.card.id);
+
+    if (!cardStillVisible || !playStillAvailable) {
+      setSelectedPlay(null);
+    }
+  }, [
+    commandPending,
+    pendingPlayCardId,
+    playAction,
+    selectedPlay,
+    view.stateVersion,
+    view.visibleHands,
+  ]);
+
+  function handleSelectCard(seatId: SeatId, card: Card): void {
+    if (
+      !isPhoneLayout ||
+      commandPending ||
+      trucoSheetOpen ||
+      playAction?.seatId !== seatId ||
+      !playAction.cardIds.includes(card.id)
+    ) {
+      return;
+    }
+
+    triggerHaptic(12);
+    setPendingPlayCardId(null);
+    setSelectedPlay((current) =>
+      current?.seatId === seatId && current.card.id === card.id
+        ? null
+        : { seatId, card },
+    );
+  }
+
+  function handleConfirmPlay(mode: CardPlayMode): void {
+    if (!selectedPlay || commandPending) {
+      return;
+    }
+
+    setPendingPlayCardId(selectedPlay.card.id);
+    triggerHaptic([24]);
+    onPlayCard(selectedPlay.seatId, selectedPlay.card, mode);
+  }
+
+  function handleRequestTrucoPress(): void {
+    setSelectedPlay(null);
+    setPendingPlayCardId(null);
+    triggerHaptic([28]);
+    onRequestTruco();
+  }
+
+  function handleAcceptTrucoPress(): void {
+    triggerHaptic([28]);
+    onAcceptTruco();
+  }
+
+  function handleRaiseTrucoPress(): void {
+    triggerHaptic([28]);
+    onRaiseTruco();
+  }
+
+  function handleRunTrucoPress(): void {
+    triggerHaptic([12, 40, 12]);
+    onRunTruco();
+  }
+
+  const compactFacts = showCompactFeltFacts
+    ? [
+        {
+          label: 'Vazas',
+          value: formatCompactTrickDots(presentation.trickDots),
+        },
+        ...(view.vira
+          ? [
+              {
+                label: 'Vira',
+                value: `${view.vira.rank} ${formatCompactSuit(view.vira.suit)}`,
+              },
+            ]
+          : []),
+      ]
+    : [];
+
+  const phoneTrayHand =
+    !presentation.isWaiting && !presentation.isGameEnd ? (
+      presentation.topSeatFocus ? (
+        <SeatPanel
+          mode="visible"
+          orientation="bottom"
+          tone="player"
+          nickname={presentation.bottomSeat.nickname}
+          dealer={presentation.bottomSeat.dealer}
+          active={false}
+          cards={presentation.bottomCards}
+          manilhaRank={view.manilhaRank}
+          disabled
+          highlightCards={false}
+        />
+      ) : (
+        <SeatPanel
+          mode="visible"
+          orientation="bottom"
+          tone="player"
+          nickname={presentation.bottomSeat.nickname}
+          dealer={presentation.bottomSeat.dealer}
+          active={presentation.bottomSeat.active}
+          cards={presentation.bottomCards}
+          manilhaRank={view.manilhaRank}
+          onPlayCard={(card) =>
+            isPhoneLayout
+              ? handleSelectCard(presentation.bottomSeat.seatId, card)
+              : onPlayCard(presentation.bottomSeat.seatId, card)
+          }
+          disabled={
+            !presentation.bottomSeat.active || commandPending || trucoSheetOpen
+          }
+          highlightCards={false}
+          pendingCardId={pendingPlayCardId}
+          selectedCardId={selectedCard?.id ?? null}
+        />
+      )
+    ) : null;
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden px-2 py-2 sm:h-[100dvh] sm:max-h-[100dvh] sm:overflow-hidden sm:px-4 sm:py-4">
@@ -119,152 +358,317 @@ export function GameTable({
           statusTone={statusTone}
           onCopyCode={() => onCopyCode(view.roomCode)}
           onLeave={onLeave}
+          connectionState={connectionState}
+          logCount={logs.length}
+          logsOpen={logsOpen}
+          onToggleLogs={() => setLogsOpen((current) => !current)}
+          phoneMode={isPhoneLayout}
         />
 
         <main className="felt-noise relative mt-2 flex min-h-0 flex-1 flex-col overflow-y-auto rounded-[26px] border border-white/8 sm:rounded-[30px]">
-          <RoundStatusBar
-            message={view.message}
-            trickDots={presentation.trickDots}
-            isWaiting={presentation.isWaiting}
-            vira={view.vira}
-            manilhaRank={view.manilhaRank}
-            currentRoundPoints={view.currentRoundPoints}
-          />
-
-          <TurnBanner
-            banner={presentation.banner}
-            commandPending={commandPending}
-          />
-
-          {error && (
-            <div className="mx-3 mt-2 flex items-center justify-between gap-2 rounded-[24px] border border-rose-400/20 bg-rose-500/10 px-3 py-2.5">
-              <div className="flex items-center gap-2 text-sm text-rose-100">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                {error}
-              </div>
-              <button
-                type="button"
-                onClick={onDismissError}
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-rose-100/60 transition hover:text-rose-100"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-
-          {/* CSS Grid: partner (auto) | felt zone (1fr) | player+actions (auto) */}
-          <div className="grid min-h-0 flex-1 grid-rows-[auto_1fr_auto] gap-y-2 px-3 pb-2 pt-2 sm:gap-y-3 sm:px-4 sm:pt-3">
-
-            {/* Row 1 — Partner */}
-            {!presentation.isWaiting && !presentation.isGameEnd ? (
-              <div className="relative z-10 flex justify-center pb-1 sm:pb-2">
-                <SeatPanel
-                  mode="visible"
-                  orientation="top"
-                  tone="partner"
-                  nickname={presentation.topSeat.nickname}
-                  dealer={presentation.topSeat.dealer}
-                  active={presentation.topSeat.active}
-                  cards={presentation.topCards}
-                  manilhaRank={view.manilhaRank}
-                  onPlayCard={(card) =>
-                    onPlayCard(presentation.topSeat.seatId, card)
-                  }
-                  disabled={!presentation.topSeat.active || commandPending}
-                />
-              </div>
-            ) : (
-              <div />
-            )}
-
-            {/* Row 2 — Felt zone: side opponents overlay + center table */}
-            <div className="relative min-h-0">
-              {!presentation.isWaiting && !presentation.isGameEnd && (
-                <>
-                  <div className="absolute left-0 top-1/2 z-10 -translate-y-1/2">
-                    <SeatPanel
-                      mode="hidden"
-                      orientation="left"
-                      tone="opponent"
-                      nickname={presentation.leftSeat.nickname}
-                      dealer={presentation.leftSeat.dealer}
-                      active={presentation.leftSeat.active}
-                      count={presentation.leftSeat.hiddenCount}
-                    />
-                  </div>
-
-                  <div className="absolute right-0 top-1/2 z-10 -translate-y-1/2">
-                    <SeatPanel
-                      mode="hidden"
-                      orientation="right"
-                      tone="opponent"
-                      nickname={presentation.rightSeat.nickname}
-                      dealer={presentation.rightSeat.dealer}
-                      active={presentation.rightSeat.active}
-                      count={presentation.rightSeat.hiddenCount}
-                    />
-                  </div>
-                </>
-              )}
-
-              {/* Center table centered inside the felt zone with horizontal padding
-                  to leave room for the side opponent panels */}
-              <div className="flex h-full items-center justify-center px-[5.5rem] sm:px-36">
-                <CenterTable
-                  mode={presentation.isWaiting ? 'waiting' : 'table'}
-                  roomCode={view.roomCode}
-                  codeCopied={codeCopied}
-                  onCopyCode={() => onCopyCode(view.roomCode)}
-                  roundCards={view.roundCards}
-                  seatLayout={presentation.seatLayout}
-                  message={view.message}
-                  phaseLabel={presentation.phaseLabel}
-                  manilhaRank={view.manilhaRank}
-                />
-              </div>
-            </div>
-
-            {/* Row 3 — Action pills + Player */}
-            <div className="flex flex-col items-center gap-2 sm:gap-2.5">
-              <BottomActionBar
-                show={showBottomActions}
-                coveredActive={coveredMode}
-                coveredEnabled={presentation.canToggleCovered}
-                coveredHint={presentation.coveredHint}
-                trucoEnabled={presentation.canRequestTruco}
-                trucoHint={presentation.trucoHint}
-                trucoLabel={presentation.trucoLabel}
-                commandPending={commandPending}
-                onToggleCovered={onToggleCovered}
-                onRequestTruco={onRequestTruco}
+          {isPhoneLayout ? (
+            <>
+              <RoundContextRail
+                activeSeatLabel={presentation.activeOwnedSeatLabel}
+                activeSeatName={activeSeatName}
+                banner={presentation.banner}
+                compactFactsInFelt={showCompactFeltFacts}
+                currentRoundPoints={view.currentRoundPoints}
+                defaultCollapsed={contextFactsCollapsed}
+                dimmed={trucoSheetOpen}
+                manilhaRank={view.manilhaRank}
+                trickDots={presentation.trickDots}
+                vira={view.vira}
               />
 
-              {!presentation.isWaiting && !presentation.isGameEnd && (
-                <SeatPanel
-                  mode="visible"
-                  orientation="bottom"
-                  tone="player"
-                  nickname={presentation.bottomSeat.nickname}
-                  dealer={presentation.bottomSeat.dealer}
-                  active={presentation.bottomSeat.active}
-                  cards={presentation.bottomCards}
-                  manilhaRank={view.manilhaRank}
-                  onPlayCard={(card) =>
-                    onPlayCard(presentation.bottomSeat.seatId, card)
-                  }
-                  disabled={!presentation.bottomSeat.active || commandPending}
-                />
+              {presentation.isWaiting && error && (
+                <div className="mx-2 mt-2 flex items-center justify-between gap-2 rounded-[22px] border border-rose-400/20 bg-rose-500/10 px-3 py-2.5">
+                  <div className="flex items-center gap-2 text-sm text-rose-100">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    {error}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onDismissError}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl text-rose-100/60"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               )}
-            </div>
-          </div>
 
-          <ConnectionStatus
-            connectionState={connectionState}
-            shareMessage={presentation.shareMessage}
-            logCount={logs.length}
-            logsOpen={logsOpen}
-            onToggleLogs={() => setLogsOpen((current) => !current)}
-          />
+              <div className="relative flex min-h-0 flex-1 flex-col px-2 pb-2">
+                {!presentation.isWaiting && !presentation.isGameEnd && (
+                  <div className="relative z-10 flex justify-center pt-1">
+                    <SeatPanel
+                      mode="visible"
+                      orientation="top"
+                      tone="partner"
+                      nickname={presentation.topSeat.nickname}
+                      dealer={presentation.topSeat.dealer}
+                      active={presentation.topSeat.active}
+                      cards={presentation.topCards}
+                      manilhaRank={view.manilhaRank}
+                      disabled
+                      highlightCards={false}
+                      pendingCardId={pendingPlayCardId}
+                      selectedCardId={
+                        presentation.topSeatFocus
+                          ? (selectedCard?.id ?? null)
+                          : null
+                      }
+                    />
+                  </div>
+                )}
+
+                <div className="relative mt-2 flex min-h-0 flex-1 items-center justify-center">
+                  {!presentation.isWaiting && !presentation.isGameEnd && (
+                    <>
+                      <div className="absolute left-0 top-1/2 z-10 -translate-y-1/2">
+                        <SeatPanel
+                          mode="hidden"
+                          orientation="left"
+                          tone="opponent"
+                          nickname={presentation.leftSeat.nickname}
+                          dealer={presentation.leftSeat.dealer}
+                          active={presentation.leftSeat.active}
+                          count={presentation.leftSeat.hiddenCount}
+                        />
+                      </div>
+
+                      <div className="absolute right-0 top-1/2 z-10 -translate-y-1/2">
+                        <SeatPanel
+                          mode="hidden"
+                          orientation="right"
+                          tone="opponent"
+                          nickname={presentation.rightSeat.nickname}
+                          dealer={presentation.rightSeat.dealer}
+                          active={presentation.rightSeat.active}
+                          count={presentation.rightSeat.hiddenCount}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <div className="flex h-full w-full items-center justify-center px-[4.25rem]">
+                    <CenterTable
+                      mode={presentation.isWaiting ? 'waiting' : 'table'}
+                      roomCode={view.roomCode}
+                      codeCopied={codeCopied}
+                      onCopyCode={() => onCopyCode(view.roomCode)}
+                      roundCards={view.roundCards}
+                      seatLayout={presentation.seatLayout}
+                      message={view.message}
+                      phaseLabel={presentation.phaseLabel}
+                      manilhaRank={view.manilhaRank}
+                      compactFacts={compactFacts}
+                      showMessageBadge={view.gamePhase !== 'PLAYING'}
+                    />
+                  </div>
+
+                  {presentation.topSeatFocus && !trucoSheetOpen && (
+                    <TopSeatFocusOverlay
+                      nickname={presentation.topSeat.nickname}
+                    >
+                      <SeatPanel
+                        mode="visible"
+                        orientation="top"
+                        tone="partner"
+                        nickname={presentation.topSeat.nickname}
+                        dealer={presentation.topSeat.dealer}
+                        active={presentation.topSeat.active}
+                        cards={presentation.topCards}
+                        manilhaRank={view.manilhaRank}
+                        onPlayCard={(card) =>
+                          handleSelectCard(presentation.topSeat.seatId, card)
+                        }
+                        disabled={
+                          !presentation.topSeat.active || commandPending
+                        }
+                        highlightCards={false}
+                        pendingCardId={pendingPlayCardId}
+                        selectedCardId={selectedCard?.id ?? null}
+                      />
+                    </TopSeatFocusOverlay>
+                  )}
+                </div>
+
+                {!presentation.isWaiting && !presentation.isGameEnd && (
+                  <ActionConfirmTray
+                    activeSeatLabel={presentation.activeOwnedSeatLabel}
+                    activeSeatName={activeSeatName}
+                    bannerDetail={presentation.banner?.detail ?? view.message}
+                    bannerTitle={presentation.banner?.title ?? 'Mesa'}
+                    canPlayCovered={Boolean(
+                      selectedPlay &&
+                      playAction?.seatId === selectedPlay.seatId &&
+                      playAction.canPlayCovered,
+                    )}
+                    canRequestTruco={presentation.canRequestTruco}
+                    commandPending={commandPending}
+                    dimmed={trucoSheetOpen}
+                    error={error}
+                    pendingPlay={Boolean(
+                      pendingPlayCardId &&
+                      selectedCard?.id === pendingPlayCardId,
+                    )}
+                    selectedCard={selectedCard}
+                    trucoHint={presentation.trucoHint}
+                    trucoLabel={presentation.trucoLabel}
+                    onCancelSelection={() =>
+                      !commandPending ? setSelectedPlay(null) : undefined
+                    }
+                    onConfirmCovered={() => handleConfirmPlay('covered')}
+                    onConfirmOpen={() => handleConfirmPlay('open')}
+                    onRequestTruco={handleRequestTrucoPress}
+                  >
+                    {phoneTrayHand}
+                  </ActionConfirmTray>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <RoundStatusBar
+                message={view.message}
+                trickDots={presentation.trickDots}
+                isWaiting={presentation.isWaiting}
+                vira={view.vira}
+                manilhaRank={view.manilhaRank}
+                currentRoundPoints={view.currentRoundPoints}
+              />
+
+              <TurnBanner
+                banner={presentation.banner}
+                commandPending={commandPending}
+              />
+
+              {error && (
+                <div className="mx-3 mt-2 flex items-center justify-between gap-2 rounded-[24px] border border-rose-400/20 bg-rose-500/10 px-3 py-2.5">
+                  <div className="flex items-center gap-2 text-sm text-rose-100">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    {error}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onDismissError}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl text-rose-100/60 transition hover:text-rose-100"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+
+              <div className="grid min-h-0 flex-1 grid-rows-[auto_1fr_auto] gap-y-2 px-3 pb-2 pt-2 sm:gap-y-3 sm:px-4 sm:pt-3">
+                {!presentation.isWaiting && !presentation.isGameEnd ? (
+                  <div className="relative z-10 flex justify-center pb-1 sm:pb-2">
+                    <SeatPanel
+                      mode="visible"
+                      orientation="top"
+                      tone="partner"
+                      nickname={presentation.topSeat.nickname}
+                      dealer={presentation.topSeat.dealer}
+                      active={presentation.topSeat.active}
+                      cards={presentation.topCards}
+                      manilhaRank={view.manilhaRank}
+                      onPlayCard={(card) =>
+                        onPlayCard(presentation.topSeat.seatId, card)
+                      }
+                      disabled={!presentation.topSeat.active || commandPending}
+                    />
+                  </div>
+                ) : (
+                  <div />
+                )}
+
+                <div className="relative min-h-0">
+                  {!presentation.isWaiting && !presentation.isGameEnd && (
+                    <>
+                      <div className="absolute left-0 top-1/2 z-10 -translate-y-1/2">
+                        <SeatPanel
+                          mode="hidden"
+                          orientation="left"
+                          tone="opponent"
+                          nickname={presentation.leftSeat.nickname}
+                          dealer={presentation.leftSeat.dealer}
+                          active={presentation.leftSeat.active}
+                          count={presentation.leftSeat.hiddenCount}
+                        />
+                      </div>
+
+                      <div className="absolute right-0 top-1/2 z-10 -translate-y-1/2">
+                        <SeatPanel
+                          mode="hidden"
+                          orientation="right"
+                          tone="opponent"
+                          nickname={presentation.rightSeat.nickname}
+                          dealer={presentation.rightSeat.dealer}
+                          active={presentation.rightSeat.active}
+                          count={presentation.rightSeat.hiddenCount}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  <div className="flex h-full items-center justify-center px-[5.5rem] sm:px-36">
+                    <CenterTable
+                      mode={presentation.isWaiting ? 'waiting' : 'table'}
+                      roomCode={view.roomCode}
+                      codeCopied={codeCopied}
+                      onCopyCode={() => onCopyCode(view.roomCode)}
+                      roundCards={view.roundCards}
+                      seatLayout={presentation.seatLayout}
+                      message={view.message}
+                      phaseLabel={presentation.phaseLabel}
+                      manilhaRank={view.manilhaRank}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center gap-2 sm:gap-2.5">
+                  <BottomActionBar
+                    show={showBottomActions}
+                    coveredActive={coveredMode}
+                    coveredEnabled={presentation.canToggleCovered}
+                    coveredHint={presentation.coveredHint}
+                    trucoEnabled={presentation.canRequestTruco}
+                    trucoHint={presentation.trucoHint}
+                    trucoLabel={presentation.trucoLabel}
+                    commandPending={commandPending}
+                    onToggleCovered={onToggleCovered}
+                    onRequestTruco={handleRequestTrucoPress}
+                  />
+
+                  {!presentation.isWaiting && !presentation.isGameEnd && (
+                    <SeatPanel
+                      mode="visible"
+                      orientation="bottom"
+                      tone="player"
+                      nickname={presentation.bottomSeat.nickname}
+                      dealer={presentation.bottomSeat.dealer}
+                      active={presentation.bottomSeat.active}
+                      cards={presentation.bottomCards}
+                      manilhaRank={view.manilhaRank}
+                      onPlayCard={(card) =>
+                        onPlayCard(presentation.bottomSeat.seatId, card)
+                      }
+                      disabled={
+                        !presentation.bottomSeat.active || commandPending
+                      }
+                    />
+                  )}
+                </div>
+              </div>
+
+              <ConnectionStatus
+                connectionState={connectionState}
+                shareMessage={presentation.shareMessage}
+                logCount={logs.length}
+                logsOpen={logsOpen}
+                onToggleLogs={() => setLogsOpen((current) => !current)}
+              />
+            </>
+          )}
         </main>
 
         <MatchLogDrawer
@@ -360,11 +764,7 @@ export function GameTable({
       )}
 
       <TrucoDecisionSheet
-        open={Boolean(
-          respondTrucoAction &&
-          view.trucoPending &&
-          !presentation.isPausedReconnect,
-        )}
+        open={trucoSheetOpen}
         requesterName={
           view.trucoPending
             ? (view.players[view.trucoPending.requestedBySeatId]?.nickname ??
@@ -378,9 +778,9 @@ export function GameTable({
         }
         canRaise={Boolean(respondTrucoAction?.actions.includes('raise'))}
         commandPending={commandPending}
-        onAccept={onAcceptTruco}
-        onRaise={onRaiseTruco}
-        onRun={onRunTruco}
+        onAccept={handleAcceptTrucoPress}
+        onRaise={handleRaiseTrucoPress}
+        onRun={handleRunTrucoPress}
       />
     </div>
   );
