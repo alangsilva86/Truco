@@ -6,8 +6,10 @@ interface CardProps {
   hidden?: boolean;
   onClick?: () => void;
   active?: boolean;
+  muted?: boolean;
   manilhaRank?: Rank | null;
   compact?: boolean;
+  className?: string;
 }
 
 function SuitIcon({ suit }: { suit: Card['suit'] }) {
@@ -26,17 +28,34 @@ function SuitIcon({ suit }: { suit: Card['suit'] }) {
   return <Diamond className="h-4 w-4 fill-rose-500 text-rose-500" />;
 }
 
-export function CardView({ card, hidden = false, onClick, active = false, manilhaRank, compact = false }: CardProps) {
+export function CardView({
+  card,
+  hidden = false,
+  onClick,
+  active = false,
+  muted = false,
+  manilhaRank,
+  compact = false,
+  className = '',
+}: CardProps) {
   const sizeClass = compact ? 'h-20 w-14 sm:h-24 sm:w-16' : 'h-24 w-16 sm:h-32 sm:w-20';
   const isRed = card ? card.suit === 'Copas' || card.suit === 'Ouros' : false;
   const isManilha = Boolean(card && manilhaRank && card.rank === manilhaRank);
+  const interactive = Boolean(onClick);
+  const stateClass = active
+    ? 'border-amber-300/80 shadow-[0_0_30px_rgba(250,204,21,0.28)] ring-2 ring-amber-400/60 -translate-y-1'
+    : interactive
+      ? 'border-white/80 hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(15,23,42,0.35)] active:translate-y-0'
+      : 'border-white/60';
+  const mutedClass = muted ? 'opacity-70 saturate-75' : '';
 
   if (hidden) {
     return (
       <button
         type="button"
         onClick={onClick}
-        className={`${sizeClass} rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900 via-slate-950 to-black shadow-2xl ${active ? 'ring-2 ring-amber-400' : ''}`}
+        disabled={!interactive}
+        className={`${sizeClass} ${className} ${mutedClass} rounded-[22px] border border-white/10 bg-gradient-to-br from-slate-900 via-slate-950 to-black shadow-2xl transition-transform duration-200 ${active ? 'ring-2 ring-amber-400/70 -translate-y-1' : interactive ? 'hover:-translate-y-1 active:translate-y-0' : ''}`}
       >
         <div className="m-2 flex h-[calc(100%-1rem)] items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-500/10">
           <div className="h-8 w-6 rounded-md border border-emerald-300/20 bg-emerald-300/10" />
@@ -55,7 +74,8 @@ export function CardView({ card, hidden = false, onClick, active = false, manilh
     <button
       type="button"
       onClick={onClick}
-      className={`${sizeClass} relative overflow-hidden rounded-2xl border border-white/70 bg-gradient-to-br from-white via-slate-50 to-slate-200 p-2 text-slate-950 shadow-2xl transition-transform hover:-translate-y-1 ${active ? 'ring-2 ring-amber-400 shadow-[0_0_28px_rgba(251,191,36,0.25)]' : ''}`}
+      disabled={!interactive}
+      className={`${sizeClass} ${className} ${mutedClass} ${stateClass} relative overflow-hidden rounded-[22px] bg-gradient-to-br from-white via-slate-50 to-slate-200 p-2 text-slate-950 shadow-2xl transition-all duration-200`}
     >
       {isManilha && (
         <div className="absolute right-0 top-0 rounded-bl-xl bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-black">
