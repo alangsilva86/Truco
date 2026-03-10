@@ -154,7 +154,7 @@ export function GameTable({
 
           <div className="flex min-h-0 flex-1 flex-col px-3 pb-2 pt-2 sm:px-4 sm:pt-3">
             {!presentation.isWaiting && !presentation.isGameEnd && (
-              <div className="flex shrink-0 justify-center">
+              <div className="relative z-10 flex shrink-0 justify-center pb-3 sm:pb-4">
                 <SeatPanel
                   mode="visible"
                   orientation="top"

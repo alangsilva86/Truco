@@ -45,9 +45,9 @@ export function CardView({
   const isManilha = Boolean(card && manilhaRank && card.rank === manilhaRank);
   const interactive = Boolean(onClick);
   const stateClass = active
-    ? 'border-amber-300/80 shadow-[0_0_30px_rgba(250,204,21,0.28)] ring-2 ring-amber-400/60 -translate-y-1'
+    ? 'border-amber-300 shadow-[0_0_0_3px_rgba(250,204,21,0.45),0_0_52px_rgba(250,204,21,0.32),0_8px_24px_rgba(0,0,0,0.4)] ring-2 ring-amber-400/75 -translate-y-2.5 scale-[1.04]'
     : interactive
-      ? 'border-white/80 hover:-translate-y-1 hover:shadow-[0_12px_32px_rgba(15,23,42,0.35)] active:translate-y-0'
+      ? 'border-white/80 hover:-translate-y-1.5 hover:shadow-[0_14px_36px_rgba(15,23,42,0.4)] active:translate-y-0'
       : 'border-white/60';
   const mutedClass = muted ? 'opacity-70 saturate-75' : '';
 
@@ -57,7 +57,7 @@ export function CardView({
         type="button"
         onClick={onClick}
         disabled={!interactive}
-        className={`${sizeClass} ${className} ${mutedClass} rounded-[18px] border border-white/10 bg-gradient-to-br from-slate-900 via-slate-950 to-black shadow-2xl transition-transform duration-200 sm:rounded-[22px] ${active ? 'ring-2 ring-amber-400/70 -translate-y-1' : interactive ? 'hover:-translate-y-1 active:translate-y-0' : ''}`}
+        className={`${sizeClass} ${className} ${mutedClass} rounded-[18px] border border-white/10 bg-gradient-to-br from-slate-900 via-slate-950 to-black shadow-2xl transition-all duration-200 sm:rounded-[22px] ${active ? 'ring-2 ring-amber-400/75 shadow-[0_0_0_3px_rgba(250,204,21,0.4),0_0_40px_rgba(250,204,21,0.28)] -translate-y-2.5 scale-[1.04]' : interactive ? 'hover:-translate-y-1.5 active:translate-y-0' : ''}`}
       >
         <div className="m-2 flex h-[calc(100%-1rem)] items-center justify-center rounded-xl border border-emerald-400/20 bg-emerald-500/10">
           <div className="h-8 w-6 rounded-md border border-emerald-300/20 bg-emerald-300/10" />
