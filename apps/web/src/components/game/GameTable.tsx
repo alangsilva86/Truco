@@ -20,7 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { manilhaNickname } from '../Card.js';
 import { usePhoneLayout } from '../../hooks/usePhoneLayout.js';
 import { triggerHaptic } from '../../lib/haptics.js';
-import { playTrucoSound } from '../../lib/sounds.js';
+import { playPatoSound, playTrucoSound } from '../../lib/sounds.js';
 import { createTablePresentation } from '../../lib/tablePresentation.js';
 import { ActionConfirmTray } from './ActionConfirmTray.js';
 import { BottomActionBar } from './BottomActionBar.js';
@@ -60,6 +60,8 @@ interface GameTableProps {
   onAcceptTruco: () => void;
   onRaiseTruco: () => void;
   onRunTruco: () => void;
+  patoTauntCount: number;
+  onSendPatoTaunt: () => void;
 }
 
 interface SelectedPlayState {
@@ -116,6 +118,8 @@ export function GameTable({
   onAcceptTruco,
   onRaiseTruco,
   onRunTruco,
+  patoTauntCount,
+  onSendPatoTaunt,
 }: GameTableProps) {
   const [logsOpen, setLogsOpen] = useState(false);
   const [pendingPlayCardId, setPendingPlayCardId] = useState<string | null>(
@@ -126,6 +130,8 @@ export function GameTable({
   );
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
   const [trucoShout, setTrucoShout] = useState<{ label: string; id: number } | null>(null);
+  const [incomingPatoKey, setIncomingPatoKey] = useState(0);
+  const prevPatoTauntCountRef = useRef(patoTauntCount);
   const { isCompactContext, isPhoneLayout } = usePhoneLayout();
   const lastPhaseRef = useRef(view.gamePhase);
   const prevRoundCardsLenRef = useRef(view.roundCards.length);
@@ -248,6 +254,16 @@ export function GameTable({
     prevTrucoSheetOpenRef.current = isOpen;
   }, [respondTrucoAction, view.trucoPending, presentation.isPausedReconnect, showTrucoShout]);
 
+  // Incoming PATO taunt from opponent
+  useEffect(() => {
+    if (patoTauntCount > prevPatoTauntCountRef.current) {
+      prevPatoTauntCountRef.current = patoTauntCount;
+      playPatoSound();
+      triggerHaptic([40, 60, 40]);
+      setIncomingPatoKey((k) => k + 1);
+    }
+  }, [patoTauntCount]);
+
   const statusTone = presentation.isPausedReconnect
     ? 'warning'
     : presentation.isGameEnd
@@ -257,6 +273,12 @@ export function GameTable({
   const showBottomActions = !presentation.isWaiting && !presentation.isGameEnd;
   const trucoSheetOpen = Boolean(
     respondTrucoAction && view.trucoPending && !presentation.isPausedReconnect,
+  );
+  // We called truco and the opponent is deciding → show PATO taunt button
+  const canSendPatoTaunt = Boolean(
+    view.trucoPending &&
+    !trucoSheetOpen &&
+    view.ownedSeatIds.includes(view.trucoPending.requestedBySeatId),
   );
   const selectedCard = selectedPlay?.card ?? null;
   const activeSeatName =
@@ -806,6 +828,22 @@ export function GameTable({
         </div>
       )}
 
+      {/* PATO taunt button — shown to the player who called truco */}
+      {canSendPatoTaunt && (
+        <div className="fixed bottom-8 left-1/2 z-[45] -translate-x-1/2">
+          <button
+            type="button"
+            onClick={() => { playPatoSound(); onSendPatoTaunt(); }}
+            className="flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-400/15 px-5 py-2.5 font-mono text-sm font-black uppercase tracking-[0.2em] text-amber-200 shadow-lg backdrop-blur-sm transition active:scale-95"
+          >
+            <span style={{ display: 'inline-block', animation: 'pato-wobble 1.2s ease-in-out infinite' }}>
+              🦆
+            </span>
+            Pato!
+          </button>
+        </div>
+      )}
+
       <TrucoDecisionSheet
         open={trucoSheetOpen}
         requesterName={
@@ -852,6 +890,25 @@ export function GameTable({
             }}
           >
             {trucoShout.label}
+          </span>
+        </div>
+      )}
+
+      {/* Incoming PATO taunt overlay */}
+      {incomingPatoKey > 0 && (
+        <div
+          key={incomingPatoKey}
+          className="pointer-events-none fixed inset-0 z-[65] flex items-center justify-center"
+        >
+          <span
+            className="font-mono font-black"
+            style={{
+              fontSize: 'clamp(4rem, 22vw, 10rem)',
+              animation: 'truco-slam 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both, truco-fade-out 1.2s ease-out forwards',
+              filter: 'drop-shadow(0 0 40px rgba(251,191,36,0.7))',
+            }}
+          >
+            🦆
           </span>
         </div>
       )}

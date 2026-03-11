@@ -122,6 +122,12 @@ export class TrucoRoom extends Room<{
 
       this.runtime.enqueuePlayerCommand(teamId, message);
     },
+    pato_taunt: (client: Client) => {
+      const senderTeamId = this.sessionTeamMap.get(client.sessionId);
+      if (senderTeamId === undefined) return;
+      const targetTeamId: TeamId = senderTeamId === 0 ? 1 : 0;
+      this.clientsByTeam.get(targetTeamId)?.send('pato_taunt', {});
+    },
   };
 
   async onCreate(): Promise<void> {

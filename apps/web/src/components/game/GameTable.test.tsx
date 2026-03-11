@@ -43,6 +43,8 @@ function createBaseProps() {
     onAcceptTruco: () => undefined,
     onRaiseTruco: () => undefined,
     onRunTruco: () => undefined,
+    patoTauntCount: 0,
+    onSendPatoTaunt: () => undefined,
   };
 }
 
@@ -83,6 +85,8 @@ describe('GameTable', () => {
         onAcceptTruco={() => undefined}
         onRaiseTruco={() => undefined}
         onRunTruco={() => undefined}
+        patoTauntCount={0}
+        onSendPatoTaunt={() => undefined}
       />,
     );
 
@@ -122,6 +126,8 @@ describe('GameTable', () => {
         onAcceptTruco={() => undefined}
         onRaiseTruco={() => undefined}
         onRunTruco={() => undefined}
+        patoTauntCount={0}
+        onSendPatoTaunt={() => undefined}
       />,
     );
 

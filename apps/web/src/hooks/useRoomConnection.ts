@@ -67,6 +67,7 @@ export function useRoomConnection({
   const [connectionState, setConnectionState] =
     useState<ConnectionState>('disconnected');
   const [commandPending, setCommandPending] = useState(false);
+  const [patoTauntCount, setPatoTauntCount] = useState(0);
 
   const connectionStateRef = useRef<ConnectionState>('disconnected');
   const playersRef = useRef<ClientGameView['players'] | null>(null);
@@ -138,6 +139,10 @@ export function useRoomConnection({
     room.onMessage('command_rejected', (payload: { message?: string }) => {
       setCommandPending(false);
       setError(String(payload.message ?? 'Comando rejeitado pelo servidor.'));
+    });
+
+    room.onMessage('pato_taunt', () => {
+      setPatoTauntCount((n) => n + 1);
     });
 
     room.onLeave(() => {
@@ -258,6 +263,10 @@ export function useRoomConnection({
     roomRef.current?.send('command', command);
   }
 
+  function sendPatoTaunt(): void {
+    roomRef.current?.send('pato_taunt');
+  }
+
   function leaveSession(): void {
     clearSession();
     roomRef.current?.leave();
@@ -281,9 +290,11 @@ export function useRoomConnection({
     joinRoom,
     leaveSession,
     logs,
+    patoTauntCount,
     reportError: (message: string) => setError(message),
     reconnect,
     sendCommand,
+    sendPatoTaunt,
     view,
   };
 }

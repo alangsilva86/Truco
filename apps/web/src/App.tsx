@@ -31,9 +31,11 @@ export default function App() {
     joinRoom,
     leaveSession,
     logs,
+    patoTauntCount,
     reportError,
     reconnect,
     sendCommand,
+    sendPatoTaunt,
     view,
   } = useRoomConnection({
     clearSession,
@@ -119,6 +121,8 @@ export default function App() {
       onAcceptTruco={onAcceptTruco}
       onRaiseTruco={onRaiseTruco}
       onRunTruco={onRunTruco}
+      patoTauntCount={patoTauntCount}
+      onSendPatoTaunt={sendPatoTaunt}
     />
   );
 }
