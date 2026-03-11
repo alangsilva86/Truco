@@ -1,6 +1,7 @@
-import { Card } from '@truco/contracts';
+import { Card, Rank } from '@truco/contracts';
 import { AlertCircle, EyeOff, LoaderCircle, Swords } from 'lucide-react';
 import { ReactNode } from 'react';
+import { manilhaNickname } from '../Card.js';
 
 interface ActionConfirmTrayProps {
   activeSeatLabel: 'baixo' | 'cima' | null;
@@ -13,6 +14,7 @@ interface ActionConfirmTrayProps {
   commandPending: boolean;
   dimmed?: boolean;
   error: string | null;
+  manilhaRank?: Rank | null;
   pendingPlay: boolean;
   selectedCard: Card | null;
   trucoHint: string;
@@ -23,8 +25,11 @@ interface ActionConfirmTrayProps {
   onRequestTruco: () => void;
 }
 
-function getSelectedCardLabel(card: Card | null): string {
+function getSelectedCardLabel(card: Card | null, manilhaRank?: Rank | null): string {
   if (!card) return '';
+  if (manilhaRank && card.rank === manilhaRank) {
+    return `${manilhaNickname(card.suit)}! · ${card.rank} de ${card.suit}`;
+  }
   return `${card.rank} de ${card.suit}`;
 }
 
@@ -35,6 +40,7 @@ export function ActionConfirmTray({
   commandPending,
   dimmed = false,
   error,
+  manilhaRank,
   pendingPlay,
   selectedCard,
   trucoHint,
@@ -104,7 +110,7 @@ export function ActionConfirmTray({
                 </div>
               ) : selectedCard ? (
                 <span className="text-xs font-bold text-white/50">
-                  {getSelectedCardLabel(selectedCard)}
+                  {getSelectedCardLabel(selectedCard, manilhaRank)}
                 </span>
               ) : null}
             </div>
@@ -131,7 +137,7 @@ export function ActionConfirmTray({
       {/* Selected card label */}
       {isSelectionActive && (
         <p className="mt-1.5 text-center text-[11px] font-bold text-white/40">
-          {getSelectedCardLabel(selectedCard)}
+          {getSelectedCardLabel(selectedCard, manilhaRank)}
         </p>
       )}
 

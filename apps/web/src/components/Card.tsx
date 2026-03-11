@@ -4,6 +4,14 @@ import { Club, Diamond, Heart, Spade } from 'lucide-react';
 // Manilha strength order: Paus > Copas > Espadas > Ouros
 export const MANILHA_SUITS: Suit[] = ['Paus', 'Copas', 'Espadas', 'Ouros'];
 
+/** Cultural nickname for each manilha suit */
+export function manilhaNickname(suit: Suit): string {
+  if (suit === 'Paus') return 'ZAP';
+  if (suit === 'Copas') return 'COPAS';
+  if (suit === 'Espadas') return 'ESPADA';
+  return 'MOLE';
+}
+
 function suitSymbol(suit: Suit): string {
   if (suit === 'Copas') return '♥';
   if (suit === 'Espadas') return '♠';
@@ -158,8 +166,8 @@ export function CardView({
       className={`${sizeClass} ${className} ${mutedClass} ${pendingClass} ${stateClass} relative overflow-hidden rounded-[18px] bg-gradient-to-br from-white via-slate-50 to-slate-200 text-slate-950 shadow-2xl transition-all duration-200 sm:rounded-[22px] ${compact ? 'p-1 sm:p-2' : 'p-1.5 sm:p-2'}`}
     >
       {isManilha && (
-        <div className="absolute right-0 top-0 rounded-bl-xl bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-black">
-          ★
+        <div className="absolute right-0 top-0 rounded-bl-xl bg-amber-400 px-1 py-0.5 text-[8px] font-black leading-none text-black sm:px-1.5 sm:text-[9px]">
+          {manilhaNickname(card.suit)}
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-black/10" />

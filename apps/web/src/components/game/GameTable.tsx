@@ -16,9 +16,11 @@ import {
   Trophy,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { manilhaNickname } from '../Card.js';
 import { usePhoneLayout } from '../../hooks/usePhoneLayout.js';
 import { triggerHaptic } from '../../lib/haptics.js';
+import { playTrucoSound } from '../../lib/sounds.js';
 import { createTablePresentation } from '../../lib/tablePresentation.js';
 import { ActionConfirmTray } from './ActionConfirmTray.js';
 import { BottomActionBar } from './BottomActionBar.js';
@@ -122,8 +124,32 @@ export function GameTable({
   const [selectedPlay, setSelectedPlay] = useState<SelectedPlayState | null>(
     null,
   );
+  const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
+  const [trucoShout, setTrucoShout] = useState<{ label: string; id: number } | null>(null);
   const { isCompactContext, isPhoneLayout } = usePhoneLayout();
   const lastPhaseRef = useRef(view.gamePhase);
+  const prevRoundCardsLenRef = useRef(view.roundCards.length);
+  const prevTrickHistoryLenRef = useRef(view.trickHistory.length);
+  const maoDeOnzeShownForRef = useRef<number | null>(null);
+  const prevTrucoSheetOpenRef = useRef(false);
+
+  const showToast = useCallback((text: string) => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev.slice(-2), { id, text }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 2800);
+  }, []);
+
+  const showTrucoShout = useCallback((label: string) => {
+    const id = Date.now();
+    setTrucoShout({ label, id });
+    playTrucoSound();
+    triggerHaptic([60, 30, 60, 30, 120]);
+    setTimeout(() => {
+      setTrucoShout((curr) => (curr?.id === id ? null : curr));
+    }, 1500);
+  }, []);
 
   const presentation = useMemo(
     () =>
@@ -161,6 +187,66 @@ export function GameTable({
 
     lastPhaseRef.current = view.gamePhase;
   }, [view.gamePhase]);
+
+  // Toast: ZAP! / COPAS! / ESPADA! / MOLE! when a manilha lands on the table
+  useEffect(() => {
+    const prev = prevRoundCardsLenRef.current;
+    const curr = view.roundCards.length;
+    if (curr > prev && view.manilhaRank) {
+      const newest = view.roundCards[curr - 1];
+      if (newest?.card && newest.card.rank === view.manilhaRank) {
+        showToast(manilhaNickname(newest.card.suit) + '!');
+      }
+    }
+    prevRoundCardsLenRef.current = curr;
+  }, [showToast, view.manilhaRank, view.roundCards]);
+
+  // Toast: FERRO! when our team wins a trick
+  useEffect(() => {
+    const prev = prevTrickHistoryLenRef.current;
+    const curr = view.trickHistory.length;
+    if (curr > prev) {
+      const latestTrick = view.trickHistory[curr - 1];
+      if (
+        latestTrick &&
+        latestTrick.winnerSeatId !== 'tie' &&
+        (latestTrick.winnerSeatId as number) % 2 === viewerTeamId
+      ) {
+        showToast('FERRO!');
+      }
+    }
+    prevTrickHistoryLenRef.current = curr;
+  }, [showToast, view.trickHistory, viewerTeamId]);
+
+  // Toast: MÃO DE ONZE when either team reaches 11 (once per score)
+  useEffect(() => {
+    const scoreKey = presentation.scoreUs * 100 + presentation.scoreThem;
+    if (
+      maoDeOnzeShownForRef.current !== scoreKey &&
+      (presentation.scoreUs === 11 || presentation.scoreThem === 11)
+    ) {
+      maoDeOnzeShownForRef.current = scoreKey;
+      if (presentation.scoreUs === 11 && presentation.scoreThem === 11) {
+        showToast('MÃO DE FERRO!');
+      } else {
+        showToast('MÃO DE ONZE!');
+      }
+    }
+  }, [showToast, presentation.scoreUs, presentation.scoreThem]);
+
+  // Truco shout: when opponent calls truco (sheet opens from their side)
+  useEffect(() => {
+    const wasOpen = prevTrucoSheetOpenRef.current;
+    const isOpen = Boolean(
+      respondTrucoAction && view.trucoPending && !presentation.isPausedReconnect,
+    );
+    if (!wasOpen && isOpen && view.trucoPending) {
+      const v = view.trucoPending.requestedValue;
+      const label = v === 3 ? 'TRUCO!' : v === 6 ? 'SEIS!' : v === 9 ? 'NOVE!' : 'DOZE!';
+      showTrucoShout(label);
+    }
+    prevTrucoSheetOpenRef.current = isOpen;
+  }, [respondTrucoAction, view.trucoPending, presentation.isPausedReconnect, showTrucoShout]);
 
   const statusTone = presentation.isPausedReconnect
     ? 'warning'
@@ -258,7 +344,7 @@ export function GameTable({
   function handleRequestTrucoPress(): void {
     setSelectedPlay(null);
     setPendingPlayCardId(null);
-    triggerHaptic([28]);
+    showTrucoShout(presentation.trucoLabel.toUpperCase());
     onRequestTruco();
   }
 
@@ -473,6 +559,7 @@ export function GameTable({
                     canRequestTruco={presentation.canRequestTruco}
                     commandPending={commandPending}
                     dimmed={trucoSheetOpen}
+                    manilhaRank={view.manilhaRank}
                     error={error}
                     pendingPlay={Boolean(
                       pendingPlayCardId &&
@@ -738,6 +825,48 @@ export function GameTable({
         onRaise={handleRaiseTrucoPress}
         onRun={handleRunTrucoPress}
       />
+
+      {/* Truco shout overlay */}
+      {trucoShout && (
+        <div
+          key={trucoShout.id}
+          className="pointer-events-none fixed inset-0 z-[65] flex items-center justify-center"
+          style={{ animation: 'truco-screen-shake 0.45s ease-out' }}
+        >
+          {/* Radial glow burst */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background: 'radial-gradient(circle at 50% 50%, rgba(251,191,36,0.18) 0%, transparent 65%)',
+              animation: 'truco-fade-out 1.5s ease-out forwards',
+            }}
+          />
+          {/* The shout text */}
+          <span
+            className="relative font-mono font-black uppercase text-amber-300"
+            style={{
+              fontSize: 'clamp(3.5rem, 16vw, 8rem)',
+              letterSpacing: '0.08em',
+              textShadow: '0 0 60px rgba(251,191,36,0.9), 0 0 120px rgba(251,191,36,0.5), 0 4px 20px rgba(0,0,0,0.8)',
+              animation: 'truco-slam 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both, truco-fade-out 1.5s ease-out forwards',
+            }}
+          >
+            {trucoShout.label}
+          </span>
+        </div>
+      )}
+
+      {/* Toast overlay */}
+      <div className="pointer-events-none fixed inset-x-0 top-16 z-50 flex flex-col items-center gap-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className="animate-in fade-in slide-in-from-top-2 rounded-full border border-amber-300/40 bg-amber-400/15 px-5 py-2 font-mono text-sm font-black uppercase tracking-[0.22em] text-amber-200 shadow-lg backdrop-blur-sm duration-300"
+          >
+            {toast.text}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

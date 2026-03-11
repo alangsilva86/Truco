@@ -1,4 +1,6 @@
 import { Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { playPatoSound } from '../../lib/sounds.js';
 
 interface TrucoDecisionSheetProps {
   open: boolean;
@@ -25,8 +27,16 @@ export function TrucoDecisionSheet({
   onRaise,
   onRun,
 }: TrucoDecisionSheetProps) {
+  const [patoKey, setPatoKey] = useState(0);
+
   if (!open) {
     return null;
+  }
+
+  function handleRunPress(): void {
+    setPatoKey((k) => k + 1);
+    playPatoSound();
+    setTimeout(onRun, 550);
   }
 
   return (
@@ -77,11 +87,23 @@ export function TrucoDecisionSheet({
 
           <button
             type="button"
-            onClick={onRun}
+            onClick={handleRunPress}
             disabled={commandPending}
-            className="min-h-12 rounded-2xl border border-rose-300/25 bg-rose-500/10 px-4 py-3 text-sm font-black uppercase tracking-[0.18em] text-rose-100 disabled:opacity-45"
+            className="relative min-h-12 overflow-hidden rounded-2xl border border-rose-300/25 bg-rose-500/10 px-4 py-3 text-sm font-black uppercase tracking-[0.18em] text-rose-100 disabled:opacity-45"
           >
-            Correr · dar {acceptedValue} para eles
+            <span
+              key={patoKey}
+              className="inline-flex items-center gap-2"
+              style={patoKey > 0 ? { animation: 'pato-wobble 0.55s ease-in-out' } : undefined}
+            >
+              <span
+                key={`duck-${patoKey}`}
+                style={patoKey > 0 ? { animation: 'pato-wobble 0.55s ease-in-out 0.06s' } : undefined}
+              >
+                🦆
+              </span>
+              PATO! · dar {acceptedValue} pra eles
+            </span>
           </button>
         </div>
       </div>

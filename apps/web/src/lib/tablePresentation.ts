@@ -326,7 +326,15 @@ export function createTablePresentation(params: {
     coveredHint: getCoveredHint(playAction),
     trucoHint: getTrucoHint(view, requestTrucoAction),
     trucoLabel: requestTrucoAction
-      ? `Trucar ${requestTrucoAction.nextValue}`
+      ? requestTrucoAction.nextValue === 3
+        ? 'Truco!'
+        : requestTrucoAction.nextValue === 6
+          ? 'Seis!'
+          : requestTrucoAction.nextValue === 9
+            ? 'Nove!'
+            : requestTrucoAction.nextValue === 12
+              ? 'Doze!'
+              : `Trucar ${requestTrucoAction.nextValue}`
       : 'Trucar',
     canToggleCovered: Boolean(playAction?.canPlayCovered),
     canRequestTruco: Boolean(requestTrucoAction),
