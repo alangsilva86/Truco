@@ -1,16 +1,25 @@
-import { Card, Rank } from '@truco/contracts';
-import { LoaderCircle } from 'lucide-react';
+import { Card, ConnectionState, Rank } from '@truco/contracts';
+import {
+  AlertCircle,
+  List,
+  LoaderCircle,
+  Swords,
+} from 'lucide-react';
+import { ManilhaFan, MiniCard } from '../Card.js';
 import { TableBannerModel, TrickDotTone } from '../../lib/tablePresentation.js';
 
 interface RoundStatusBarProps {
   banner: TableBannerModel | null;
   commandPending: boolean;
+  connectionState?: ConnectionState;
   currentRoundPoints: number;
   isWaiting: boolean;
+  logCount?: number;
+  logsOpen?: boolean;
   manilhaRank: Rank | null;
-  message: string;
   trickDots: TrickDotTone[];
   vira: Card | null;
+  onToggleLogs?: () => void;
 }
 
 function dotClass(dot: TrickDotTone): string {
@@ -23,11 +32,15 @@ function dotClass(dot: TrickDotTone): string {
 export function RoundStatusBar({
   banner,
   commandPending,
+  connectionState = 'connected',
   currentRoundPoints,
   isWaiting,
+  logCount = 0,
+  logsOpen = false,
   manilhaRank,
   trickDots,
   vira,
+  onToggleLogs,
 }: RoundStatusBarProps) {
   const bannerToneClass =
     banner?.tone === 'player'
@@ -70,19 +83,19 @@ export function RoundStatusBar({
             ))}
           </div>
 
-          {/* Vira */}
+          {/* Vira — mini card */}
           {vira && (
-            <span className="text-[10px] font-black tabular-nums text-white/50 sm:text-xs">
-              {vira.rank}
-              <span className="ml-0.5 font-normal text-white/30">Vira</span>
-            </span>
+            <div className="flex items-center gap-1">
+              <MiniCard rank={vira.rank} suit={vira.suit} size="xs" />
+              <span className="text-[9px] font-medium uppercase tracking-[0.14em] text-white/30">Vira</span>
+            </div>
           )}
 
-          {/* Manilha */}
+          {/* Manilha — 4-suit fan */}
           {manilhaRank && (
-            <span className="rounded-full border border-amber-300/25 bg-amber-400/10 px-2 py-0.5 text-[10px] font-black text-amber-300/85">
-              {manilhaRank}★
-            </span>
+            <div className="flex items-center gap-1">
+              <ManilhaFan rank={manilhaRank} size="xs" />
+            </div>
           )}
 
           {/* Points */}
@@ -95,6 +108,33 @@ export function RoundStatusBar({
             <LoaderCircle className="h-3.5 w-3.5 animate-spin text-white/35" />
           )}
         </div>
+      )}
+
+      {/* LOG button — only when there are entries */}
+      {logCount > 0 && onToggleLogs && (
+        <button
+          type="button"
+          onClick={onToggleLogs}
+          className={`flex h-7 items-center gap-1.5 rounded-xl border px-2.5 text-[10px] font-black uppercase tracking-[0.14em] transition ${
+            logsOpen
+              ? 'border-emerald-300/25 bg-emerald-500/10 text-emerald-200'
+              : 'border-white/10 bg-white/5 text-white/50 hover:text-white/80'
+          }`}
+        >
+          <List className="h-3 w-3" />
+          {logCount > 9 ? '9+' : logCount}
+        </button>
+      )}
+
+      {/* Connection alert — only when not connected */}
+      {connectionState === 'reconnecting' && (
+        <LoaderCircle className="h-3.5 w-3.5 shrink-0 animate-spin text-amber-400" />
+      )}
+      {connectionState === 'disconnected' && (
+        <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-400" />
+      )}
+      {connectionState === 'connected' && (
+        <Swords className="h-3.5 w-3.5 shrink-0 text-emerald-300/40" />
       )}
     </section>
   );

@@ -23,7 +23,6 @@ import { createTablePresentation } from '../../lib/tablePresentation.js';
 import { ActionConfirmTray } from './ActionConfirmTray.js';
 import { BottomActionBar } from './BottomActionBar.js';
 import { CenterTable } from './CenterTable.js';
-import { ConnectionStatus } from './ConnectionStatus.js';
 import { MatchLogDrawer } from './MatchLogDrawer.js';
 import { RoundContextRail } from './RoundContextRail.js';
 import { RoundStatusBar } from './RoundStatusBar.js';
@@ -173,16 +172,6 @@ export function GameTable({
   const trucoSheetOpen = Boolean(
     respondTrucoAction && view.trucoPending && !presentation.isPausedReconnect,
   );
-  const contextFactsCollapsed =
-    isPhoneLayout &&
-    presentation.contextFactsCollapsed &&
-    isCompactContext &&
-    view.gamePhase === 'PLAYING';
-  const showCompactFeltFacts =
-    isPhoneLayout &&
-    contextFactsCollapsed &&
-    presentation.showCompactFeltFacts &&
-    !presentation.isWaiting;
   const selectedCard = selectedPlay?.card ?? null;
   const activeSeatName =
     presentation.activeOwnedSeatId !== null
@@ -288,23 +277,6 @@ export function GameTable({
     onRunTruco();
   }
 
-  const compactFacts = showCompactFeltFacts
-    ? [
-        {
-          label: 'Vazas',
-          value: formatCompactTrickDots(presentation.trickDots),
-        },
-        ...(view.vira
-          ? [
-              {
-                label: 'Vira',
-                value: `${view.vira.rank} ${formatCompactSuit(view.vira.suit)}`,
-              },
-            ]
-          : []),
-      ]
-    : [];
-
   const phoneTrayHand =
     !presentation.isWaiting && !presentation.isGameEnd ? (
       presentation.topSeatFocus ? (
@@ -380,9 +352,7 @@ export function GameTable({
                 activeSeatLabel={presentation.activeOwnedSeatLabel}
                 activeSeatName={activeSeatName}
                 banner={presentation.banner}
-                compactFactsInFelt={showCompactFeltFacts}
                 currentRoundPoints={view.currentRoundPoints}
-                defaultCollapsed={contextFactsCollapsed}
                 dimmed={trucoSheetOpen}
                 manilhaRank={view.manilhaRank}
                 trickDots={presentation.trickDots}
@@ -408,24 +378,37 @@ export function GameTable({
               <div className="relative flex min-h-0 flex-1 flex-col px-2 pb-1.5">
                 {!presentation.isWaiting && !presentation.isGameEnd && (
                   <div className="relative z-10 flex justify-center pt-1">
-                    <SeatPanel
-                      mode="visible"
-                      orientation="top"
-                      tone="partner"
-                      nickname={presentation.topSeat.nickname}
-                      dealer={presentation.topSeat.dealer}
-                      active={presentation.topSeat.active}
-                      cards={presentation.topCards}
-                      manilhaRank={view.manilhaRank}
-                      disabled
-                      highlightCards={false}
-                      pendingCardId={pendingPlayCardId}
-                      selectedCardId={
-                        presentation.topSeatFocus
-                          ? (selectedCard?.id ?? null)
-                          : null
-                      }
-                    />
+                    {presentation.topSeatFocus ? (
+                      // When partner plays: show PLAYER's own cards at the top as reference.
+                      // Partner's interactive cards move to the bottom tray.
+                      <SeatPanel
+                        mode="visible"
+                        orientation="top"
+                        tone="player"
+                        nickname={presentation.bottomSeat.nickname}
+                        dealer={presentation.bottomSeat.dealer}
+                        active={false}
+                        cards={presentation.bottomCards}
+                        manilhaRank={view.manilhaRank}
+                        disabled
+                        highlightCards={false}
+                      />
+                    ) : (
+                      // Normal: show partner's cards at the top as reference.
+                      <SeatPanel
+                        mode="visible"
+                        orientation="top"
+                        tone="partner"
+                        nickname={presentation.topSeat.nickname}
+                        dealer={presentation.topSeat.dealer}
+                        active={presentation.topSeat.active}
+                        cards={presentation.topCards}
+                        manilhaRank={view.manilhaRank}
+                        disabled
+                        highlightCards={false}
+                        pendingCardId={pendingPlayCardId}
+                      />
+                    )}
                   </div>
                 )}
 
@@ -465,12 +448,7 @@ export function GameTable({
                       codeCopied={codeCopied}
                       onCopyCode={() => onCopyCode(view.roomCode)}
                       roundCards={view.roundCards}
-                      seatLayout={presentation.seatLayout}
-                      message={view.message}
-                      phaseLabel={presentation.phaseLabel}
                       manilhaRank={view.manilhaRank}
-                      compactFacts={compactFacts}
-                      showMessageBadge={view.gamePhase !== 'PLAYING'}
                     />
                   </div>
 
@@ -520,12 +498,15 @@ export function GameTable({
               <RoundStatusBar
                 banner={presentation.banner}
                 commandPending={commandPending}
+                connectionState={connectionState}
                 currentRoundPoints={view.currentRoundPoints}
                 isWaiting={presentation.isWaiting}
+                logCount={logs.length}
+                logsOpen={logsOpen}
                 manilhaRank={view.manilhaRank}
-                message={view.message}
                 trickDots={presentation.trickDots}
                 vira={view.vira}
+                onToggleLogs={() => setLogsOpen((current) => !current)}
               />
 
               {error && (
@@ -602,28 +583,12 @@ export function GameTable({
                       codeCopied={codeCopied}
                       onCopyCode={() => onCopyCode(view.roomCode)}
                       roundCards={view.roundCards}
-                      seatLayout={presentation.seatLayout}
-                      message={view.message}
-                      phaseLabel={presentation.phaseLabel}
                       manilhaRank={view.manilhaRank}
                     />
                   </div>
                 </div>
 
-                <div className="flex flex-col items-center gap-2 sm:gap-2.5">
-                  <BottomActionBar
-                    show={showBottomActions}
-                    coveredActive={coveredMode}
-                    coveredEnabled={presentation.canToggleCovered}
-                    coveredHint={presentation.coveredHint}
-                    trucoEnabled={presentation.canRequestTruco}
-                    trucoHint={presentation.trucoHint}
-                    trucoLabel={presentation.trucoLabel}
-                    commandPending={commandPending}
-                    onToggleCovered={onToggleCovered}
-                    onRequestTruco={handleRequestTrucoPress}
-                  />
-
+                <div className="flex flex-col items-center gap-1.5 sm:gap-2">
                   {!presentation.isWaiting && !presentation.isGameEnd && (
                     <SeatPanel
                       mode="visible"
@@ -642,16 +607,22 @@ export function GameTable({
                       }
                     />
                   )}
+
+                  <BottomActionBar
+                    show={showBottomActions}
+                    coveredActive={coveredMode}
+                    coveredEnabled={presentation.canToggleCovered}
+                    coveredHint={presentation.coveredHint}
+                    trucoEnabled={presentation.canRequestTruco}
+                    trucoHint={presentation.trucoHint}
+                    trucoLabel={presentation.trucoLabel}
+                    commandPending={commandPending}
+                    onToggleCovered={onToggleCovered}
+                    onRequestTruco={handleRequestTrucoPress}
+                  />
                 </div>
               </div>
 
-              <ConnectionStatus
-                connectionState={connectionState}
-                shareMessage={presentation.shareMessage}
-                logCount={logs.length}
-                logsOpen={logsOpen}
-                onToggleLogs={() => setLogsOpen((current) => !current)}
-              />
             </>
           )}
         </main>

@@ -102,7 +102,7 @@ export function SeatPanel(props: SeatPanelProps) {
       </div>
 
       <div
-        className={`flex w-full items-center justify-center overflow-x-auto pb-1 ${isBottom ? 'gap-1.5 sm:gap-3' : 'gap-1.5 sm:gap-2.5'} ${isTop ? 'max-w-[20rem] sm:max-w-none' : ''}`}
+        className={`flex w-full items-center justify-center pt-3 pb-2 ${isBottom ? 'gap-1.5 sm:gap-3' : 'gap-1.5 sm:gap-2.5'} ${isTop ? 'max-w-[20rem] sm:max-w-none' : ''}`}
       >
         {props.cards.map((card) => (
           <CardView

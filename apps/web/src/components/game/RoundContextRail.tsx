@@ -1,15 +1,14 @@
 import { Card, Rank } from '@truco/contracts';
 import { ChevronDown } from 'lucide-react';
 import { useState } from 'react';
+import { ManilhaFan, MiniCard } from '../Card.js';
 import { TableBannerModel, TrickDotTone } from '../../lib/tablePresentation.js';
 
 interface RoundContextRailProps {
   activeSeatLabel: 'baixo' | 'cima' | null;
   activeSeatName: string | null;
   banner: TableBannerModel | null;
-  compactFactsInFelt: boolean;
   currentRoundPoints: number;
-  defaultCollapsed: boolean;
   dimmed?: boolean;
   manilhaRank: Rank | null;
   trickDots: TrickDotTone[];
@@ -86,12 +85,8 @@ export function RoundContextRail({
             <span className="ml-0.5 text-white/30">pts</span>
           </span>
 
-          {/* Manilha */}
-          {manilhaRank && (
-            <span className="rounded-full bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-black text-amber-300/90">
-              {manilhaRank}★
-            </span>
-          )}
+          {/* Manilha fan mini */}
+          {manilhaRank && <ManilhaFan rank={manilhaRank} size="xs" />}
 
           {/* Trick dots mini */}
           <div className="flex items-center gap-0.5">
@@ -123,27 +118,27 @@ export function RoundContextRail({
             </p>
           </div>
 
-          {/* Manilha chip */}
+          {/* Manilha chip — fan of 4 cards */}
           {manilhaRank && (
             <div className="rounded-[14px] border border-amber-300/25 bg-amber-400/10 px-3 py-2">
               <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/40">
                 Manilha
               </p>
-              <p className="mt-0.5 text-sm font-black leading-none text-amber-200">
-                {manilhaRank}
-              </p>
+              <div className="mt-1.5">
+                <ManilhaFan rank={manilhaRank} size="sm" />
+              </div>
             </div>
           )}
 
-          {/* Vira */}
+          {/* Vira — mini card */}
           {vira && (
             <div className="rounded-[14px] border border-white/10 bg-black/20 px-3 py-2">
               <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/40">
                 Vira
               </p>
-              <p className="mt-0.5 text-sm font-black leading-none text-white">
-                {vira.rank} de {vira.suit}
-              </p>
+              <div className="mt-1.5">
+                <MiniCard rank={vira.rank} suit={vira.suit} size="sm" />
+              </div>
             </div>
           )}
 

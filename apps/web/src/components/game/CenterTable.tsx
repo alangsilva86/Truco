@@ -1,4 +1,4 @@
-import { PlayedCardView, Rank, SeatId } from '@truco/contracts';
+import { PlayedCardView, Rank } from '@truco/contracts';
 import { Check, Copy, Sparkles } from 'lucide-react';
 import { CardView } from '../Card.js';
 
@@ -8,21 +8,7 @@ interface CenterTableProps {
   codeCopied: boolean;
   onCopyCode: () => void;
   roundCards: PlayedCardView[];
-  seatLayout: {
-    bottom: SeatId;
-    top: SeatId;
-    left: SeatId;
-    right: SeatId;
-  };
-  message: string;
-  phaseLabel: string;
   manilhaRank: Rank | null;
-  compactFacts?: Array<{
-    label: string;
-    tone?: 'accent' | 'default';
-    value: string;
-  }>;
-  showMessageBadge?: boolean;
 }
 
 export function CenterTable({
@@ -31,12 +17,7 @@ export function CenterTable({
   codeCopied,
   onCopyCode,
   roundCards,
-  seatLayout,
-  message,
-  phaseLabel,
   manilhaRank,
-  compactFacts = [],
-  showMessageBadge = true,
 }: CenterTableProps) {
   if (mode === 'waiting') {
     return (
@@ -71,46 +52,39 @@ export function CenterTable({
     );
   }
 
-  // Table mode: transparent zone — cards float on the felt, no opaque box
+  // Table mode: played cards arranged as a fan (leque) on the felt.
+  // x, y: offset from center in rem; r: rotation in degrees.
+  // z-index = i+1, so the last-played card (highest index) is always on top.
+  const FAN: { x: number; y: number; r: number }[][] = [
+    [{ x: 0, y: 0, r: 0 }],
+    [{ x: -1.5, y: 0.5, r: -12 }, { x: 1.5, y: 0.5, r: 12 }],
+    [{ x: -2.5, y: 0.75, r: -18 }, { x: 0, y: -0.25, r: 3 }, { x: 2.5, y: 0.75, r: 18 }],
+    [{ x: -3.25, y: 1, r: -24 }, { x: -1.1, y: 0.15, r: -8 }, { x: 1.1, y: 0.15, r: 8 }, { x: 3.25, y: 1, r: 24 }],
+  ];
+
+  const n = roundCards.length;
+
   return (
     <div className="relative h-full w-full">
-      {/* Ambient felt highlight — purely decorative, no height constraints */}
+      {/* Ambient felt glow — purely decorative */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="h-24 w-full rounded-full bg-emerald-950/60 blur-3xl sm:h-36" />
       </div>
 
-      {compactFacts.length > 0 && (
-        <div className="pointer-events-none absolute left-2 top-2 z-10 flex flex-wrap gap-1.5">
-          {compactFacts.map((fact) => (
-            <div
-              key={`${fact.label}-${fact.value}`}
-              className={`rounded-full border px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] ${
-                fact.tone === 'accent'
-                  ? 'border-amber-300/30 bg-amber-400/12 text-amber-100'
-                  : 'border-white/10 bg-black/35 text-white/80'
-              }`}
-            >
-              {fact.label} · {fact.value}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Played cards — absolutely positioned on the felt */}
-      {roundCards.map((playedCard) => {
-        const position =
-          playedCard.seatId === seatLayout.bottom
-            ? 'left-1/2 bottom-[8%] -translate-x-1/2'
-            : playedCard.seatId === seatLayout.top
-              ? 'left-1/2 top-[8%] -translate-x-1/2'
-              : playedCard.seatId === seatLayout.left
-                ? 'left-[4%] top-1/2 -translate-y-1/2'
-                : 'right-[4%] top-1/2 -translate-y-1/2';
-
+      {/* Played cards fan */}
+      {n > 0 && roundCards.map((playedCard, i) => {
+        const slots = FAN[Math.min(n, FAN.length) - 1];
+        const pos = slots[i] ?? { x: 0, y: 0, r: 0 };
         return (
           <div
             key={`${playedCard.seatId}-${playedCard.card?.id ?? 'covered'}`}
-            className={`absolute ${position} transition-all duration-200`}
+            className="absolute transition-all duration-500"
+            style={{
+              left: '50%',
+              top: '50%',
+              transform: `translate(calc(-50% + ${pos.x}rem), calc(-50% + ${pos.y}rem)) rotate(${pos.r}deg)`,
+              zIndex: i + 1,
+            }}
           >
             <CardView
               card={playedCard.card}
@@ -121,18 +95,6 @@ export function CenterTable({
           </div>
         );
       })}
-
-      {/* Message badge — centered, compact, semi-transparent */}
-      {showMessageBadge && (
-        <div className="absolute left-1/2 top-1/2 z-10 w-max max-w-[9.5rem] -translate-x-1/2 -translate-y-1/2 rounded-[18px] border border-white/8 bg-black/50 px-3 py-2 text-center shadow-xl backdrop-blur-md sm:max-w-[11rem] sm:rounded-[22px] sm:px-4 sm:py-2.5">
-          <p className="text-[9px] font-black uppercase tracking-[0.22em] text-white/30 sm:text-[10px] sm:tracking-[0.24em]">
-            {phaseLabel}
-          </p>
-          <p className="mt-0.5 text-xs font-bold leading-snug text-white/65 sm:text-sm">
-            {message}
-          </p>
-        </div>
-      )}
     </div>
   );
 }

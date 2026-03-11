@@ -1,5 +1,66 @@
-import { Card, Rank } from '@truco/contracts';
+import { Card, Rank, Suit } from '@truco/contracts';
 import { Club, Diamond, Heart, Spade } from 'lucide-react';
+
+// Manilha strength order: Paus > Copas > Espadas > Ouros
+export const MANILHA_SUITS: Suit[] = ['Paus', 'Copas', 'Espadas', 'Ouros'];
+
+function suitSymbol(suit: Suit): string {
+  if (suit === 'Copas') return '♥';
+  if (suit === 'Espadas') return '♠';
+  if (suit === 'Paus') return '♣';
+  return '♦';
+}
+
+function suitColor(suit: Suit): string {
+  if (suit === 'Copas' || suit === 'Ouros') return 'text-rose-600';
+  if (suit === 'Paus') return 'text-emerald-800';
+  return 'text-slate-900';
+}
+
+/** Tiny card chip — rank + suit symbol, no icons, fits inline in HUD bars */
+export function MiniCard({
+  rank,
+  suit,
+  size = 'sm',
+}: {
+  rank: string;
+  suit: Suit;
+  size?: 'xs' | 'sm';
+}) {
+  const color = suitColor(suit);
+  const sym = suitSymbol(suit);
+  if (size === 'xs') {
+    return (
+      <div className="inline-flex h-6 w-4 flex-col items-start justify-between rounded-[5px] border border-slate-300/70 bg-white px-0.5 pt-0.5 pb-px shadow-sm">
+        <span className={`text-[8px] font-black leading-none ${color}`}>{rank}</span>
+        <span className={`self-end text-[8px] leading-none rotate-180 ${color}`}>{sym}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="inline-flex h-8 w-[1.375rem] flex-col items-start justify-between rounded-[6px] border border-slate-300/70 bg-white px-0.5 pt-0.5 pb-px shadow-sm">
+      <span className={`text-[10px] font-black leading-none ${color}`}>{rank}</span>
+      <span className={`self-end text-[10px] leading-none rotate-180 ${color}`}>{sym}</span>
+    </div>
+  );
+}
+
+/** Row of 4 overlapping MiniCards — one per suit — for the manilha rank */
+export function ManilhaFan({
+  rank,
+  size = 'sm',
+}: {
+  rank: string;
+  size?: 'xs' | 'sm';
+}) {
+  return (
+    <div className={`flex items-end ${size === 'xs' ? '-space-x-1.5' : '-space-x-2'}`}>
+      {MANILHA_SUITS.map((suit) => (
+        <MiniCard key={suit} rank={rank} suit={suit} size={size} />
+      ))}
+    </div>
+  );
+}
 
 interface CardProps {
   card: Card | null;
@@ -14,20 +75,24 @@ interface CardProps {
   className?: string;
 }
 
-function SuitIcon({ suit }: { suit: Card['suit'] }) {
+function SuitIcon({ suit, compact }: { suit: Card['suit']; compact: boolean }) {
+  const cls = compact
+    ? 'h-3 w-3 sm:h-4 sm:w-4'
+    : 'h-3.5 w-3.5 sm:h-4 sm:w-4';
+
   if (suit === 'Copas') {
-    return <Heart className="h-4 w-4 fill-rose-500 text-rose-500" />;
+    return <Heart className={`${cls} fill-rose-500 text-rose-500`} />;
   }
 
   if (suit === 'Espadas') {
-    return <Spade className="h-4 w-4 fill-slate-900 text-slate-900" />;
+    return <Spade className={`${cls} fill-slate-900 text-slate-900`} />;
   }
 
   if (suit === 'Paus') {
-    return <Club className="h-4 w-4 fill-emerald-900 text-emerald-900" />;
+    return <Club className={`${cls} fill-emerald-900 text-emerald-900`} />;
   }
 
-  return <Diamond className="h-4 w-4 fill-rose-500 text-rose-500" />;
+  return <Diamond className={`${cls} fill-rose-500 text-rose-500`} />;
 }
 
 export function CardView({
@@ -42,8 +107,10 @@ export function CardView({
   compact = false,
   className = '',
 }: CardProps) {
+  // compact = reference cards (top/side): smaller, simplified layout (no bottom section)
+  // non-compact = interactive hand: original mobile size, full layout
   const sizeClass = compact
-    ? 'h-16 w-11 sm:h-24 sm:w-16'
+    ? 'h-14 w-10 sm:h-24 sm:w-16'
     : 'h-20 w-14 sm:h-32 sm:w-20';
   const isRed = card ? card.suit === 'Copas' || card.suit === 'Ouros' : false;
   const isManilha = Boolean(card && manilhaRank && card.rank === manilhaRank);
@@ -88,7 +155,7 @@ export function CardView({
       aria-label={`${card.rank} de ${card.suit}`}
       onClick={onClick}
       disabled={!interactive}
-      className={`${sizeClass} ${className} ${mutedClass} ${pendingClass} ${stateClass} relative overflow-hidden rounded-[18px] bg-gradient-to-br from-white via-slate-50 to-slate-200 p-1.5 text-slate-950 shadow-2xl transition-all duration-200 sm:rounded-[22px] sm:p-2`}
+      className={`${sizeClass} ${className} ${mutedClass} ${pendingClass} ${stateClass} relative overflow-hidden rounded-[18px] bg-gradient-to-br from-white via-slate-50 to-slate-200 text-slate-950 shadow-2xl transition-all duration-200 sm:rounded-[22px] ${compact ? 'p-1 sm:p-2' : 'p-1.5 sm:p-2'}`}
     >
       {isManilha && (
         <div className="absolute right-0 top-0 rounded-bl-xl bg-amber-400 px-1.5 py-0.5 text-[10px] font-black text-black">
@@ -96,27 +163,40 @@ export function CardView({
         </div>
       )}
       <div className="absolute inset-0 bg-gradient-to-br from-white/50 via-transparent to-black/10" />
-      <div className="relative flex h-full flex-col justify-between">
-        <div className="flex flex-col items-start">
-          <span
-            className={`text-base font-black leading-none sm:text-lg ${isRed ? 'text-rose-600' : 'text-slate-900'}`}
-          >
-            {card.rank}
-          </span>
-          <SuitIcon suit={card.suit} />
+
+      {compact ? (
+        /* Compact layout: top-left corner + faint center — no overflow risk */
+        <div className="relative flex h-full flex-col justify-between">
+          <div className="flex flex-col items-start">
+            <span className={`text-xs font-black leading-none sm:text-base ${isRed ? 'text-rose-600' : 'text-slate-900'}`}>
+              {card.rank}
+            </span>
+            <SuitIcon suit={card.suit} compact />
+          </div>
+          <div className="flex items-center justify-center opacity-10">
+            <SuitIcon suit={card.suit} compact />
+          </div>
         </div>
-        <div className="flex items-center justify-center opacity-10">
-          <SuitIcon suit={card.suit} />
+      ) : (
+        /* Full layout: top, center, rotated bottom */
+        <div className="relative flex h-full flex-col justify-between">
+          <div className="flex flex-col items-start">
+            <span className={`text-sm font-black leading-none sm:text-lg ${isRed ? 'text-rose-600' : 'text-slate-900'}`}>
+              {card.rank}
+            </span>
+            <SuitIcon suit={card.suit} compact={false} />
+          </div>
+          <div className="flex items-center justify-center opacity-10">
+            <SuitIcon suit={card.suit} compact={false} />
+          </div>
+          <div className="flex rotate-180 flex-col items-end">
+            <span className={`text-sm font-black leading-none sm:text-lg ${isRed ? 'text-rose-600' : 'text-slate-900'}`}>
+              {card.rank}
+            </span>
+            <SuitIcon suit={card.suit} compact={false} />
+          </div>
         </div>
-        <div className="flex rotate-180 flex-col items-end">
-          <span
-            className={`text-base font-black leading-none sm:text-lg ${isRed ? 'text-rose-600' : 'text-slate-900'}`}
-          >
-            {card.rank}
-          </span>
-          <SuitIcon suit={card.suit} />
-        </div>
-      </div>
+      )}
     </button>
   );
 }

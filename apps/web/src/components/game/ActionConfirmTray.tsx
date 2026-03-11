@@ -48,13 +48,13 @@ export function ActionConfirmTray({
 
   return (
     <div
-      className={`table-surface safe-bottom mt-2 rounded-[22px] px-3 pb-3 pt-2.5 transition ${dimmed ? 'pointer-events-none opacity-40' : ''}`}
+      className={`table-surface safe-bottom mt-2 overflow-visible rounded-[22px] px-3 pb-3 pt-1 transition ${dimmed ? 'pointer-events-none opacity-40' : ''}`}
     >
       {/* Player hand — primary, always at top of tray */}
-      {children && <div>{children}</div>}
+      {children && <div className="-mx-1 overflow-visible">{children}</div>}
 
       {/* Action dock — below the hand */}
-      <div className="mt-2 flex items-center gap-2">
+      <div className="mt-1 flex items-center gap-2">
         {isSelectionActive ? (
           /* ── Confirm row when a card is selected ── */
           <>
