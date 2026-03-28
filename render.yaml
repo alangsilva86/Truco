@@ -10,6 +10,8 @@ services:
     envVars:
       - key: REDIS_URI
         sync: false
+      - key: RECONNECT_WINDOW_SECONDS
+        value: 60
     buildFilter:
       paths:
         - apps/server/**

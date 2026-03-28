@@ -35,9 +35,12 @@ export default function App() {
     patoTauntCount,
     reportError,
     reconnect,
+    reconnectStatus,
+    retryReconnectNow,
     sendCommand,
     sendReaction,
     sendPatoTaunt,
+    abandonRecovery,
     view,
   } = useRoomConnection({
     clearSession,
@@ -110,6 +113,7 @@ export default function App() {
       logs={logs}
       error={error}
       chatBubbles={chatBubbles}
+      reconnectStatus={reconnectStatus}
       coveredMode={coveredMode}
       commandPending={commandPending}
       codeCopied={codeCopied}
@@ -121,6 +125,8 @@ export default function App() {
       onDismissError={dismissError}
       onCopyCode={handleCopyCode}
       onLeave={leaveSession}
+      onReturnToLobby={abandonRecovery}
+      onRetryReconnect={retryReconnectNow}
       onSendReaction={sendReaction}
       onToggleCovered={onToggleCovered}
       onPlayHandOfEleven={onPlayHandOfEleven}

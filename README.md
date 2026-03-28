@@ -51,6 +51,7 @@ packages/
 - Playground do Colyseus em dev: `http://127.0.0.1:2567/`
 
 O `apps/web` usa proxy do Vite para `/api`, `/health`, `/version` e `/monitor`, então o fluxo local não precisa configurar a origem HTTP manualmente.
+O endpoint `/version` agora retorna `{ version, bootId, startedAt }`, o que permite ao cliente detectar restart real do backend durante a janela de recovery.
 
 ## Variáveis de ambiente
 
@@ -58,8 +59,10 @@ Todas as variáveis são lidas a partir do root do monorepo.
 
 - `TRUCO_PROXY_TARGET`: alvo do proxy HTTP do Vite em desenvolvimento. Default: `http://127.0.0.1:2567`
 - `TRUCO_ALLOWED_ORIGINS`: lista separada por virgula das origens HTTP aceitas pelo backend. Suporta curingas como `https://*.vercel.app`
+- `RECONNECT_WINDOW_SECONDS`: janela de reconnect no servidor. Default: `60`
 - `VITE_SERVER_HTTP_URL`: sobrescreve a origem HTTP usada pelo cliente para lookup de sala e endpoints auxiliares. Em dev local pode ficar vazio para usar o proxy.
 - `VITE_SERVER_WS_URL`: sobrescreve a origem websocket do Colyseus. Em dev local, o cliente usa `ws://<host-atual>:2567`.
+- `VITE_CLIENT_RECONNECT_BUDGET_MS`: budget total do supervisor de recovery no cliente. Default: `55000`
 
 Se você for apontar o frontend para um servidor remoto, defina `VITE_SERVER_HTTP_URL` e `VITE_SERVER_WS_URL`.
 
@@ -100,6 +103,7 @@ O backend realtime deve subir como `Web Service` no Render. O repositório já i
 - `plan`: `starter`
 - `region`: `oregon`
 - `REDIS_URI`: configurado como secret/env var no serviço
+- `RECONNECT_WINDOW_SECONDS`: opcional; default `60`
 
 Se voce configurar manualmente pelo painel, use estes valores:
 
@@ -108,12 +112,14 @@ Se voce configurar manualmente pelo painel, use estes valores:
 - `Start Command`: `npm run start:server`
 - `Health Check Path`: `/health`
 - `REDIS_URI`: URL de um Redis compartilhado
+- `RECONNECT_WINDOW_SECONDS`: segundos da janela de reconnect do Colyseus
 
 O servidor usa a porta de `process.env.PORT` automaticamente via `@colyseus/tools`, entao nao e necessario fixar uma porta manualmente no Render.
 
-Para producao realtime, use uma instancia always-on. O plano `free` do Render pode dormir/reiniciar o processo e perder o cache de salas ativas, quebrando reconexao e entrada por codigo.
+Para producao realtime, use uma instancia always-on. O plano `free` do Render pode dormir/reiniciar o processo e perder o cache de salas ativas, quebrando reconexao e entrada por codigo. Redis melhora room directory, presence e futura evolucao multi-instancia, mas nao restaura o estado in-memory de uma partida depois que o processo reinicia.
 
-Se `REDIS_URI` estiver definido, o Colyseus passa a usar Redis shared presence/driver para room cache e matchmaking. Sem `REDIS_URI`, o ambiente local continua usando driver/presence em memoria.
+Se `REDIS_URI` estiver definido, o Colyseus passa a usar `RedisDriver` e `RedisPresence` para room cache e matchmaking. Sem `REDIS_URI`, o ambiente local continua usando driver/presence em memoria.
+O frontend tenta primeiro o auto-reconnect nativo do Colyseus e, se ele falhar, continua tentando recuperar a sessao por ate `VITE_CLIENT_RECONNECT_BUDGET_MS`. Para preservar partida de forma confiavel, backend always-on continua sendo requisito operacional.
 
 Render recomenda fixar a versao do Node para evitar mudancas no runtime. O repositório inclui [.node-version](/Users/momentum1/Documents/GitHub/Truco/.node-version) com `22.22.0`.
 

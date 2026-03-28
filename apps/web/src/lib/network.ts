@@ -3,6 +3,7 @@ import { ClientStorageSnapshot } from '@truco/contracts';
 
 const STORAGE_KEY = 'truco-online-session';
 const DEFAULT_HTTP_TIMEOUT_MS = 5_000;
+const DEFAULT_RECONNECT_BUDGET_MS = 55_000;
 const DEFAULT_ROOM_TIMEOUT_MS = 6_000;
 
 interface RetryOptions {
@@ -17,6 +18,20 @@ function trimTrailingSlash(value: string): string {
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parsePositiveInteger(
+  value: string | undefined,
+  fallback: number,
+): number {
+  const parsed = Number.parseInt(String(value ?? '').trim(), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export interface ServerVersionInfo {
+  bootId: string;
+  startedAt: string;
+  version: string;
 }
 
 export function getServerHttpUrl(): string {
@@ -120,6 +135,17 @@ export async function lookupRoom(
 ): Promise<{ roomId: string }> {
   return fetchJson<{ roomId: string }>(
     `${getServerHttpUrl()}/api/rooms/${roomCode.trim().toUpperCase()}`,
+  );
+}
+
+export async function fetchServerVersion(): Promise<ServerVersionInfo> {
+  return fetchJson<ServerVersionInfo>(`${getServerHttpUrl()}/version`);
+}
+
+export function getClientReconnectBudgetMs(): number {
+  return parsePositiveInteger(
+    import.meta.env.VITE_CLIENT_RECONNECT_BUDGET_MS,
+    DEFAULT_RECONNECT_BUDGET_MS,
   );
 }
 

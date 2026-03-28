@@ -1,3 +1,5 @@
+import { serverRuntime } from '../config/runtime.js';
+
 type LogLevel = 'info' | 'warn' | 'error';
 
 function write(
@@ -7,6 +9,7 @@ function write(
 ): void {
   const payload = {
     ts: new Date().toISOString(),
+    bootId: serverRuntime.bootId,
     level,
     event,
     ...data,

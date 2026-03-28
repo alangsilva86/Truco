@@ -1,10 +1,13 @@
 import type { NextFunction, Request, Response } from 'express';
+import { RedisDriver } from '@colyseus/redis-driver';
+import { RedisPresence } from '@colyseus/redis-presence';
 import {
   defineRoom,
   defineServer,
   monitor,
   playground,
 } from 'colyseus';
+import { getRedisUri, serverRuntime } from './config/runtime.js';
 import { serverMetrics } from './observability/metrics.js';
 import {
   findTrucoRoomByCode,
@@ -42,7 +45,15 @@ function isAllowedOrigin(origin?: string): boolean {
   );
 }
 
+const redisUri = getRedisUri();
+
 const app = defineServer({
+  ...(redisUri
+    ? {
+        driver: new RedisDriver(redisUri),
+        presence: new RedisPresence(redisUri),
+      }
+    : {}),
   rooms: {
     truco_room: defineRoom(TrucoRoom),
   },
@@ -78,7 +89,11 @@ const app = defineServer({
     });
 
     server.get('/version', (_req: Request, res: Response) => {
-      res.json({ version: '1.0.0' });
+      res.json({
+        version: serverRuntime.version,
+        bootId: serverRuntime.bootId,
+        startedAt: serverRuntime.startedAt,
+      });
     });
 
     server.get('/metrics', async (_req: Request, res: Response) => {

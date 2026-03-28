@@ -31,6 +31,8 @@ function createStorageMock() {
 }
 
 const mocks = vi.hoisted(() => {
+  let lastRoom: FakeRoom | null = null;
+
   const gameView = {
     matchId: 'match-1',
     roomCode: 'RCN123',
@@ -81,6 +83,18 @@ const mocks = vi.hoisted(() => {
     private leaveHandler: (() => void) | null = null;
     private reconnectHandler: (() => void) | null = null;
 
+    emitDrop(): void {
+      this.dropHandler?.();
+    }
+
+    emitLeave(): void {
+      this.leaveHandler?.();
+    }
+
+    emitReconnect(): void {
+      this.reconnectHandler?.();
+    }
+
     leave(): void {
       this.leaveHandler?.();
     }
@@ -117,12 +131,24 @@ const mocks = vi.hoisted(() => {
     }
   }
 
+  function registerRoom(room: FakeRoom): FakeRoom {
+    lastRoom = room;
+    return room;
+  }
+
   return {
-    createRoom: () => new FakeRoom(),
-    create: vi.fn().mockImplementation(async () => new FakeRoom()),
-    joinById: vi.fn().mockImplementation(async () => new FakeRoom()),
+    createRoom: () => registerRoom(new FakeRoom()),
+    create: vi.fn().mockImplementation(async () => registerRoom(new FakeRoom())),
+    fetchServerVersion: vi.fn().mockResolvedValue({
+      version: '1.0.0',
+      bootId: 'boot-1',
+      startedAt: '2026-03-28T00:00:00.000Z',
+    }),
+    getClientReconnectBudgetMs: vi.fn().mockReturnValue(55_000),
+    getLastRoom: () => lastRoom,
+    joinById: vi.fn().mockImplementation(async () => registerRoom(new FakeRoom())),
     lookupRoom: vi.fn().mockResolvedValue({ roomId: 'room-join' }),
-    reconnect: vi.fn().mockResolvedValue(new FakeRoom()),
+    reconnect: vi.fn().mockImplementation(async () => registerRoom(new FakeRoom())),
   };
 });
 
@@ -139,10 +165,10 @@ vi.mock('./lib/network.js', async () => {
       joinById: mocks.joinById,
       reconnect: mocks.reconnect,
     }),
+    fetchServerVersion: mocks.fetchServerVersion,
+    getClientReconnectBudgetMs: mocks.getClientReconnectBudgetMs,
     getDefaultRoomTimeoutMs: () => 100,
     lookupRoom: mocks.lookupRoom,
-    retryWithBackoff: async <T,>(operation: (attempt: number) => Promise<T>) =>
-      operation(1),
     withTimeout: async <T,>(operation: () => Promise<T>) => operation(),
   };
 });
@@ -161,6 +187,14 @@ describe('App', () => {
     });
     localStorageMock.clear();
     mocks.create.mockClear();
+    mocks.fetchServerVersion.mockClear();
+    mocks.fetchServerVersion.mockResolvedValue({
+      version: '1.0.0',
+      bootId: 'boot-1',
+      startedAt: '2026-03-28T00:00:00.000Z',
+    });
+    mocks.getClientReconnectBudgetMs.mockClear();
+    mocks.getClientReconnectBudgetMs.mockReturnValue(55_000);
     mocks.joinById.mockClear();
     mocks.lookupRoom.mockClear();
     mocks.reconnect.mockClear();
@@ -301,5 +335,89 @@ describe('App', () => {
       await screen.findByText(/sua sessao expirou ou foi invalidada/i),
     ).toBeInTheDocument();
     expect(window.localStorage.getItem('truco-online-session')).toBeNull();
+  });
+
+  it('preserva a sessao salva quando a reconexao manual falha de forma transitória', async () => {
+    localStorageMock.setItem(
+      'truco-online-session',
+      JSON.stringify({
+        nickname: 'Ana',
+        roomCode: 'RCN123',
+        roomId: 'room-1',
+        ownedSeatIds: [0, 2],
+        reconnectionToken: 'token-123',
+        viewerTeamId: 0,
+        sessionId: 'session-123',
+      }),
+    );
+    mocks.getClientReconnectBudgetMs.mockReturnValueOnce(1);
+    mocks.reconnect.mockRejectedValueOnce(new Error('network down'));
+
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole('button', { name: /reconectar · rcn123/i }),
+    );
+
+    expect(
+      await screen.findByText(/backend ainda nao respondeu|reconexao falhou temporariamente/i),
+    ).toBeInTheDocument();
+    expect(window.localStorage.getItem('truco-online-session')).not.toBeNull();
+    expect(
+      screen.getByRole('button', { name: /reconectar · rcn123/i }),
+    ).toBeInTheDocument();
+  });
+
+  it('inicia o supervisor automatico depois que o reconnect nativo falha', async () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByPlaceholderText(/seu apelido/i), {
+      target: { value: 'Ana' },
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: /criar sala/i })[1]);
+
+    await screen.findByRole('button', { name: /sair da sala/i });
+    const room = mocks.getLastRoom();
+    expect(room).not.toBeNull();
+
+    mocks.reconnect.mockImplementationOnce(() => new Promise(() => undefined));
+
+    room!.emitDrop();
+    room!.emitLeave();
+
+    await waitFor(() => {
+      expect(mocks.reconnect).toHaveBeenCalledWith('token-123');
+    });
+
+    expect(
+      await screen.findByText(/recuperando sessao/i),
+    ).toBeInTheDocument();
+  });
+
+  it('falha cedo quando detecta mudanca de bootId e preserva a sessao salva', async () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByPlaceholderText(/seu apelido/i), {
+      target: { value: 'Ana' },
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: /criar sala/i })[1]);
+
+    await screen.findByRole('button', { name: /sair da sala/i });
+    const room = mocks.getLastRoom();
+    expect(room).not.toBeNull();
+
+    mocks.fetchServerVersion.mockResolvedValueOnce({
+      version: '1.0.0',
+      bootId: 'boot-2',
+      startedAt: '2026-03-28T00:10:00.000Z',
+    });
+
+    room!.emitDrop();
+    room!.emitLeave();
+
+    expect(
+      await screen.findByRole('heading', { name: /servidor reiniciou/i }),
+    ).toBeInTheDocument();
+    expect(window.localStorage.getItem('truco-online-session')).not.toBeNull();
   });
 });

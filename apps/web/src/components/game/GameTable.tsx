@@ -23,6 +23,7 @@ import { usePhoneLayout } from '../../hooks/usePhoneLayout.js';
 import { triggerHaptic } from '../../lib/haptics.js';
 import { playPatoSound, playTrucoSound } from '../../lib/sounds.js';
 import { createTablePresentation } from '../../lib/tablePresentation.js';
+import type { ReconnectStatus } from '../../lib/reconnect.js';
 import { ActionConfirmTray } from './ActionConfirmTray.js';
 import { BottomActionBar } from './BottomActionBar.js';
 import { CenterTable } from './CenterTable.js';
@@ -30,6 +31,7 @@ import { ChatBubbleLayer } from './ChatBubbleLayer.js';
 import { HandOfElevenDecisionSheet } from './HandOfElevenDecisionSheet.js';
 import { MatchLogDrawer } from './MatchLogDrawer.js';
 import { ReactionPicker } from './ReactionPicker.js';
+import { ReconnectRecoveryOverlay } from './ReconnectRecoveryOverlay.js';
 import { RoundContextRail } from './RoundContextRail.js';
 import { RoundStatusBar } from './RoundStatusBar.js';
 import { SeatPanel } from './SeatPanel.js';
@@ -52,6 +54,7 @@ interface GameTableProps {
   logs: string[];
   error: string | null;
   chatBubbles: ChatBubble[];
+  reconnectStatus: ReconnectStatus;
   coveredMode: boolean;
   commandPending: boolean;
   codeCopied: boolean;
@@ -63,6 +66,8 @@ interface GameTableProps {
   onDismissError: () => void;
   onCopyCode: (code: string) => void;
   onLeave: () => void;
+  onReturnToLobby: () => void;
+  onRetryReconnect: () => void;
   onToggleCovered: () => void;
   onPlayHandOfEleven: () => void;
   onPlayCard: (seatId: SeatId, card: Card, mode?: CardPlayMode) => void;
@@ -89,6 +94,7 @@ export function GameTable({
   logs,
   error,
   chatBubbles,
+  reconnectStatus,
   coveredMode,
   commandPending,
   codeCopied,
@@ -100,6 +106,8 @@ export function GameTable({
   onDismissError,
   onCopyCode,
   onLeave,
+  onReturnToLobby,
+  onRetryReconnect,
   onToggleCovered,
   onPlayHandOfEleven,
   onPlayCard,
@@ -919,9 +927,18 @@ export function GameTable({
         </div>
       )}
 
+      {reconnectStatus.phase !== 'idle' && (
+        <ReconnectRecoveryOverlay
+          status={reconnectStatus}
+          onRetry={onRetryReconnect}
+          onReturnToLobby={onReturnToLobby}
+        />
+      )}
+
       {!presentation.isWaiting &&
         !presentation.isGameEnd &&
-        !presentation.isPausedReconnect && (
+        !presentation.isPausedReconnect &&
+        reconnectStatus.phase === 'idle' && (
           <ReactionPicker
             onSend={onSendReaction}
             gamePhase={view.gamePhase}
@@ -932,7 +949,7 @@ export function GameTable({
         )}
 
       {/* PATO taunt button — shown to the player who called truco */}
-      {canSendPatoTaunt && (
+      {canSendPatoTaunt && reconnectStatus.phase === 'idle' && (
         <div className="fixed bottom-8 left-1/2 z-[45] -translate-x-1/2">
           <button
             type="button"

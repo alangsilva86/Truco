@@ -9,6 +9,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createClientGameView } from '../../test/fixtures.js';
+import { createIdleReconnectStatus } from '../../lib/reconnect.js';
 import { GameTable } from './GameTable.js';
 
 function setViewport(width: number, height: number) {
@@ -32,6 +33,7 @@ function createBaseProps() {
     logs: [],
     error: null,
     chatBubbles: [],
+    reconnectStatus: createIdleReconnectStatus(),
     coveredMode: false,
     commandPending: false,
     codeCopied: false,
@@ -42,6 +44,8 @@ function createBaseProps() {
     onDismissError: () => undefined,
     onCopyCode: () => undefined,
     onLeave: () => undefined,
+    onReturnToLobby: () => undefined,
+    onRetryReconnect: () => undefined,
     onToggleCovered: () => undefined,
     onPlayHandOfEleven: () => undefined,
     onPlayCard: () => undefined,
@@ -78,6 +82,7 @@ describe('GameTable', () => {
         logs={[]}
         error={null}
         chatBubbles={[]}
+        reconnectStatus={createIdleReconnectStatus()}
         coveredMode={false}
         commandPending={false}
         codeCopied={false}
@@ -89,6 +94,8 @@ describe('GameTable', () => {
         onDismissError={() => undefined}
         onCopyCode={() => undefined}
         onLeave={() => undefined}
+        onReturnToLobby={() => undefined}
+        onRetryReconnect={() => undefined}
         onToggleCovered={() => undefined}
         onPlayHandOfEleven={() => undefined}
         onPlayCard={() => undefined}
@@ -124,6 +131,7 @@ describe('GameTable', () => {
         logs={[]}
         error={null}
         chatBubbles={[]}
+        reconnectStatus={createIdleReconnectStatus()}
         coveredMode={false}
         commandPending={false}
         codeCopied={false}
@@ -135,6 +143,8 @@ describe('GameTable', () => {
         onDismissError={() => undefined}
         onCopyCode={() => undefined}
         onLeave={() => undefined}
+        onReturnToLobby={() => undefined}
+        onRetryReconnect={() => undefined}
         onToggleCovered={() => undefined}
         onPlayHandOfEleven={() => undefined}
         onPlayCard={() => undefined}

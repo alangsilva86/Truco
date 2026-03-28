@@ -2,6 +2,7 @@ import { performance } from 'node:perf_hooks';
 import { Client, CloseCode, Room } from 'colyseus';
 import { GameCommand, RoomLifecycle, SeatId, TeamId } from '@truco/contracts';
 import { MatchState, createMatch } from '@truco/engine';
+import { getReconnectWindowSeconds } from '../config/runtime.js';
 import { logger } from '../observability/logger.js';
 import { serverMetrics } from '../observability/metrics.js';
 import { MatchRuntime } from '../runtime/MatchRuntime.js';
@@ -25,10 +26,14 @@ interface Participant {
   nickname: string;
 }
 
+interface ClientReconnectTelemetryPayload {
+  durationMs: number;
+  strategy: 'native' | 'supervisor';
+}
+
 // Unambiguous charset: excludes 0/O, 1/I, 2/Z, 5/S, 8/B
 const ROOM_CODE_CHARS = 'ACDEFGHJKMNPQRTUVWXY34679';
 const DISCONNECT_GRACE_MS = 2_000;
-const RECONNECT_WINDOW_SECONDS = 60;
 
 async function createRoomCode(
   existingCodeCheck: (code: string) => Promise<boolean>,
@@ -96,6 +101,8 @@ export class TrucoRoom extends Room<{
   private readonly sessionTeamMap = new Map<string, TeamId>();
   private readonly clientsByTeam = new Map<TeamId, Client>();
   private readonly reactionRateLimit = new Map<string, number>();
+  private readonly reconnectStartedAtBySession = new Map<string, number>();
+  private readonly reconnectSequenceBySession = new Map<string, number>();
   private runtime: MatchRuntime | null = null;
   private roomCode = '';
   private lifecycle: RoomLifecycle = 'OPEN';
@@ -155,6 +162,41 @@ export class TrucoRoom extends Room<{
           phraseId: payload.phraseId,
         });
       }
+    },
+    client_reconnect_telemetry: (
+      client: Client,
+      payload: ClientReconnectTelemetryPayload,
+    ) => {
+      const teamId = this.sessionTeamMap.get(client.sessionId);
+      if (teamId === undefined) {
+        return;
+      }
+
+      if (
+        payload.strategy !== 'native' &&
+        payload.strategy !== 'supervisor'
+      ) {
+        return;
+      }
+
+      if (
+        typeof payload.durationMs !== 'number' ||
+        !Number.isFinite(payload.durationMs) ||
+        payload.durationMs < 0
+      ) {
+        return;
+      }
+
+      const durationMs = Number(payload.durationMs.toFixed(3));
+      serverMetrics.recordReconnectRecovered(payload.strategy, durationMs);
+      logger.info('room.reconnect.client_reported', {
+        roomCode: this.roomCode,
+        roomId: this.roomId,
+        sessionId: client.sessionId,
+        teamId,
+        strategy: payload.strategy,
+        durationMs,
+      });
     },
   };
 
@@ -223,14 +265,20 @@ export class TrucoRoom extends Room<{
     this.syncState(this.runtime?.getState());
     this.refreshDirectory();
     this.scheduleDisconnectGrace(teamId);
+    this.beginReconnectTracking(teamId, client.sessionId);
 
     try {
       const reconnectedClient = await this.allowReconnection(
         client,
-        RECONNECT_WINDOW_SECONDS,
+        getReconnectWindowSeconds(),
       );
 
       this.disconnectGraceManager.clear(teamId);
+      this.ensureSessionOwnership(
+        client.sessionId,
+        reconnectedClient.sessionId,
+        teamId,
+      );
       this.clientsByTeam.set(teamId, reconnectedClient);
 
       const participant = this.participants[teamId];
@@ -261,15 +309,23 @@ export class TrucoRoom extends Room<{
 
       this.refreshDirectory();
       serverMetrics.increment('reconnectSuccessTotal');
+      const timeSinceDropMs = this.getReconnectDurationMs(client.sessionId);
+      const attempt = this.getReconnectAttempt(client.sessionId);
       logger.info('room.reconnect.success', {
         roomCode: this.roomCode,
         roomId: this.roomId,
+        sessionId: reconnectedClient.sessionId,
         teamId,
+        attempt,
+        timeSinceDropMs,
       });
+      this.clearReconnectTracking(client.sessionId, reconnectedClient.sessionId);
     } catch {
       this.disconnectGraceManager.clear(teamId);
       const wasMarkedDisconnected =
         this.participants[teamId]?.connected === false;
+      const timeSinceDropMs = this.getReconnectDurationMs(client.sessionId);
+      const attempt = this.getReconnectAttempt(client.sessionId);
 
       if (this.runtime) {
         if (!wasMarkedDisconnected) {
@@ -293,17 +349,28 @@ export class TrucoRoom extends Room<{
 
       this.refreshDirectory();
       serverMetrics.increment('reconnectFailureTotal');
+      serverMetrics.recordReconnectTerminalFailure(
+        'window_expired',
+        timeSinceDropMs ?? undefined,
+      );
       logger.error('room.reconnect.failed', {
         roomCode: this.roomCode,
         roomId: this.roomId,
+        sessionId: client.sessionId,
         teamId,
+        attempt,
+        timeSinceDropMs,
+        failureReason: 'window_expired',
       });
+      this.clearReconnectTracking(client.sessionId);
     }
   }
 
   onDispose(): void {
     this.disconnectGraceManager.clearAll();
     this.reactionRateLimit.clear();
+    this.reconnectStartedAtBySession.clear();
+    this.reconnectSequenceBySession.clear();
     this.runtime?.dispose();
     logger.info('room.disposed', {
       roomCode: this.roomCode,
@@ -400,6 +467,7 @@ export class TrucoRoom extends Room<{
 
   private handleConsentedLeave(teamId: TeamId, sessionId: string): void {
     this.disconnectGraceManager.clear(teamId);
+    this.clearReconnectTracking(sessionId);
     this.reactionRateLimit.delete(sessionId);
 
     if (!this.participants[teamId]) {
@@ -457,10 +525,16 @@ export class TrucoRoom extends Room<{
       }
 
       this.refreshDirectory();
+      const sessionId = this.getSessionIdForTeam(teamId);
       logger.warn('room.reconnect.waiting', {
         roomCode: this.roomCode,
         roomId: this.roomId,
         teamId,
+        sessionId,
+        attempt: sessionId ? this.getReconnectAttempt(sessionId) : 0,
+        timeSinceDropMs: sessionId
+          ? this.getReconnectDurationMs(sessionId)
+          : DISCONNECT_GRACE_MS,
       });
     });
   }
@@ -566,5 +640,70 @@ export class TrucoRoom extends Room<{
     }
 
     void this.setMetadata(this.createMatchmakingMetadata());
+  }
+
+  private beginReconnectTracking(teamId: TeamId, sessionId: string): void {
+    const attempt = (this.reconnectSequenceBySession.get(sessionId) ?? 0) + 1;
+    this.reconnectSequenceBySession.set(sessionId, attempt);
+    this.reconnectStartedAtBySession.set(sessionId, Date.now());
+    serverMetrics.recordReconnectStarted();
+    logger.warn('room.reconnect.started', {
+      roomCode: this.roomCode,
+      roomId: this.roomId,
+      sessionId,
+      teamId,
+      attempt,
+    });
+  }
+
+  private clearReconnectTracking(
+    sessionId: string,
+    nextSessionId?: string,
+  ): void {
+    this.reconnectStartedAtBySession.delete(sessionId);
+    this.reconnectSequenceBySession.delete(sessionId);
+
+    if (nextSessionId && nextSessionId !== sessionId) {
+      this.reconnectStartedAtBySession.delete(nextSessionId);
+      this.reconnectSequenceBySession.delete(nextSessionId);
+      this.reactionRateLimit.delete(sessionId);
+    }
+  }
+
+  private ensureSessionOwnership(
+    previousSessionId: string,
+    nextSessionId: string,
+    teamId: TeamId,
+  ): void {
+    if (previousSessionId === nextSessionId) {
+      return;
+    }
+
+    this.sessionTeamMap.delete(previousSessionId);
+    this.sessionTeamMap.set(nextSessionId, teamId);
+    this.reactionRateLimit.delete(nextSessionId);
+  }
+
+  private getReconnectAttempt(sessionId: string): number {
+    return this.reconnectSequenceBySession.get(sessionId) ?? 0;
+  }
+
+  private getReconnectDurationMs(sessionId: string): number | null {
+    const startedAt = this.reconnectStartedAtBySession.get(sessionId);
+    if (startedAt === undefined) {
+      return null;
+    }
+
+    return Date.now() - startedAt;
+  }
+
+  private getSessionIdForTeam(teamId: TeamId): string | null {
+    for (const [sessionId, mappedTeamId] of this.sessionTeamMap.entries()) {
+      if (mappedTeamId === teamId) {
+        return sessionId;
+      }
+    }
+
+    return null;
   }
 }

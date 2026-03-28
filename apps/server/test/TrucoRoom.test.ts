@@ -1,9 +1,16 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { ColyseusTestServer, boot } from '@colyseus/testing';
 import { matchMaker } from 'colyseus';
 import { ClientGameView, ClientMatchEvent, GameCommand } from '@truco/contracts';
 import { MatchState } from '@truco/engine';
-import app from '../src/app.config.js';
 
 async function waitFor(
   predicate: () => boolean,
@@ -59,9 +66,18 @@ async function expectHttpError(
 }
 
 describe('TrucoRoom', () => {
-  let colyseus: ColyseusTestServer<typeof app>;
+  let app: Awaited<typeof import('../src/app.config.js')>['default'];
+  let colyseus: ColyseusTestServer<any>;
 
   beforeAll(async () => {
+    if (typeof process.send === 'function') {
+      Object.defineProperty(process, 'send', {
+        configurable: true,
+        value: vi.fn(),
+      });
+    }
+
+    app = (await import('../src/app.config.js')).default;
     colyseus = await boot(app);
   });
 
@@ -131,6 +147,13 @@ describe('TrucoRoom', () => {
     const metricsResponse = await colyseus.http.get('/metrics');
     expect(metricsResponse.statusCode).toBe(200);
     expect(metricsResponse.data).toMatchObject({
+      counters: expect.objectContaining({
+        reconnectRecoveredByNativeTotal: expect.any(Number),
+        reconnectRecoveredBySupervisorTotal: expect.any(Number),
+        reconnectStartedTotal: expect.any(Number),
+        reconnectTerminalFailureTotal: expect.any(Number),
+      }),
+      reconnectFailureByReason: expect.any(Object),
       roomDirectory: expect.arrayContaining([
         expect.objectContaining({
           currentClients: 1,
@@ -140,6 +163,31 @@ describe('TrucoRoom', () => {
           roomId: room.roomId,
         }),
       ]),
+      server: expect.objectContaining({
+        bootId: expect.any(String),
+        reconnectWindowSeconds: expect.any(Number),
+        redisEnabled: expect.any(Boolean),
+        startedAt: expect.any(String),
+        version: expect.any(String),
+      }),
+      timings: expect.objectContaining({
+        reconnectDurationMs: expect.objectContaining({
+          averageMs: expect.any(Number),
+          lastMs: expect.any(Number),
+          maxMs: expect.any(Number),
+        }),
+      }),
+    });
+  });
+
+  it('returns boot metadata from /version', async () => {
+    const response = await colyseus.http.get('/version');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.data).toMatchObject({
+      bootId: expect.any(String),
+      startedAt: expect.any(String),
+      version: expect.any(String),
     });
   });
 
@@ -332,6 +380,48 @@ describe('TrucoRoom', () => {
     expect(guestView.players[1].connected).toBe(true);
   });
 
+  it('tracks client-reported reconnect recovery metrics', async () => {
+    const room = await colyseus.createRoom('truco_room', {});
+    const host = await colyseus.connectTo(room, { nickname: 'Ana' });
+    const guest = await colyseus.connectTo(room, { nickname: 'Bia' });
+    host.onMessage('game_view', () => undefined);
+    guest.onMessage('game_view', () => undefined);
+    host.onMessage('match_event', () => undefined);
+    guest.onMessage('match_event', () => undefined);
+
+    await waitFor(
+      () =>
+        host.state.gamePhase === 'PLAYING' &&
+        guest.state.gamePhase === 'PLAYING',
+    );
+
+    const reconnectionToken = guest.reconnectionToken;
+    dropConnection(guest);
+
+    await waitFor(() => room.clients.length === 1);
+
+    const reconnectedGuest = await colyseus.sdk.reconnect(reconnectionToken);
+    reconnectedGuest.onMessage('game_view', () => undefined);
+    reconnectedGuest.onMessage('match_event', () => undefined);
+    reconnectedGuest.send('client_reconnect_telemetry', {
+      strategy: 'supervisor',
+      durationMs: 1_234,
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const metricsResponse = await colyseus.http.get('/metrics');
+    expect(metricsResponse.data).toMatchObject({
+      counters: expect.objectContaining({
+        reconnectRecoveredBySupervisorTotal: expect.any(Number),
+      }),
+      timings: expect.objectContaining({
+        reconnectDurationMs: expect.objectContaining({
+          lastMs: 1_234,
+        }),
+      }),
+    });
+  });
+
   it('ends the match and blocks reconnect after a consented leave', async () => {
     const room = await colyseus.createRoom('truco_room', {});
     const host = await colyseus.connectTo(room, { nickname: 'Ana' });
@@ -357,6 +447,41 @@ describe('TrucoRoom', () => {
     );
 
     await expect(colyseus.sdk.reconnect(reconnectionToken)).rejects.toBeTruthy();
+  });
+
+  it('respects the configured reconnect window and records expiry', async () => {
+    const previousWindow = process.env.RECONNECT_WINDOW_SECONDS;
+    process.env.RECONNECT_WINDOW_SECONDS = '1';
+
+    try {
+      const room = await colyseus.createRoom('truco_room', {});
+      const host = await colyseus.connectTo(room, { nickname: 'Ana' });
+      host.onMessage('game_view', () => undefined);
+
+      const reconnectionToken = host.reconnectionToken;
+      dropConnection(host);
+
+      await waitFor(() => room.clients.length === 0);
+      await new Promise((resolve) => setTimeout(resolve, 1_250));
+
+      await expect(colyseus.sdk.reconnect(reconnectionToken)).rejects.toBeTruthy();
+
+      const metricsResponse = await colyseus.http.get('/metrics');
+      expect(metricsResponse.data).toMatchObject({
+        reconnectFailureByReason: expect.objectContaining({
+          window_expired: expect.any(Number),
+        }),
+        server: expect.objectContaining({
+          reconnectWindowSeconds: 1,
+        }),
+      });
+    } finally {
+      if (previousWindow === undefined) {
+        delete process.env.RECONNECT_WINDOW_SECONDS;
+      } else {
+        process.env.RECONNECT_WINDOW_SECONDS = previousWindow;
+      }
+    }
   });
 
   it('returns 404, 409 and 410 from room lookup for missing, locked and closed rooms', async () => {
