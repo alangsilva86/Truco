@@ -143,6 +143,63 @@
   }
 }
 
+/* Card fly-in animations — each direction matches seat position */
+@keyframes card-enter-bottom {
+  0% {
+    opacity: 0;
+    transform: translateY(4rem) scale(0.78);
+  }
+  62% {
+    opacity: 1;
+    transform: translateY(-0.25rem) scale(1.04);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes card-enter-top {
+  0% {
+    opacity: 0;
+    transform: translateY(-4rem) scale(0.78);
+  }
+  62% {
+    opacity: 1;
+    transform: translateY(0.25rem) scale(1.04);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes card-enter-left {
+  0% {
+    opacity: 0;
+    transform: translateX(-4rem) scale(0.78);
+  }
+  62% {
+    opacity: 1;
+    transform: translateX(0.25rem) scale(1.04);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes card-enter-right {
+  0% {
+    opacity: 0;
+    transform: translateX(4rem) scale(0.78);
+  }
+  62% {
+    opacity: 1;
+    transform: translateX(-0.25rem) scale(1.04);
+  }
+  100% {
+    transform: translateX(0) scale(1);
+  }
+}
+
 @layer utilities {
   .felt-noise {
     background-color: #0b3b28;

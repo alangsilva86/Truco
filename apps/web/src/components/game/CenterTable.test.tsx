@@ -1,0 +1,89 @@
+// @vitest-environment jsdom
+
+import { getSeatLayoutForTeam } from '@truco/contracts';
+import '@testing-library/jest-dom/vitest';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { CenterTable } from './CenterTable.js';
+
+describe('CenterTable', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('posiciona e anima as cartas pela direcao do assento', () => {
+    const { container } = render(
+      <CenterTable
+        mode="table"
+        roomCode="ABC123"
+        codeCopied={false}
+        onCopyCode={vi.fn()}
+        roundCards={[
+          {
+            seatId: 0,
+            hidden: false,
+            card: { id: 'A-Ouros', rank: 'A', suit: 'Ouros' },
+          },
+          {
+            seatId: 2,
+            hidden: false,
+            card: { id: '3-Paus', rank: '3', suit: 'Paus' },
+          },
+          {
+            seatId: 1,
+            hidden: false,
+            card: { id: '7-Copas', rank: '7', suit: 'Copas' },
+          },
+          {
+            seatId: 3,
+            hidden: false,
+            card: { id: 'K-Espadas', rank: 'K', suit: 'Espadas' },
+          },
+        ]}
+        manilhaRank={null}
+        viewerTeamId={0}
+        seatLayout={getSeatLayoutForTeam(0)}
+      />,
+    );
+
+    const bottomCard = screen.getByRole('button', { name: /a de ouros/i });
+    const topCard = screen.getByRole('button', { name: /3 de paus/i });
+    const leftCard = screen.getByRole('button', { name: /7 de copas/i });
+    const rightCard = screen.getByRole('button', { name: /k de espadas/i });
+
+    expect(bottomCard.closest('div[style*="z-index"]')).toHaveStyle({
+      zIndex: '4',
+    });
+    expect(topCard.closest('div[style*="z-index"]')).toHaveStyle({
+      zIndex: '3',
+    });
+
+    expect(
+      bottomCard.closest('div[style*="z-index"]')?.getAttribute('style'),
+    ).toContain('3.1rem');
+    expect(
+      topCard.closest('div[style*="z-index"]')?.getAttribute('style'),
+    ).toContain('-3.1rem');
+    expect(
+      leftCard.closest('div[style*="z-index"]')?.getAttribute('style'),
+    ).toContain('-2.9rem');
+    expect(
+      rightCard.closest('div[style*="z-index"]')?.getAttribute('style'),
+    ).toContain('2.9rem');
+
+    expect(
+      bottomCard.closest('div[style*="animation:"]')?.getAttribute('style'),
+    ).toContain('card-enter-bottom');
+    expect(
+      topCard.closest('div[style*="animation:"]')?.getAttribute('style'),
+    ).toContain('card-enter-top');
+    expect(
+      leftCard.closest('div[style*="animation:"]')?.getAttribute('style'),
+    ).toContain('card-enter-left');
+    expect(
+      rightCard.closest('div[style*="animation:"]')?.getAttribute('style'),
+    ).toContain('card-enter-right');
+
+    expect(container.querySelectorAll('svg').length).toBeGreaterThan(0);
+  });
+});

@@ -634,6 +634,7 @@ export function GameTable({
                       roundCards={view.roundCards}
                       manilhaRank={view.manilhaRank}
                       viewerTeamId={viewerTeamId}
+                      seatLayout={presentation.seatLayout}
                     />
                   </div>
 
@@ -781,6 +782,7 @@ export function GameTable({
                       roundCards={view.roundCards}
                       manilhaRank={view.manilhaRank}
                       viewerTeamId={viewerTeamId}
+                      seatLayout={presentation.seatLayout}
                     />
                   </div>
                 </div>

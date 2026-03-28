@@ -1,5 +1,6 @@
-import { PlayedCardView, Rank, TeamId } from '@truco/contracts';
+import { PlayedCardView, Rank, SeatId, TeamId } from '@truco/contracts';
 import { Check, Copy, Crown, Sparkles } from 'lucide-react';
+import { type CSSProperties, useRef } from 'react';
 import { CardView } from '../Card.js';
 
 const RANK_VALUE: Record<string, number> = {
@@ -42,10 +43,8 @@ function getWinningIndex(
     const { c: curr, i: currIdx } = revealed[j];
     const bestCard = cards[bestIdx].card!;
     const currCard = curr.card!;
-    const bestIsManilha =
-      manilhaRank !== null && bestCard.rank === manilhaRank;
-    const currIsManilha =
-      manilhaRank !== null && currCard.rank === manilhaRank;
+    const bestIsManilha = manilhaRank !== null && bestCard.rank === manilhaRank;
+    const currIsManilha = manilhaRank !== null && currCard.rank === manilhaRank;
 
     if (currIsManilha && !bestIsManilha) {
       bestIdx = currIdx;
@@ -73,6 +72,46 @@ function getWinningIndex(
   return isTied ? null : bestIdx;
 }
 
+// ── Spatial card positions (by seat direction) ──
+// x/y: offset from table center in rem; positive y = toward viewer (bottom)
+const SEAT_CARD_POS = {
+  bottom: { x: 0, y: 3.1 },
+  top: { x: 0, y: -3.1 },
+  left: { x: -2.9, y: 0.4 },
+  right: { x: 2.9, y: 0.4 },
+} as const;
+
+// Natural rotation ranges per direction (emulating a thrown card)
+const SEAT_ROTATION_RANGE = {
+  bottom: [-7, 7],
+  top: [-7, 7],
+  left: [-16, -4],
+  right: [4, 16],
+} as const;
+
+type SeatDirection = keyof typeof SEAT_CARD_POS;
+
+const Z_BY_DIRECTION: Record<SeatDirection, number> = {
+  bottom: 4,
+  top: 3,
+  left: 2,
+  right: 1,
+};
+
+function getSeatDirection(
+  seatId: SeatId,
+  layout: { bottom: SeatId; top: SeatId; left: SeatId; right: SeatId },
+): SeatDirection {
+  if (seatId === layout.bottom) return 'bottom';
+  if (seatId === layout.top) return 'top';
+  if (seatId === layout.left) return 'left';
+  return 'right';
+}
+
+function randomInRange(min: number, max: number): number {
+  return min + Math.random() * (max - min);
+}
+
 interface CenterTableProps {
   mode: 'waiting' | 'table';
   roomCode: string;
@@ -81,6 +120,7 @@ interface CenterTableProps {
   roundCards: PlayedCardView[];
   manilhaRank: Rank | null;
   viewerTeamId: TeamId;
+  seatLayout: { bottom: SeatId; top: SeatId; left: SeatId; right: SeatId };
 }
 
 export function CenterTable({
@@ -91,7 +131,19 @@ export function CenterTable({
   roundCards,
   manilhaRank,
   viewerTeamId,
+  seatLayout,
 }: CenterTableProps) {
+  const rotationCacheRef = useRef<Map<string, number>>(new Map());
+
+  function getRotation(cardKey: string, direction: SeatDirection): number {
+    if (!rotationCacheRef.current.has(cardKey)) {
+      const [min, max] = SEAT_ROTATION_RANGE[direction];
+      rotationCacheRef.current.set(cardKey, randomInRange(min, max));
+    }
+
+    return rotationCacheRef.current.get(cardKey)!;
+  }
+
   if (mode === 'waiting') {
     return (
       <div className="table-surface table-glow flex w-full max-w-sm flex-col items-center gap-4 rounded-[32px] px-6 py-8 text-center">
@@ -125,17 +177,6 @@ export function CenterTable({
     );
   }
 
-  // Table mode: played cards arranged as a fan (leque) on the felt.
-  // x, y: offset from center in rem; r: rotation in degrees.
-  // z-index = i+1, so the last-played card (highest index) is always on top.
-  const FAN: { x: number; y: number; r: number }[][] = [
-    [{ x: 0, y: 0, r: 0 }],
-    [{ x: -1.5, y: 0.5, r: -12 }, { x: 1.5, y: 0.5, r: 12 }],
-    [{ x: -2.5, y: 0.75, r: -18 }, { x: 0, y: -0.25, r: 3 }, { x: 2.5, y: 0.75, r: 18 }],
-    [{ x: -3.25, y: 1, r: -24 }, { x: -1.1, y: 0.15, r: -8 }, { x: 1.1, y: 0.15, r: 8 }, { x: 3.25, y: 1, r: 24 }],
-  ];
-
-  const n = roundCards.length;
   const winningIndex = getWinningIndex(roundCards, manilhaRank);
 
   return (
@@ -145,49 +186,59 @@ export function CenterTable({
         <div className="h-24 w-full rounded-full bg-emerald-950/60 blur-3xl sm:h-36" />
       </div>
 
-      {/* Played cards fan */}
-      {n > 0 && roundCards.map((playedCard, i) => {
-        const slots = FAN[Math.min(n, FAN.length) - 1];
-        const pos = slots[i] ?? { x: 0, y: 0, r: 0 };
-        const isOurTeam = playedCard.seatId % 2 === viewerTeamId;
-        const isWinning = winningIndex === i;
-        const ringClass = isWinning
-          ? 'ring-2 ring-amber-400 shadow-[0_0_0_2px_rgba(251,191,36,0.35),0_0_16px_rgba(251,191,36,0.25)]'
-          : isOurTeam
-            ? 'ring-2 ring-emerald-400/60 shadow-[0_0_0_2px_rgba(52,211,153,0.25)]'
-            : 'ring-2 ring-rose-400/60 shadow-[0_0_0_2px_rgba(251,113,133,0.25)]';
+      {roundCards.length > 0 &&
+        roundCards.map((playedCard, i) => {
+          const direction = getSeatDirection(playedCard.seatId, seatLayout);
+          const pos = SEAT_CARD_POS[direction];
+          const cardKey = `${playedCard.seatId}-${playedCard.card?.id ?? 'covered'}`;
+          const rotation = getRotation(cardKey, direction);
+          const isOurTeam = playedCard.seatId % 2 === viewerTeamId;
+          const isWinning = winningIndex === i;
+          const zIndex = Z_BY_DIRECTION[direction];
 
-        return (
-          <div
-            key={`${playedCard.seatId}-${playedCard.card?.id ?? 'covered'}`}
-            className="absolute transition-all duration-500"
-            style={{
-              left: '50%',
-              top: '50%',
-              transform: `translate(calc(-50% + ${pos.x}rem), calc(-50% + ${pos.y}rem)) rotate(${pos.r}deg)`,
-              zIndex: i + 1,
-            }}
-          >
-            <div className="relative">
-              {isWinning && (
-                <div className="absolute -top-5 left-1/2 z-10 -translate-x-1/2">
-                  <Crown className="h-4 w-4 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]" />
+          const ringClass = isWinning
+            ? 'ring-2 ring-amber-400 shadow-[0_0_0_2px_rgba(251,191,36,0.35),0_0_16px_rgba(251,191,36,0.25)]'
+            : isOurTeam
+              ? 'ring-2 ring-emerald-400/60 shadow-[0_0_0_2px_rgba(52,211,153,0.25)]'
+              : 'ring-2 ring-rose-400/60 shadow-[0_0_0_2px_rgba(251,113,133,0.25)]';
+
+          const flyInStyle: CSSProperties = {
+            animation: `card-enter-${direction} 0.42s cubic-bezier(0.22, 1, 0.36, 1) both`,
+          };
+
+          return (
+            <div
+              key={cardKey}
+              className="absolute"
+              style={{
+                left: '50%',
+                top: '50%',
+                transform: `translate(calc(-50% + ${pos.x}rem), calc(-50% + ${pos.y}rem)) rotate(${rotation}deg)`,
+                zIndex,
+              }}
+            >
+              <div style={flyInStyle}>
+                <div className="relative">
+                  {isWinning && (
+                    <div className="absolute -top-5 left-1/2 z-10 -translate-x-1/2">
+                      <Crown className="h-4 w-4 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]" />
+                    </div>
+                  )}
+                  <div
+                    className={`rounded-[18px] transition-all duration-300 sm:rounded-[22px] ${ringClass}`}
+                  >
+                    <CardView
+                      card={playedCard.card}
+                      hidden={playedCard.hidden}
+                      manilhaRank={manilhaRank}
+                      compact
+                    />
+                  </div>
                 </div>
-              )}
-              <div
-                className={`rounded-[18px] transition-all duration-300 sm:rounded-[22px] ${ringClass}`}
-              >
-                <CardView
-                  card={playedCard.card}
-                  hidden={playedCard.hidden}
-                  manilhaRank={manilhaRank}
-                  compact
-                />
               </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
     </div>
   );
 }

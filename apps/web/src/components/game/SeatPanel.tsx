@@ -71,13 +71,30 @@ export function SeatPanel(props: SeatPanelProps) {
           {props.dealer && <span className="ml-1 text-amber-300/80">·D</span>}
         </div>
 
-        <div className="flex -space-x-2.5 sm:-space-x-4">
-          {Array.from({ length: props.count }).map((_, index) => (
-            <div
-              key={`${props.orientation}-card-${index}`}
-              className="h-12 w-8 rounded-[14px] border border-white/10 bg-slate-950 shadow-xl sm:h-20 sm:w-14 sm:rounded-2xl"
-            />
-          ))}
+        <div
+          className="relative flex h-12 items-end justify-center sm:h-20"
+          style={{ minWidth: `${props.count * 1.4 + 0.8}rem` }}
+        >
+          {Array.from({ length: props.count }).map((_, index) => {
+            const total = props.count;
+            const spread = Math.min((total - 1) * 5, 30);
+            const step = total > 1 ? spread / (total - 1) : 0;
+            const rotation = -spread / 2 + index * step;
+            const liftY = Math.abs(rotation) * 0.04;
+
+            return (
+              <div
+                key={`hidden-${props.orientation}-${index}`}
+                className="absolute h-12 w-8 rounded-[14px] border border-white/10 bg-gradient-to-br from-slate-800 via-slate-950 to-black shadow-xl sm:h-20 sm:w-14 sm:rounded-2xl"
+                style={{
+                  transform: `rotate(${rotation}deg) translateY(-${liftY}rem)`,
+                  transformOrigin: 'bottom center',
+                  left: `${index * 1.4}rem`,
+                  zIndex: index,
+                }}
+              />
+            );
+          })}
         </div>
       </div>
     );
