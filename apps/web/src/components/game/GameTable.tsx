@@ -28,6 +28,7 @@ import { ActionConfirmTray } from './ActionConfirmTray.js';
 import { BottomActionBar } from './BottomActionBar.js';
 import { CenterTable } from './CenterTable.js';
 import { ChatBubbleLayer } from './ChatBubbleLayer.js';
+import { DealingAnimationLayer } from './DealingAnimationLayer.js';
 import { HandOfElevenDecisionSheet } from './HandOfElevenDecisionSheet.js';
 import { MatchLogDrawer } from './MatchLogDrawer.js';
 import { ReactionPicker } from './ReactionPicker.js';
@@ -38,6 +39,7 @@ import { RoundStatusBar } from './RoundStatusBar.js';
 import { SeatPanel } from './SeatPanel.js';
 import { TableHeader } from './TableHeader.js';
 import { TopSeatFocusOverlay } from './TopSeatFocusOverlay.js';
+import { TrickResultBanner } from './TrickResultBanner.js';
 import { TrucoDecisionSheet } from './TrucoDecisionSheet.js';
 
 type PlayAction = Extract<AvailableAction, { type: 'PLAY_CARD' }>;
@@ -371,6 +373,7 @@ export function GameTable({
     view.ownedSeatIds.includes(view.trucoPending.requestedBySeatId),
   );
   const selectedCard = selectedPlay?.card ?? null;
+  const latestTrick = view.trickHistory[view.trickHistory.length - 1] ?? null;
   const activeSeatName =
     presentation.activeOwnedSeatId !== null
       ? (view.players[presentation.activeOwnedSeatId]?.nickname ?? null)
@@ -657,6 +660,10 @@ export function GameTable({
                     viewerTeamId={viewerTeamId}
                   />
 
+                  {view.gamePhase === 'DEALING' && (
+                    <DealingAnimationLayer seatLayout={presentation.seatLayout} />
+                  )}
+
                   <div className="flex h-full w-full items-center justify-center px-[4.25rem]">
                     <CenterTable
                       mode={presentation.isWaiting ? 'waiting' : 'table'}
@@ -804,6 +811,10 @@ export function GameTable({
                     seatLayout={presentation.seatLayout}
                     viewerTeamId={viewerTeamId}
                   />
+
+                  {view.gamePhase === 'DEALING' && (
+                    <DealingAnimationLayer seatLayout={presentation.seatLayout} />
+                  )}
 
                   <div className="flex h-full items-center justify-center px-[5.5rem] sm:px-36">
                     <CenterTable
@@ -959,10 +970,23 @@ export function GameTable({
         />
       )}
 
+      {view.gamePhase === 'TRICK_END' && (
+        <TrickResultBanner
+          trick={latestTrick}
+          players={view.players}
+          viewerTeamId={viewerTeamId}
+          seatLayout={presentation.seatLayout}
+          manilhaRank={view.manilhaRank}
+        />
+      )}
+
       {view.gamePhase === 'ROUND_END' && (
         <RoundResultBanner
           trickHistory={view.trickHistory}
+          players={view.players}
           viewerTeamId={viewerTeamId}
+          seatLayout={presentation.seatLayout}
+          manilhaRank={view.manilhaRank}
           awardedPoints={view.currentRoundPoints}
           scoreUs={presentation.scoreUs}
           scoreThem={presentation.scoreThem}

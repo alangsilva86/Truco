@@ -411,6 +411,76 @@ describe('GameTable', () => {
     expect(screen.getByText(/8 x 3/i)).toBeInTheDocument();
   });
 
+  it('mostra a camada de distribuicao durante dealing', () => {
+    const view = createClientGameView({
+      gamePhase: 'DEALING',
+      visibleHands: {},
+      trickHistory: [],
+      roundCards: [],
+      turnSeatId: null,
+      dealerSeatId: null,
+      trickStarterSeatId: null,
+      availableActions: [],
+      message: 'Distribuindo as cartas...',
+    });
+
+    render(
+      <GameTable
+        {...createBaseProps()}
+        view={view}
+        playAction={null}
+      />,
+    );
+
+    expect(screen.getAllByText(/distribuindo/i).length).toBeGreaterThan(0);
+  });
+
+  it('mostra o spotlight de fim de vaza durante trick_end', () => {
+    const view = createClientGameView({
+      gamePhase: 'TRICK_END',
+      roundCards: [
+        {
+          seatId: 0,
+          hidden: false,
+          card: { id: 'A-Ouros', rank: 'A', suit: 'Ouros' },
+        },
+        {
+          seatId: 1,
+          hidden: false,
+          card: { id: '7-Copas', rank: '7', suit: 'Copas' },
+        },
+      ],
+      trickHistory: [
+        {
+          winnerSeatId: 0,
+          cards: [
+            {
+              seatId: 0,
+              hidden: false,
+              card: { id: 'A-Ouros', rank: 'A', suit: 'Ouros' },
+            },
+            {
+              seatId: 1,
+              hidden: false,
+              card: { id: '7-Copas', rank: '7', suit: 'Copas' },
+            },
+          ],
+        },
+      ],
+    });
+
+    render(
+      <GameTable
+        {...createBaseProps()}
+        view={view}
+        playAction={null}
+      />,
+    );
+
+    expect(screen.getByText(/fim da vaza/i)).toBeInTheDocument();
+    expect(screen.getByText(/ana levou a vaza/i)).toBeInTheDocument();
+  });
+
   it('mostra cartas da dupla no sheet de truco', () => {
     const view = createClientGameView({
       gamePhase: 'TRUCO_DECISION',

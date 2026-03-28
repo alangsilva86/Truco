@@ -82,6 +82,7 @@ function createBanner(params: {
 }): TableBannerModel | null {
   const {
     view,
+    viewerTeamId,
     isWaiting,
     isGameEnd,
     isPausedReconnect,
@@ -123,6 +124,48 @@ function createBanner(params: {
           title: 'Mao de 11 deles',
           detail: 'Aguardando a decisao do adversario para comecar a rodada.',
         };
+  }
+
+  if (view.gamePhase === 'DEALING') {
+    return {
+      tone: 'waiting',
+      title: 'Distribuindo',
+      detail: 'A mesa esta entregando as cartas para a proxima rodada.',
+    };
+  }
+
+  if (view.gamePhase === 'TRICK_END') {
+    const latestTrick = view.trickHistory[view.trickHistory.length - 1];
+    const winnerName =
+      latestTrick && latestTrick.winnerSeatId !== 'tie'
+        ? view.players[latestTrick.winnerSeatId].nickname
+        : null;
+
+    return {
+      tone:
+        latestTrick?.winnerSeatId !== 'tie' &&
+        latestTrick.winnerSeatId % 2 === viewerTeamId
+          ? 'player'
+          : latestTrick?.winnerSeatId === 'tie'
+            ? 'waiting'
+            : 'opponent',
+      title: winnerName ? 'Vaza resolvida' : 'Vaza empatada',
+      detail: winnerName
+        ? `${winnerName} levou a mesa. Confira as cartas antes da proxima saida.`
+        : 'Ninguem levou a vaza. A mesa vai seguir com nova abertura.',
+    };
+  }
+
+  if (view.gamePhase === 'ROUND_END') {
+    const viewerWonRound = scoreUs > scoreThem;
+
+    return {
+      tone: viewerWonRound ? 'player' : 'opponent',
+      title: 'Rodada encerrada',
+      detail: viewerWonRound
+        ? 'Sua dupla fechou a rodada. Veja a vaza final e o novo placar.'
+        : 'A dupla adversaria fechou a rodada. Confira como a mesa foi decidida.',
+    };
   }
 
   if (

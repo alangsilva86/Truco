@@ -14,7 +14,7 @@ import { MatchState } from '@truco/engine';
 
 async function waitFor(
   predicate: () => boolean,
-  timeoutMs = 4_000,
+  timeoutMs = 8_000,
 ): Promise<void> {
   const start = Date.now();
   while (!predicate()) {

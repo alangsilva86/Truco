@@ -24,6 +24,10 @@ interface MatchRuntimeOptions {
   onReject: (teamId: TeamId, message: string, commandId?: string) => void;
 }
 
+const DEALING_TRANSITION_MS = 1_800;
+const TRICK_END_TRANSITION_MS = 2_400;
+const ROUND_END_TRANSITION_MS = 3_400;
+
 function ownsSeat(teamId: TeamId, seatId: number): boolean {
   return TEAM_SEATS[teamId].includes(seatId as 0 | 1 | 2 | 3);
 }
@@ -171,11 +175,11 @@ export class MatchRuntime {
 
     const delay =
       this.state.phase === 'DEALING'
-        ? 500
+        ? DEALING_TRANSITION_MS
         : this.state.phase === 'TRICK_END'
-          ? 1200
+          ? TRICK_END_TRANSITION_MS
           : this.state.phase === 'ROUND_END'
-            ? 1600
+            ? ROUND_END_TRANSITION_MS
             : 0;
 
     if (delay === 0) {

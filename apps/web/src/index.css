@@ -158,6 +158,44 @@
   }
 }
 
+@keyframes deal-card-flight {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.55) rotate(-16deg);
+  }
+  14% {
+    opacity: 1;
+  }
+  76% {
+    opacity: 1;
+    transform: translate(
+        calc(-50% + var(--deal-x)),
+        calc(-50% + var(--deal-y))
+      )
+      rotate(var(--deal-r)) scale(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(
+        calc(-50% + var(--deal-x)),
+        calc(-50% + var(--deal-y))
+      )
+      rotate(var(--deal-r)) scale(0.98);
+  }
+}
+
+@keyframes deal-seat-pulse {
+  0%,
+  100% {
+    opacity: 0.16;
+    transform: scale(0.88);
+  }
+  45% {
+    opacity: 0.38;
+    transform: scale(1.05);
+  }
+}
+
 /* Card fly-in animations — each direction matches seat position */
 @keyframes card-enter-bottom {
   0% {

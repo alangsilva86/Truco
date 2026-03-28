@@ -1,9 +1,19 @@
-import { TeamId, TrickView } from '@truco/contracts';
+import {
+  PlayerInfo,
+  Rank,
+  SeatId,
+  TeamId,
+  TrickView,
+} from '@truco/contracts';
 import { Crown } from 'lucide-react';
+import { ResolvedTrickSpotlight } from './ResolvedTrickSpotlight.js';
 
 interface RoundResultBannerProps {
   trickHistory: TrickView[];
+  players: Record<SeatId, PlayerInfo>;
   viewerTeamId: TeamId;
+  seatLayout: { bottom: SeatId; top: SeatId; left: SeatId; right: SeatId };
+  manilhaRank: Rank | null;
   awardedPoints: number;
   scoreUs: number;
   scoreThem: number;
@@ -34,7 +44,10 @@ function countTricks(
 
 export function RoundResultBanner({
   trickHistory,
+  players,
   viewerTeamId,
+  seatLayout,
+  manilhaRank,
   awardedPoints,
   scoreUs,
   scoreThem,
@@ -45,6 +58,11 @@ export function RoundResultBanner({
 
   const { us, them } = countTricks(trickHistory, viewerTeamId);
   const weWon = us > them;
+  const focusTrick = trickHistory[trickHistory.length - 1];
+  const focusWinnerName =
+    focusTrick.winnerSeatId === 'tie'
+      ? 'Vaza empatada'
+      : players[focusTrick.winnerSeatId].nickname;
 
   return (
     <div
@@ -54,7 +72,7 @@ export function RoundResultBanner({
       }}
     >
       <div
-        className={`flex flex-col items-center gap-3 rounded-[28px] border px-7 py-5 text-center shadow-2xl backdrop-blur-md ${
+        className={`flex w-full max-w-[26rem] flex-col items-center gap-3 rounded-[28px] border px-5 py-5 text-center shadow-2xl backdrop-blur-md sm:px-7 ${
           weWon
             ? 'border-emerald-300/25 bg-emerald-950/80 text-emerald-100'
             : 'border-rose-300/20 bg-rose-950/80 text-rose-100'
@@ -79,6 +97,11 @@ export function RoundResultBanner({
               ? `+${awardedPoints} ponto${awardedPoints !== 1 ? 's' : ''}`
               : 'Sem pontos'}
           </p>
+          <p className="mt-2 text-sm opacity-75">
+            {focusTrick.winnerSeatId === 'tie'
+              ? 'A ultima vaza empatou, mas a rodada ja estava decidida.'
+              : `${focusWinnerName} fechou a mesa. Veja a mao final antes da proxima distribuicao.`}
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -102,6 +125,15 @@ export function RoundResultBanner({
             );
           })}
         </div>
+
+        <ResolvedTrickSpotlight
+          trick={focusTrick}
+          players={players}
+          viewerTeamId={viewerTeamId}
+          seatLayout={seatLayout}
+          manilhaRank={manilhaRank}
+          centerLabel={focusWinnerName}
+        />
 
         <p className="text-sm font-black tabular-nums opacity-70">
           {scoreUs} x {scoreThem}
