@@ -32,6 +32,7 @@ import { HandOfElevenDecisionSheet } from './HandOfElevenDecisionSheet.js';
 import { MatchLogDrawer } from './MatchLogDrawer.js';
 import { ReactionPicker } from './ReactionPicker.js';
 import { ReconnectRecoveryOverlay } from './ReconnectRecoveryOverlay.js';
+import { RoundResultBanner } from './RoundResultBanner.js';
 import { RoundContextRail } from './RoundContextRail.js';
 import { RoundStatusBar } from './RoundStatusBar.js';
 import { SeatPanel } from './SeatPanel.js';
@@ -128,7 +129,9 @@ export function GameTable({
   const [selectedPlay, setSelectedPlay] = useState<SelectedPlayState | null>(
     null,
   );
-  const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
+  const [toasts, setToasts] = useState<
+    { id: number; text: string; tone: 'amber' | 'emerald' }[]
+  >([]);
   const [trucoShout, setTrucoShout] = useState<{
     label: string;
     id: number;
@@ -144,14 +147,18 @@ export function GameTable({
   const prevTrickHistoryLenRef = useRef(view.trickHistory.length);
   const maoDeOnzeShownForRef = useRef<number | null>(null);
   const prevTrucoSheetOpenRef = useRef(false);
+  const prevTrucoPendingRef = useRef(view.trucoPending);
 
-  const showToast = useCallback((text: string) => {
-    const id = Date.now() + Math.random();
-    setToasts((prev) => [...prev.slice(-2), { id, text }]);
-    setTimeout(() => {
-      setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 2800);
-  }, []);
+  const showToast = useCallback(
+    (text: string, tone: 'amber' | 'emerald' = 'amber') => {
+      const id = Date.now() + Math.random();
+      setToasts((prev) => [...prev.slice(-2), { id, text, tone }]);
+      setTimeout(() => {
+        setToasts((prev) => prev.filter((t) => t.id !== id));
+      }, 2800);
+    },
+    [],
+  );
 
   const showTrucoShout = useCallback((label: string) => {
     const id = Date.now();
@@ -323,6 +330,23 @@ export function GameTable({
       setIncomingPatoKey((k) => k + 1);
     }
   }, [patoTauntCount]);
+
+  // Toast: ACEITO! when the opponent accepts our truco request
+  useEffect(() => {
+    const prevPending = prevTrucoPendingRef.current;
+    const currPending = view.trucoPending;
+
+    if (
+      prevPending &&
+      !currPending &&
+      view.gamePhase === 'PLAYING' &&
+      view.ownedSeatIds.includes(prevPending.requestedBySeatId)
+    ) {
+      showToast(`ACEITO! Vale ${prevPending.requestedValue}pts`, 'emerald');
+    }
+
+    prevTrucoPendingRef.current = currPending;
+  }, [showToast, view.gamePhase, view.ownedSeatIds, view.trucoPending]);
 
   const statusTone = presentation.isPausedReconnect
     ? 'warning'
@@ -935,6 +959,16 @@ export function GameTable({
         />
       )}
 
+      {view.gamePhase === 'ROUND_END' && (
+        <RoundResultBanner
+          trickHistory={view.trickHistory}
+          viewerTeamId={viewerTeamId}
+          awardedPoints={view.currentRoundPoints}
+          scoreUs={presentation.scoreUs}
+          scoreThem={presentation.scoreThem}
+        />
+      )}
+
       {!presentation.isWaiting &&
         !presentation.isGameEnd &&
         !presentation.isPausedReconnect &&
@@ -977,6 +1011,9 @@ export function GameTable({
         playValue={respondHandOfElevenAction?.playValue ?? 3}
         runPenalty={respondHandOfElevenAction?.runPenalty ?? 1}
         commandPending={commandPending}
+        playerCards={presentation.bottomCards}
+        partnerCards={presentation.topCards}
+        manilhaRank={view.manilhaRank}
         onPlay={handlePlayHandOfElevenPress}
         onRun={handleRunHandOfElevenPress}
       />
@@ -996,6 +1033,9 @@ export function GameTable({
         }
         canRaise={Boolean(respondTrucoAction?.actions.includes('raise'))}
         commandPending={commandPending}
+        playerCards={presentation.bottomCards}
+        partnerCards={presentation.topCards}
+        manilhaRank={view.manilhaRank}
         onAccept={handleAcceptTrucoPress}
         onRaise={handleRaiseTrucoPress}
         onRun={handleRunTrucoPress}
@@ -1059,7 +1099,11 @@ export function GameTable({
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className="animate-in fade-in slide-in-from-top-2 rounded-full border border-amber-300/40 bg-amber-400/15 px-5 py-2 font-mono text-sm font-black uppercase tracking-[0.22em] text-amber-200 shadow-lg backdrop-blur-sm duration-300"
+            className={`animate-in fade-in slide-in-from-top-2 rounded-full border px-5 py-2 font-mono text-sm font-black uppercase tracking-[0.22em] shadow-lg backdrop-blur-sm duration-300 ${
+              toast.tone === 'emerald'
+                ? 'border-emerald-300/40 bg-emerald-400/15 text-emerald-200'
+                : 'border-amber-300/40 bg-amber-400/15 text-amber-200'
+            }`}
           >
             {toast.text}
           </div>

@@ -3,10 +3,11 @@
 import {
   AvailableHandOfElevenAction,
   AvailablePlayAction,
+  AvailableTrucoResponseAction,
 } from '@truco/contracts';
 import { useState } from 'react';
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createClientGameView } from '../../test/fixtures.js';
 import { createIdleReconnectStatus } from '../../lib/reconnect.js';
@@ -341,5 +342,140 @@ describe('GameTable', () => {
 
     expect(onPlayHandOfEleven).toHaveBeenCalledTimes(1);
     expect(onRunHandOfEleven).toHaveBeenCalledTimes(1);
+  });
+
+  it('mostra toast emerald quando o truco pedido por nos e aceito', () => {
+    const initialView = createClientGameView({
+      gamePhase: 'TRUCO_DECISION',
+      trucoPending: {
+        requestedBySeatId: 0,
+        requestedValue: 3,
+        acceptedValue: 1,
+        responseTeam: 1,
+      },
+    });
+
+    const { rerender } = render(
+      <GameTable
+        {...createBaseProps()}
+        view={initialView}
+        playAction={null}
+      />,
+    );
+
+    rerender(
+      <GameTable
+        {...createBaseProps()}
+        view={createClientGameView({
+          gamePhase: 'PLAYING',
+          trucoPending: null,
+        })}
+        playAction={null}
+      />,
+    );
+
+    expect(screen.getByText(/aceito! vale 3pts/i)).toBeInTheDocument();
+  });
+
+  it('mostra banner com resultado da rodada durante round_end', () => {
+    const view = createClientGameView({
+      gamePhase: 'ROUND_END',
+      currentRoundPoints: 2,
+      scores: { 0: 8, 1: 3 },
+      trickHistory: [
+        {
+          winnerSeatId: 0,
+          cards: [],
+        },
+        {
+          winnerSeatId: 3,
+          cards: [],
+        },
+        {
+          winnerSeatId: 2,
+          cards: [],
+        },
+      ],
+    });
+
+    render(
+      <GameTable
+        {...createBaseProps()}
+        view={view}
+        playAction={null}
+      />,
+    );
+
+    expect(screen.getByText(/rodada ganha/i)).toBeInTheDocument();
+    expect(screen.getByText(/\+2 pontos/i)).toBeInTheDocument();
+    expect(screen.getByText(/8 x 3/i)).toBeInTheDocument();
+  });
+
+  it('mostra cartas da dupla no sheet de truco', () => {
+    const view = createClientGameView({
+      gamePhase: 'TRUCO_DECISION',
+      trucoPending: {
+        requestedBySeatId: 1,
+        requestedValue: 3,
+        acceptedValue: 1,
+        responseTeam: 0,
+      },
+      availableActions: [
+        {
+          type: 'RESPOND_TRUCO',
+          actions: ['accept', 'run', 'raise'],
+          requestedValue: 3,
+          currentAcceptedValue: 1,
+        },
+      ],
+    });
+
+    render(
+      <GameTable
+        {...createBaseProps()}
+        view={view}
+        playAction={null}
+        respondTrucoAction={
+          view.availableActions[0] as AvailableTrucoResponseAction
+        }
+      />,
+    );
+
+    const dialog = screen.getByRole('dialog');
+
+    expect(within(dialog).getByText(/suas cartas/i)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/a de ouros/i)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/3 de paus/i)).toBeInTheDocument();
+  });
+
+  it('mostra cartas da dupla no sheet de mao de 11', () => {
+    const view = createClientGameView({
+      gamePhase: 'HAND_OF_ELEVEN_DECISION',
+      scores: { 0: 11, 1: 10 },
+      availableActions: [
+        {
+          type: 'RESPOND_HAND_OF_ELEVEN',
+          playValue: 3,
+          runPenalty: 1,
+        },
+      ],
+    });
+
+    render(
+      <GameTable
+        {...createBaseProps()}
+        view={view}
+        playAction={null}
+        respondHandOfElevenAction={
+          view.availableActions[0] as AvailableHandOfElevenAction
+        }
+      />,
+    );
+
+    const dialog = screen.getByRole('dialog');
+
+    expect(within(dialog).getByText(/sua mao de 11/i)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/a de ouros/i)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/3 de paus/i)).toBeInTheDocument();
   });
 });

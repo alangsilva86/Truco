@@ -1,5 +1,7 @@
+import { Card, Rank } from '@truco/contracts';
 import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
+import { CardView } from '../Card.js';
 import { playPatoSound } from '../../lib/sounds.js';
 
 interface TrucoDecisionSheetProps {
@@ -10,6 +12,9 @@ interface TrucoDecisionSheetProps {
   raiseTarget: number | null;
   canRaise: boolean;
   commandPending: boolean;
+  playerCards: Card[];
+  partnerCards: Card[];
+  manilhaRank: Rank | null;
   onAccept: () => void;
   onRaise: () => void;
   onRun: () => void;
@@ -23,6 +28,9 @@ export function TrucoDecisionSheet({
   raiseTarget,
   canRaise,
   commandPending,
+  playerCards,
+  partnerCards,
+  manilhaRank,
   onAccept,
   onRaise,
   onRun,
@@ -40,7 +48,7 @@ export function TrucoDecisionSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/70 px-3 pb-3 sm:items-center sm:px-4 sm:pb-0">
+    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 px-3 pb-3 sm:items-center sm:px-4 sm:pb-0">
       <div
         role="dialog"
         aria-modal="true"
@@ -63,6 +71,39 @@ export function TrucoDecisionSheet({
             </p>
           </div>
         </div>
+
+        {(playerCards.length > 0 || partnerCards.length > 0) && (
+          <div className="mb-4 rounded-2xl border border-white/8 bg-white/4 px-4 py-3">
+            <p className="mb-2.5 text-[10px] font-black uppercase tracking-[0.22em] text-white/30">
+              Suas cartas
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {playerCards.map((card) => (
+                <CardView
+                  key={card.id}
+                  card={card}
+                  manilhaRank={manilhaRank}
+                  compact
+                />
+              ))}
+
+              {partnerCards.length > 0 && (
+                <>
+                  <div className="h-12 w-px bg-white/10 sm:h-16" />
+                  {partnerCards.map((card) => (
+                    <CardView
+                      key={card.id}
+                      card={card}
+                      manilhaRank={manilhaRank}
+                      compact
+                      muted
+                    />
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="grid gap-2">
           <button

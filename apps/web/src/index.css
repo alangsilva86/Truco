@@ -143,6 +143,21 @@
   }
 }
 
+@keyframes banner-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(1.5rem) scale(0.95);
+  }
+  55% {
+    opacity: 1;
+    transform: translateY(-0.15rem) scale(1.01);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 /* Card fly-in animations — each direction matches seat position */
 @keyframes card-enter-bottom {
   0% {
