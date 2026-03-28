@@ -23,6 +23,7 @@ export default function App() {
 
   const {
     busy,
+    chatBubbles,
     commandPending,
     connectionState,
     createRoom,
@@ -35,6 +36,7 @@ export default function App() {
     reportError,
     reconnect,
     sendCommand,
+    sendReaction,
     sendPatoTaunt,
     view,
   } = useRoomConnection({
@@ -107,6 +109,7 @@ export default function App() {
       connectionState={connectionState}
       logs={logs}
       error={error}
+      chatBubbles={chatBubbles}
       coveredMode={coveredMode}
       commandPending={commandPending}
       codeCopied={codeCopied}
@@ -118,6 +121,7 @@ export default function App() {
       onDismissError={dismissError}
       onCopyCode={handleCopyCode}
       onLeave={leaveSession}
+      onSendReaction={sendReaction}
       onToggleCovered={onToggleCovered}
       onPlayHandOfEleven={onPlayHandOfEleven}
       onPlayCard={onPlayCard}

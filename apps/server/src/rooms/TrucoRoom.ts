@@ -1,6 +1,6 @@
 import { performance } from 'node:perf_hooks';
 import { Client, CloseCode, Room } from 'colyseus';
-import { GameCommand, RoomLifecycle, TeamId } from '@truco/contracts';
+import { GameCommand, RoomLifecycle, SeatId, TeamId } from '@truco/contracts';
 import { MatchState, createMatch } from '@truco/engine';
 import { logger } from '../observability/logger.js';
 import { serverMetrics } from '../observability/metrics.js';
@@ -95,6 +95,7 @@ export class TrucoRoom extends Room<{
   };
   private readonly sessionTeamMap = new Map<string, TeamId>();
   private readonly clientsByTeam = new Map<TeamId, Client>();
+  private readonly reactionRateLimit = new Map<string, number>();
   private runtime: MatchRuntime | null = null;
   private roomCode = '';
   private lifecycle: RoomLifecycle = 'OPEN';
@@ -127,6 +128,33 @@ export class TrucoRoom extends Room<{
       if (senderTeamId === undefined) return;
       const targetTeamId: TeamId = senderTeamId === 0 ? 1 : 0;
       this.clientsByTeam.get(targetTeamId)?.send('pato_taunt', {});
+    },
+    player_reaction: (client: Client, payload: { phraseId: number }) => {
+      const senderTeamId = this.sessionTeamMap.get(client.sessionId);
+      if (senderTeamId === undefined) return;
+
+      const now = Date.now();
+      const last = this.reactionRateLimit.get(client.sessionId) ?? 0;
+      if (now - last < 2_500) return;
+      this.reactionRateLimit.set(client.sessionId, now);
+
+      if (
+        typeof payload.phraseId !== 'number' ||
+        !Number.isInteger(payload.phraseId) ||
+        payload.phraseId < 0 ||
+        payload.phraseId > 20
+      ) {
+        return;
+      }
+
+      const seatId: SeatId = senderTeamId === 0 ? 0 : 1;
+
+      for (const roomClient of this.clientsByTeam.values()) {
+        roomClient.send('player_reaction', {
+          seatId,
+          phraseId: payload.phraseId,
+        });
+      }
     },
   };
 
@@ -240,7 +268,8 @@ export class TrucoRoom extends Room<{
       });
     } catch {
       this.disconnectGraceManager.clear(teamId);
-      const wasMarkedDisconnected = this.participants[teamId]?.connected === false;
+      const wasMarkedDisconnected =
+        this.participants[teamId]?.connected === false;
 
       if (this.runtime) {
         if (!wasMarkedDisconnected) {
@@ -251,11 +280,13 @@ export class TrucoRoom extends Room<{
 
         this.runtime.forceForfeit(teamId);
         this.sessionTeamMap.delete(client.sessionId);
+        this.reactionRateLimit.delete(client.sessionId);
         this.lifecycle = 'CLOSED';
         this.syncState(this.runtime.getState());
       } else {
         this.participants[teamId] = null;
         this.sessionTeamMap.delete(client.sessionId);
+        this.reactionRateLimit.delete(client.sessionId);
         this.lifecycle = 'OPEN';
         this.syncState();
       }
@@ -272,6 +303,7 @@ export class TrucoRoom extends Room<{
 
   onDispose(): void {
     this.disconnectGraceManager.clearAll();
+    this.reactionRateLimit.clear();
     this.runtime?.dispose();
     logger.info('room.disposed', {
       roomCode: this.roomCode,
@@ -368,6 +400,7 @@ export class TrucoRoom extends Room<{
 
   private handleConsentedLeave(teamId: TeamId, sessionId: string): void {
     this.disconnectGraceManager.clear(teamId);
+    this.reactionRateLimit.delete(sessionId);
 
     if (!this.participants[teamId]) {
       this.sessionTeamMap.delete(sessionId);

@@ -2,6 +2,7 @@ import {
   AvailableAction,
   Card,
   CardPlayMode,
+  ChatBubble,
   ClientGameView,
   ConnectionState,
   SeatId,
@@ -25,8 +26,10 @@ import { createTablePresentation } from '../../lib/tablePresentation.js';
 import { ActionConfirmTray } from './ActionConfirmTray.js';
 import { BottomActionBar } from './BottomActionBar.js';
 import { CenterTable } from './CenterTable.js';
+import { ChatBubbleLayer } from './ChatBubbleLayer.js';
 import { HandOfElevenDecisionSheet } from './HandOfElevenDecisionSheet.js';
 import { MatchLogDrawer } from './MatchLogDrawer.js';
+import { ReactionPicker } from './ReactionPicker.js';
 import { RoundContextRail } from './RoundContextRail.js';
 import { RoundStatusBar } from './RoundStatusBar.js';
 import { SeatPanel } from './SeatPanel.js';
@@ -48,6 +51,7 @@ interface GameTableProps {
   connectionState: ConnectionState;
   logs: string[];
   error: string | null;
+  chatBubbles: ChatBubble[];
   coveredMode: boolean;
   commandPending: boolean;
   codeCopied: boolean;
@@ -69,6 +73,7 @@ interface GameTableProps {
   onRaiseTruco: () => void;
   onRunTruco: () => void;
   patoTauntCount: number;
+  onSendReaction: (phraseId: number) => void;
   onSendPatoTaunt: () => void;
 }
 
@@ -83,6 +88,7 @@ export function GameTable({
   connectionState,
   logs,
   error,
+  chatBubbles,
   coveredMode,
   commandPending,
   codeCopied,
@@ -104,6 +110,7 @@ export function GameTable({
   onRaiseTruco,
   onRunTruco,
   patoTauntCount,
+  onSendReaction,
   onSendPatoTaunt,
 }: GameTableProps) {
   const [logsOpen, setLogsOpen] = useState(false);
@@ -114,9 +121,15 @@ export function GameTable({
     null,
   );
   const [toasts, setToasts] = useState<{ id: number; text: string }[]>([]);
-  const [trucoShout, setTrucoShout] = useState<{ label: string; id: number } | null>(null);
+  const [trucoShout, setTrucoShout] = useState<{
+    label: string;
+    id: number;
+  } | null>(null);
+  const [justWonTrick, setJustWonTrick] = useState(false);
   const [incomingPatoKey, setIncomingPatoKey] = useState(0);
   const prevPatoTauntCountRef = useRef(patoTauntCount);
+  const prevTrickWinnerRef = useRef(view.trickHistory.length);
+  const justWonTrickTimeoutRef = useRef<number | null>(null);
   const { isPhoneLayout } = usePhoneLayout();
   const lastPhaseRef = useRef(view.gamePhase);
   const prevRoundCardsLenRef = useRef(view.roundCards.length);
@@ -166,6 +179,15 @@ export function GameTable({
     }
   }, [isPhoneLayout]);
 
+  useEffect(
+    () => () => {
+      if (justWonTrickTimeoutRef.current !== null) {
+        window.clearTimeout(justWonTrickTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     const previousPhase = lastPhaseRef.current;
 
@@ -209,6 +231,43 @@ export function GameTable({
     prevTrickHistoryLenRef.current = curr;
   }, [showToast, view.trickHistory, viewerTeamId]);
 
+  useEffect(() => {
+    const curr = view.trickHistory.length;
+
+    if (curr > prevTrickWinnerRef.current) {
+      prevTrickWinnerRef.current = curr;
+      const latestTrick = view.trickHistory[curr - 1];
+      if (
+        latestTrick &&
+        latestTrick.winnerSeatId !== 'tie' &&
+        latestTrick.winnerSeatId % 2 === viewerTeamId
+      ) {
+        setJustWonTrick(true);
+        if (justWonTrickTimeoutRef.current !== null) {
+          window.clearTimeout(justWonTrickTimeoutRef.current);
+        }
+
+        justWonTrickTimeoutRef.current = window.setTimeout(() => {
+          setJustWonTrick(false);
+          justWonTrickTimeoutRef.current = null;
+        }, 3_600);
+      } else {
+        setJustWonTrick(false);
+        if (justWonTrickTimeoutRef.current !== null) {
+          window.clearTimeout(justWonTrickTimeoutRef.current);
+          justWonTrickTimeoutRef.current = null;
+        }
+      }
+    } else if (curr < prevTrickWinnerRef.current) {
+      prevTrickWinnerRef.current = curr;
+      setJustWonTrick(false);
+      if (justWonTrickTimeoutRef.current !== null) {
+        window.clearTimeout(justWonTrickTimeoutRef.current);
+        justWonTrickTimeoutRef.current = null;
+      }
+    }
+  }, [view.trickHistory, viewerTeamId]);
+
   // Toast: MÃO DE ONZE when either team reaches 11 (once per score)
   useEffect(() => {
     const scoreKey = presentation.scoreUs * 100 + presentation.scoreThem;
@@ -229,15 +288,23 @@ export function GameTable({
   useEffect(() => {
     const wasOpen = prevTrucoSheetOpenRef.current;
     const isOpen = Boolean(
-      respondTrucoAction && view.trucoPending && !presentation.isPausedReconnect,
+      respondTrucoAction &&
+      view.trucoPending &&
+      !presentation.isPausedReconnect,
     );
     if (!wasOpen && isOpen && view.trucoPending) {
       const v = view.trucoPending.requestedValue;
-      const label = v === 3 ? 'TRUCO!' : v === 6 ? 'SEIS!' : v === 9 ? 'NOVE!' : 'DOZE!';
+      const label =
+        v === 3 ? 'TRUCO!' : v === 6 ? 'SEIS!' : v === 9 ? 'NOVE!' : 'DOZE!';
       showTrucoShout(label);
     }
     prevTrucoSheetOpenRef.current = isOpen;
-  }, [respondTrucoAction, view.trucoPending, presentation.isPausedReconnect, showTrucoShout]);
+  }, [
+    respondTrucoAction,
+    view.trucoPending,
+    presentation.isPausedReconnect,
+    showTrucoShout,
+  ]);
 
   // Incoming PATO taunt from opponent
   useEffect(() => {
@@ -258,8 +325,8 @@ export function GameTable({
   const showBottomActions = !presentation.isWaiting && !presentation.isGameEnd;
   const handOfElevenSheetOpen = Boolean(
     respondHandOfElevenAction &&
-      view.gamePhase === 'HAND_OF_ELEVEN_DECISION' &&
-      !presentation.isPausedReconnect,
+    view.gamePhase === 'HAND_OF_ELEVEN_DECISION' &&
+    !presentation.isPausedReconnect,
   );
   const trucoSheetOpen = Boolean(
     respondTrucoAction && view.trucoPending && !presentation.isPausedReconnect,
@@ -404,9 +471,7 @@ export function GameTable({
             handleSelectCard(presentation.topSeat.seatId, card)
           }
           disabled={
-            !presentation.topSeat.active ||
-            commandPending ||
-            decisionSheetOpen
+            !presentation.topSeat.active || commandPending || decisionSheetOpen
           }
           highlightCards={false}
           pendingCardId={pendingPlayCardId}
@@ -554,6 +619,12 @@ export function GameTable({
                     </>
                   )}
 
+                  <ChatBubbleLayer
+                    bubbles={chatBubbles}
+                    seatLayout={presentation.seatLayout}
+                    viewerTeamId={viewerTeamId}
+                  />
+
                   <div className="flex h-full w-full items-center justify-center px-[4.25rem]">
                     <CenterTable
                       mode={presentation.isWaiting ? 'waiting' : 'table'}
@@ -695,6 +766,12 @@ export function GameTable({
                     </>
                   )}
 
+                  <ChatBubbleLayer
+                    bubbles={chatBubbles}
+                    seatLayout={presentation.seatLayout}
+                    viewerTeamId={viewerTeamId}
+                  />
+
                   <div className="flex h-full items-center justify-center px-[5.5rem] sm:px-36">
                     <CenterTable
                       mode={presentation.isWaiting ? 'waiting' : 'table'}
@@ -744,7 +821,6 @@ export function GameTable({
                   />
                 </div>
               </div>
-
             </>
           )}
         </main>
@@ -841,15 +917,35 @@ export function GameTable({
         </div>
       )}
 
+      {!presentation.isWaiting &&
+        !presentation.isGameEnd &&
+        !presentation.isPausedReconnect && (
+          <ReactionPicker
+            onSend={onSendReaction}
+            gamePhase={view.gamePhase}
+            justWonTrick={justWonTrick}
+            justLostTrick={false}
+            trucoPending={Boolean(view.trucoPending)}
+          />
+        )}
+
       {/* PATO taunt button — shown to the player who called truco */}
       {canSendPatoTaunt && (
         <div className="fixed bottom-8 left-1/2 z-[45] -translate-x-1/2">
           <button
             type="button"
-            onClick={() => { playPatoSound(); onSendPatoTaunt(); }}
+            onClick={() => {
+              playPatoSound();
+              onSendPatoTaunt();
+            }}
             className="flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-400/15 px-5 py-2.5 font-mono text-sm font-black uppercase tracking-[0.2em] text-amber-200 shadow-lg backdrop-blur-sm transition active:scale-95"
           >
-            <span style={{ display: 'inline-block', animation: 'pato-wobble 1.2s ease-in-out infinite' }}>
+            <span
+              style={{
+                display: 'inline-block',
+                animation: 'pato-wobble 1.2s ease-in-out infinite',
+              }}
+            >
               🦆
             </span>
             Pato!
@@ -897,7 +993,8 @@ export function GameTable({
           <div
             className="absolute inset-0"
             style={{
-              background: 'radial-gradient(circle at 50% 50%, rgba(251,191,36,0.18) 0%, transparent 65%)',
+              background:
+                'radial-gradient(circle at 50% 50%, rgba(251,191,36,0.18) 0%, transparent 65%)',
               animation: 'truco-fade-out 1.5s ease-out forwards',
             }}
           />
@@ -907,8 +1004,10 @@ export function GameTable({
             style={{
               fontSize: 'clamp(3.5rem, 16vw, 8rem)',
               letterSpacing: '0.08em',
-              textShadow: '0 0 60px rgba(251,191,36,0.9), 0 0 120px rgba(251,191,36,0.5), 0 4px 20px rgba(0,0,0,0.8)',
-              animation: 'truco-slam 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both, truco-fade-out 1.5s ease-out forwards',
+              textShadow:
+                '0 0 60px rgba(251,191,36,0.9), 0 0 120px rgba(251,191,36,0.5), 0 4px 20px rgba(0,0,0,0.8)',
+              animation:
+                'truco-slam 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both, truco-fade-out 1.5s ease-out forwards',
             }}
           >
             {trucoShout.label}
@@ -926,7 +1025,8 @@ export function GameTable({
             className="font-mono font-black"
             style={{
               fontSize: 'clamp(4rem, 22vw, 10rem)',
-              animation: 'truco-slam 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both, truco-fade-out 1.2s ease-out forwards',
+              animation:
+                'truco-slam 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both, truco-fade-out 1.2s ease-out forwards',
               filter: 'drop-shadow(0 0 40px rgba(251,191,36,0.7))',
             }}
           >

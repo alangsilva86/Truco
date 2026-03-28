@@ -282,3 +282,42 @@ export function getSeatLayoutForTeam(teamId: TeamId): {
     right: 0,
   };
 }
+
+// ─── Reactions / Chat ────────────────────────────────────────────────────────
+
+export interface ReactionPhrase {
+  id: number;
+  text: string;
+  category: 'win' | 'taunt' | 'truco' | 'partner' | 'gracious';
+}
+
+export const REACTION_PHRASES: ReactionPhrase[] = [
+  { id: 0, text: 'FERRO! 🔥', category: 'win' },
+  { id: 1, text: 'Toma! 💪', category: 'win' },
+  { id: 2, text: 'Era isso! ✅', category: 'win' },
+  { id: 3, text: 'Chumbo grosso! 💣', category: 'win' },
+  { id: 4, text: 'Vai pato! 🦆', category: 'taunt' },
+  { id: 5, text: 'Franguinho! 🐓', category: 'taunt' },
+  { id: 6, text: 'Buchuda! 💪', category: 'taunt' },
+  { id: 7, text: 'Que mão fraca! 😏', category: 'taunt' },
+  { id: 8, text: 'Cai fora! 👋', category: 'taunt' },
+  { id: 9, text: 'Tô na fé! 🙏', category: 'truco' },
+  { id: 10, text: 'Blefe total! 😈', category: 'truco' },
+  { id: 11, text: 'Sem blefe! 👊', category: 'truco' },
+  { id: 12, text: 'Vai aceitar? 😏', category: 'truco' },
+  { id: 13, text: 'Vai parceiro! 💚', category: 'partner' },
+  { id: 14, text: 'Confia! 🤝', category: 'partner' },
+  { id: 15, text: 'Fecha tudo!', category: 'partner' },
+  { id: 16, text: 'Isso aí! 👍', category: 'partner' },
+  { id: 17, text: 'Boa jogada...', category: 'gracious' },
+  { id: 18, text: 'Sorte sua! 🍀', category: 'gracious' },
+  { id: 19, text: 'Próxima! 🔄', category: 'gracious' },
+  { id: 20, text: 'Vocês tiveram sorte!', category: 'gracious' },
+];
+
+export interface ChatBubble {
+  id: number;
+  seatId: SeatId;
+  phraseId: number;
+  timestamp: number;
+}

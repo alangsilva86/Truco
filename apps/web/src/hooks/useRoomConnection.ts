@@ -1,18 +1,15 @@
 import { Room } from '@colyseus/sdk';
 import {
+  ChatBubble,
   ClientGameView,
   ClientMatchEvent,
   ClientStorageSnapshot,
   GameCommand,
+  REACTION_PHRASES,
+  SeatId,
   getTeamForSeat,
 } from '@truco/contracts';
-import {
-  RefObject,
-  startTransition,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { RefObject, startTransition, useEffect, useRef, useState } from 'react';
 import { describeEvent } from '../lib/matchEvents.js';
 import {
   createColyseusClient,
@@ -68,6 +65,7 @@ export function useRoomConnection({
     useState<ConnectionState>('disconnected');
   const [commandPending, setCommandPending] = useState(false);
   const [patoTauntCount, setPatoTauntCount] = useState(0);
+  const [chatBubbles, setChatBubbles] = useState<ChatBubble[]>([]);
 
   const connectionStateRef = useRef<ConnectionState>('disconnected');
   const playersRef = useRef<ClientGameView['players'] | null>(null);
@@ -104,6 +102,7 @@ export function useRoomConnection({
     setConnectionState('connected');
     setError(null);
     setLogs([]);
+    setChatBubbles([]);
 
     room.onMessage('game_view', (incomingView: ClientGameView) => {
       startTransition(() => {
@@ -144,6 +143,33 @@ export function useRoomConnection({
     room.onMessage('pato_taunt', () => {
       setPatoTauntCount((n) => n + 1);
     });
+
+    room.onMessage(
+      'player_reaction',
+      (payload: { seatId: SeatId; phraseId: number }) => {
+        const phraseExists = REACTION_PHRASES.some(
+          (phrase) => phrase.id === payload.phraseId,
+        );
+        if (!phraseExists) {
+          return;
+        }
+
+        const id = Date.now() + Math.random();
+        setChatBubbles((prev) => [
+          ...prev.slice(-6),
+          {
+            id,
+            seatId: payload.seatId,
+            phraseId: payload.phraseId,
+            timestamp: Date.now(),
+          },
+        ]);
+
+        window.setTimeout(() => {
+          setChatBubbles((prev) => prev.filter((bubble) => bubble.id !== id));
+        }, 3_600);
+      },
+    );
 
     room.onLeave(() => {
       setConnectionState('disconnected');
@@ -267,6 +293,10 @@ export function useRoomConnection({
     roomRef.current?.send('pato_taunt');
   }
 
+  function sendReaction(phraseId: number): void {
+    roomRef.current?.send('player_reaction', { phraseId });
+  }
+
   function leaveSession(): void {
     clearSession();
     roomRef.current?.leave();
@@ -277,11 +307,13 @@ export function useRoomConnection({
     setConnectionState('disconnected');
     setError(null);
     setLogs([]);
+    setChatBubbles([]);
     setView(null);
   }
 
   return {
     busy,
+    chatBubbles,
     commandPending,
     connectionState,
     createRoom,
@@ -294,6 +326,7 @@ export function useRoomConnection({
     reportError: (message: string) => setError(message),
     reconnect,
     sendCommand,
+    sendReaction,
     sendPatoTaunt,
     view,
   };

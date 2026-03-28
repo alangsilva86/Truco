@@ -31,6 +31,7 @@ function createBaseProps() {
     connectionState: 'connected' as const,
     logs: [],
     error: null,
+    chatBubbles: [],
     coveredMode: false,
     commandPending: false,
     codeCopied: false,
@@ -51,6 +52,7 @@ function createBaseProps() {
     onRaiseTruco: () => undefined,
     onRunTruco: () => undefined,
     patoTauntCount: 0,
+    onSendReaction: () => undefined,
     onSendPatoTaunt: () => undefined,
   };
 }
@@ -75,6 +77,7 @@ describe('GameTable', () => {
         connectionState="connected"
         logs={[]}
         error={null}
+        chatBubbles={[]}
         coveredMode={false}
         commandPending={false}
         codeCopied={false}
@@ -96,6 +99,7 @@ describe('GameTable', () => {
         onRaiseTruco={() => undefined}
         onRunTruco={() => undefined}
         patoTauntCount={0}
+        onSendReaction={() => undefined}
         onSendPatoTaunt={() => undefined}
       />,
     );
@@ -119,6 +123,7 @@ describe('GameTable', () => {
         connectionState="connected"
         logs={[]}
         error={null}
+        chatBubbles={[]}
         coveredMode={false}
         commandPending={false}
         codeCopied={false}
@@ -140,6 +145,7 @@ describe('GameTable', () => {
         onRaiseTruco={() => undefined}
         onRunTruco={() => undefined}
         patoTauntCount={0}
+        onSendReaction={() => undefined}
         onSendPatoTaunt={() => undefined}
       />,
     );
