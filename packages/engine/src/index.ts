@@ -38,6 +38,9 @@ type PendingTransition =
   | { kind: 'ADVANCE_TRICK'; nextTurnSeatId: SeatId }
   | null;
 
+const HAND_OF_ELEVEN_PLAY_VALUE = 3;
+const HAND_OF_ELEVEN_RUN_PENALTY = 1;
+
 export interface MatchState {
   matchId: string;
   seed: number;
@@ -158,10 +161,25 @@ function startRound(
   state.trickHistory = [];
   state.trickWinners = [];
   state.pendingTransition = null;
-  state.phase = 'PLAYING';
   state.lastRoundWinnerTeam = null;
   state.rematchVotes = { 0: false, 1: false };
-  state.message = `Nova rodada. ${state.players[nextTurnSeatId].nickname} começa.`;
+
+  const handOfElevenDecisionTeam = getHandOfElevenDecisionTeam(state);
+  const isHandOfIron = state.scores[0] === 11 && state.scores[1] === 11;
+
+  if (handOfElevenDecisionTeam !== null) {
+    state.phase = 'HAND_OF_ELEVEN_DECISION';
+    state.message = `Mao de 11 para ${state.players[TEAM_SEATS[handOfElevenDecisionTeam][0]].nickname}. Escolha jogar valendo ${HAND_OF_ELEVEN_PLAY_VALUE} ou correr por ${HAND_OF_ELEVEN_RUN_PENALTY}.`;
+  } else {
+    state.phase = 'PLAYING';
+
+    if (isHandOfIron) {
+      state.currentRoundPoints = HAND_OF_ELEVEN_PLAY_VALUE;
+      state.message = `Mao de ferro. ${state.players[nextTurnSeatId].nickname} comeca e a rodada vale ${HAND_OF_ELEVEN_PLAY_VALUE}.`;
+    } else {
+      state.message = `Nova rodada. ${state.players[nextTurnSeatId].nickname} começa.`;
+    }
+  }
 
   events.push(
     createEvent(state, 'ROUND_STARTED', {
@@ -182,6 +200,22 @@ function beginDealing(state: MatchState, dealerSeatId: SeatId): void {
 
 function getRoundCardsView(state: MatchState): TrickView['cards'] {
   return getOrderedRoundCards(state.roundCards).map(sanitizePlayedCardView);
+}
+
+function getHandOfElevenDecisionTeam(state: MatchState): TeamId | null {
+  if (state.scores[0] === 11 && state.scores[1] < 11) {
+    return 0;
+  }
+
+  if (state.scores[1] === 11 && state.scores[0] < 11) {
+    return 1;
+  }
+
+  return null;
+}
+
+function isHandOfElevenRound(state: MatchState): boolean {
+  return state.scores[0] === 11 || state.scores[1] === 11;
 }
 
 function resolveTrickAndMaybeRound(state: MatchState): ClientMatchEvent[] {
@@ -407,6 +441,13 @@ function requestTruco(
     );
   }
 
+  if (isHandOfElevenRound(nextState)) {
+    return createInvalidResult(
+      state,
+      'Truco is disabled while a team has 11 points.',
+    );
+  }
+
   const requestingTeam = getTeamForSeat(seatId);
 
   if (
@@ -505,6 +546,79 @@ function respondTruco(
       responseTeam: nextState.pendingTruco.responseTeam,
     }),
   ]);
+}
+
+function resolveHandOfElevenRun(
+  state: MatchState,
+  runnerTeam: TeamId,
+): ClientMatchEvent[] {
+  const events: ClientMatchEvent[] = [];
+
+  if (state.dealerSeatId === null) {
+    return events;
+  }
+
+  const awardedTeam = runnerTeam === 0 ? 1 : 0;
+  const awardedPoints = HAND_OF_ELEVEN_RUN_PENALTY;
+
+  state.scores[awardedTeam] += awardedPoints;
+  state.lastRoundWinnerTeam = awardedTeam;
+
+  events.push(
+    createEvent(state, 'ROUND_ENDED', {
+      winnerTeam: awardedTeam,
+      awardedPoints,
+      scores: { ...state.scores },
+    }),
+  );
+
+  if (state.scores[awardedTeam] >= 12) {
+    state.phase = 'GAME_END';
+    state.pendingTransition = null;
+    state.gameWinnerTeam = awardedTeam;
+    state.message = `${state.players[TEAM_SEATS[awardedTeam][0]].nickname} venceu o jogo.`;
+    events.push(
+      createEvent(state, 'GAME_ENDED', {
+        winnerTeam: awardedTeam,
+        scores: { ...state.scores },
+      }),
+    );
+    return events;
+  }
+
+  queueNextRound(state, ((state.dealerSeatId + 1) % 4) as SeatId);
+  state.message = `Time ${runnerTeam} correu na mao de 11.`;
+  return events;
+}
+
+function respondHandOfEleven(
+  state: MatchState,
+  command: Extract<GameCommand, { type: 'RESPOND_HAND_OF_ELEVEN' }>,
+): ApplyCommandResult {
+  if (state.phase !== 'HAND_OF_ELEVEN_DECISION') {
+    return createInvalidResult(state, 'There is no hand of eleven decision.');
+  }
+
+  const decidingTeam = getHandOfElevenDecisionTeam(state);
+
+  if (decidingTeam === null) {
+    return createInvalidResult(state, 'There is no hand of eleven decision.');
+  }
+
+  const nextState = cloneState(state);
+  const { action } = command.payload;
+
+  if (action === 'play') {
+    nextState.currentRoundPoints = HAND_OF_ELEVEN_PLAY_VALUE;
+    nextState.phase = 'PLAYING';
+    nextState.message = `Mao de 11 aceita. ${nextState.players[nextState.turnSeatId!].nickname} joga valendo ${HAND_OF_ELEVEN_PLAY_VALUE}.`;
+    return withStateVersion(nextState, []);
+  }
+
+  return withStateVersion(
+    nextState,
+    resolveHandOfElevenRun(nextState, decidingTeam),
+  );
 }
 
 function rematch(
@@ -668,6 +782,8 @@ export function applyCommand(
       return requestTruco(state, command);
     case 'RESPOND_TRUCO':
       return respondTruco(state, command);
+    case 'RESPOND_HAND_OF_ELEVEN':
+      return respondHandOfEleven(state, command);
     case 'REMATCH':
       return rematch(state, command);
     default:
@@ -680,6 +796,20 @@ export function getLegalActions(
   viewerTeamId: TeamId,
 ): AvailableAction[] {
   const actions: AvailableAction[] = [];
+
+  if (state.phase === 'HAND_OF_ELEVEN_DECISION') {
+    const decidingTeam = getHandOfElevenDecisionTeam(state);
+
+    if (decidingTeam === viewerTeamId) {
+      actions.push({
+        type: 'RESPOND_HAND_OF_ELEVEN',
+        playValue: HAND_OF_ELEVEN_PLAY_VALUE,
+        runPenalty: HAND_OF_ELEVEN_RUN_PENALTY,
+      });
+    }
+
+    return actions;
+  }
 
   if (
     state.phase === 'PLAYING' &&
@@ -694,6 +824,7 @@ export function getLegalActions(
     });
 
     if (
+      !isHandOfElevenRound(state) &&
       state.pendingTruco === null &&
       (state.lastTrucoBySeatId === null ||
         getTeamForSeat(state.lastTrucoBySeatId) !== viewerTeamId)

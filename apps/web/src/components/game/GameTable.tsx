@@ -25,6 +25,7 @@ import { createTablePresentation } from '../../lib/tablePresentation.js';
 import { ActionConfirmTray } from './ActionConfirmTray.js';
 import { BottomActionBar } from './BottomActionBar.js';
 import { CenterTable } from './CenterTable.js';
+import { HandOfElevenDecisionSheet } from './HandOfElevenDecisionSheet.js';
 import { MatchLogDrawer } from './MatchLogDrawer.js';
 import { RoundContextRail } from './RoundContextRail.js';
 import { RoundStatusBar } from './RoundStatusBar.js';
@@ -36,6 +37,10 @@ import { TrucoDecisionSheet } from './TrucoDecisionSheet.js';
 type PlayAction = Extract<AvailableAction, { type: 'PLAY_CARD' }>;
 type TrucoAction = Extract<AvailableAction, { type: 'REQUEST_TRUCO' }>;
 type TrucoResponseAction = Extract<AvailableAction, { type: 'RESPOND_TRUCO' }>;
+type HandOfElevenResponseAction = Extract<
+  AvailableAction,
+  { type: 'RESPOND_HAND_OF_ELEVEN' }
+>;
 
 interface GameTableProps {
   view: ClientGameView;
@@ -48,16 +53,19 @@ interface GameTableProps {
   codeCopied: boolean;
   rematchRequested: boolean;
   playAction: PlayAction | null;
+  respondHandOfElevenAction: HandOfElevenResponseAction | null;
   requestTrucoAction: TrucoAction | null;
   respondTrucoAction: TrucoResponseAction | null;
   onDismissError: () => void;
   onCopyCode: (code: string) => void;
   onLeave: () => void;
   onToggleCovered: () => void;
+  onPlayHandOfEleven: () => void;
   onPlayCard: (seatId: SeatId, card: Card, mode?: CardPlayMode) => void;
   onRequestTruco: () => void;
   onRequestRematch: () => void;
   onAcceptTruco: () => void;
+  onRunHandOfEleven: () => void;
   onRaiseTruco: () => void;
   onRunTruco: () => void;
   patoTauntCount: number;
@@ -67,32 +75,6 @@ interface GameTableProps {
 interface SelectedPlayState {
   card: Card;
   seatId: SeatId;
-}
-
-function formatCompactSuit(suit: Card['suit']): string {
-  if (suit === 'Espadas') {
-    return 'Esp.';
-  }
-
-  if (suit === 'Ouros') {
-    return 'Our.';
-  }
-
-  if (suit === 'Copas') {
-    return 'Cop.';
-  }
-
-  return 'Paus';
-}
-
-function formatCompactTrickDots(
-  trickDots: ReturnType<typeof createTablePresentation>['trickDots'],
-): string {
-  return trickDots
-    .map((dot) =>
-      dot === 'us' ? '●' : dot === 'them' ? '◐' : dot === 'tie' ? '◆' : '○',
-    )
-    .join(' ');
 }
 
 export function GameTable({
@@ -106,16 +88,19 @@ export function GameTable({
   codeCopied,
   rematchRequested,
   playAction,
+  respondHandOfElevenAction,
   requestTrucoAction,
   respondTrucoAction,
   onDismissError,
   onCopyCode,
   onLeave,
   onToggleCovered,
+  onPlayHandOfEleven,
   onPlayCard,
   onRequestTruco,
   onRequestRematch,
   onAcceptTruco,
+  onRunHandOfEleven,
   onRaiseTruco,
   onRunTruco,
   patoTauntCount,
@@ -132,7 +117,7 @@ export function GameTable({
   const [trucoShout, setTrucoShout] = useState<{ label: string; id: number } | null>(null);
   const [incomingPatoKey, setIncomingPatoKey] = useState(0);
   const prevPatoTauntCountRef = useRef(patoTauntCount);
-  const { isCompactContext, isPhoneLayout } = usePhoneLayout();
+  const { isPhoneLayout } = usePhoneLayout();
   const lastPhaseRef = useRef(view.gamePhase);
   const prevRoundCardsLenRef = useRef(view.roundCards.length);
   const prevTrickHistoryLenRef = useRef(view.trickHistory.length);
@@ -271,9 +256,15 @@ export function GameTable({
       : 'neutral';
 
   const showBottomActions = !presentation.isWaiting && !presentation.isGameEnd;
+  const handOfElevenSheetOpen = Boolean(
+    respondHandOfElevenAction &&
+      view.gamePhase === 'HAND_OF_ELEVEN_DECISION' &&
+      !presentation.isPausedReconnect,
+  );
   const trucoSheetOpen = Boolean(
     respondTrucoAction && view.trucoPending && !presentation.isPausedReconnect,
   );
+  const decisionSheetOpen = handOfElevenSheetOpen || trucoSheetOpen;
   // We called truco and the opponent is deciding → show PATO taunt button
   const canSendPatoTaunt = Boolean(
     view.trucoPending &&
@@ -287,11 +278,11 @@ export function GameTable({
       : null;
 
   useEffect(() => {
-    if (trucoSheetOpen) {
+    if (decisionSheetOpen) {
       setSelectedPlay(null);
       setPendingPlayCardId(null);
     }
-  }, [trucoSheetOpen]);
+  }, [decisionSheetOpen]);
 
   useEffect(() => {
     if (!selectedPlay) {
@@ -337,7 +328,7 @@ export function GameTable({
     if (
       !isPhoneLayout ||
       commandPending ||
-      trucoSheetOpen ||
+      decisionSheetOpen ||
       playAction?.seatId !== seatId ||
       !playAction.cardIds.includes(card.id)
     ) {
@@ -385,6 +376,16 @@ export function GameTable({
     onRunTruco();
   }
 
+  function handlePlayHandOfElevenPress(): void {
+    triggerHaptic([28]);
+    onPlayHandOfEleven();
+  }
+
+  function handleRunHandOfElevenPress(): void {
+    triggerHaptic([12, 40, 12]);
+    onRunHandOfEleven();
+  }
+
   const phoneTrayHand =
     !presentation.isWaiting && !presentation.isGameEnd ? (
       presentation.topSeatFocus ? (
@@ -403,7 +404,9 @@ export function GameTable({
             handleSelectCard(presentation.topSeat.seatId, card)
           }
           disabled={
-            !presentation.topSeat.active || commandPending || trucoSheetOpen
+            !presentation.topSeat.active ||
+            commandPending ||
+            decisionSheetOpen
           }
           highlightCards={false}
           pendingCardId={pendingPlayCardId}
@@ -425,7 +428,9 @@ export function GameTable({
               : onPlayCard(presentation.bottomSeat.seatId, card)
           }
           disabled={
-            !presentation.bottomSeat.active || commandPending || trucoSheetOpen
+            !presentation.bottomSeat.active ||
+            commandPending ||
+            decisionSheetOpen
           }
           highlightCards={false}
           pendingCardId={pendingPlayCardId}
@@ -461,7 +466,7 @@ export function GameTable({
                 activeSeatName={activeSeatName}
                 banner={presentation.banner}
                 currentRoundPoints={view.currentRoundPoints}
-                dimmed={trucoSheetOpen}
+                dimmed={decisionSheetOpen}
                 manilhaRank={view.manilhaRank}
                 trickDots={presentation.trickDots}
                 vira={view.vira}
@@ -557,10 +562,11 @@ export function GameTable({
                       onCopyCode={() => onCopyCode(view.roomCode)}
                       roundCards={view.roundCards}
                       manilhaRank={view.manilhaRank}
+                      viewerTeamId={viewerTeamId}
                     />
                   </div>
 
-                  {presentation.topSeatFocus && !trucoSheetOpen && (
+                  {presentation.topSeatFocus && !decisionSheetOpen && (
                     <TopSeatFocusOverlay
                       nickname={presentation.topSeat.nickname}
                     />
@@ -580,7 +586,7 @@ export function GameTable({
                     )}
                     canRequestTruco={presentation.canRequestTruco}
                     commandPending={commandPending}
-                    dimmed={trucoSheetOpen}
+                    dimmed={decisionSheetOpen}
                     manilhaRank={view.manilhaRank}
                     error={error}
                     pendingPlay={Boolean(
@@ -649,7 +655,11 @@ export function GameTable({
                       onPlayCard={(card) =>
                         onPlayCard(presentation.topSeat.seatId, card)
                       }
-                      disabled={!presentation.topSeat.active || commandPending}
+                      disabled={
+                        !presentation.topSeat.active ||
+                        commandPending ||
+                        decisionSheetOpen
+                      }
                     />
                   </div>
                 ) : (
@@ -693,6 +703,7 @@ export function GameTable({
                       onCopyCode={() => onCopyCode(view.roomCode)}
                       roundCards={view.roundCards}
                       manilhaRank={view.manilhaRank}
+                      viewerTeamId={viewerTeamId}
                     />
                   </div>
                 </div>
@@ -712,7 +723,9 @@ export function GameTable({
                         onPlayCard(presentation.bottomSeat.seatId, card)
                       }
                       disabled={
-                        !presentation.bottomSeat.active || commandPending
+                        !presentation.bottomSeat.active ||
+                        commandPending ||
+                        decisionSheetOpen
                       }
                     />
                   )}
@@ -843,6 +856,15 @@ export function GameTable({
           </button>
         </div>
       )}
+
+      <HandOfElevenDecisionSheet
+        open={handOfElevenSheetOpen}
+        playValue={respondHandOfElevenAction?.playValue ?? 3}
+        runPenalty={respondHandOfElevenAction?.runPenalty ?? 1}
+        commandPending={commandPending}
+        onPlay={handlePlayHandOfElevenPress}
+        onRun={handleRunHandOfElevenPress}
+      />
 
       <TrucoDecisionSheet
         open={trucoSheetOpen}

@@ -29,6 +29,19 @@ function startReadyMatch(seed = 1234): MatchState {
   return applyPendingTransition(dealing).nextState;
 }
 
+function startMatchAtScore(
+  scores: MatchState['scores'],
+  seed = 1234,
+): MatchState {
+  const base = createMatch(seed, {
+    matchId: 'match-1',
+    players: createPlayers(),
+  });
+  base.scores = { ...scores };
+  const dealing = beginMatch(base).nextState;
+  return applyPendingTransition(dealing).nextState;
+}
+
 // Play a card for the current turn seat (uses first card in hand by default).
 function playCard(state: MatchState, tag: string, cardIndex = 0): MatchState {
   const seat = state.turnSeatId!;
@@ -236,6 +249,66 @@ describe('engine', () => {
     expect(afterAccept.nextState.currentRoundPoints).toBe(6);
     expect(afterAccept.nextState.phase).toBe('PLAYING');
     expect(afterAccept.nextState.pendingTruco).toBeNull();
+  });
+
+  it('requires a play-or-run decision when one team reaches 11', () => {
+    const state = startMatchAtScore({ 0: 11, 1: 10 }, 31);
+
+    expect(state.phase).toBe('HAND_OF_ELEVEN_DECISION');
+    expect(getLegalActions(state, 0)).toContainEqual({
+      type: 'RESPOND_HAND_OF_ELEVEN',
+      playValue: 3,
+      runPenalty: 1,
+    });
+    expect(getLegalActions(state, 1)).toHaveLength(0);
+
+    const afterPlay = applyCommand(state, {
+      commandId: 'hand-11-play',
+      issuedAt: Date.now(),
+      type: 'RESPOND_HAND_OF_ELEVEN',
+      payload: { action: 'play' },
+    });
+
+    expect(afterPlay.error).toBeUndefined();
+    expect(afterPlay.nextState.phase).toBe('PLAYING');
+    expect(afterPlay.nextState.currentRoundPoints).toBe(3);
+
+    const blockedTruco = applyCommand(afterPlay.nextState, {
+      commandId: 'hand-11-truco',
+      issuedAt: Date.now(),
+      type: 'REQUEST_TRUCO',
+      payload: { seatId: afterPlay.nextState.turnSeatId! },
+    });
+
+    expect(blockedTruco.error).toContain('11 points');
+  });
+
+  it('awards only 1 point to the opponent when running at 11', () => {
+    const state = startMatchAtScore({ 0: 11, 1: 10 }, 32);
+
+    const afterRun = applyCommand(state, {
+      commandId: 'hand-11-run',
+      issuedAt: Date.now(),
+      type: 'RESPOND_HAND_OF_ELEVEN',
+      payload: { action: 'run' },
+    });
+
+    expect(afterRun.error).toBeUndefined();
+    expect(afterRun.nextState.scores).toEqual({ 0: 11, 1: 11 });
+    expect(afterRun.nextState.phase).toBe('ROUND_END');
+  });
+
+  it('starts 11 x 11 as mao de ferro worth 3 without truco', () => {
+    const state = startMatchAtScore({ 0: 11, 1: 11 }, 33);
+    const activeTeam = ((state.turnSeatId ?? 1) % 2) as TeamId;
+
+    expect(state.phase).toBe('PLAYING');
+    expect(state.currentRoundPoints).toBe(3);
+    expect(
+      getLegalActions(state, activeTeam).some(
+        (action) => action.type === 'REQUEST_TRUCO',
+      ),
+    ).toBe(false);
   });
 
   it('completes a full round and awards 1 point to the winner', () => {

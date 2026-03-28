@@ -210,7 +210,9 @@ describe('App', () => {
       expect(mocks.reconnect).toHaveBeenCalledWith('token-123');
     });
 
-    expect(await screen.findByText(/sala rcn123/i)).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: /sair da sala/i }),
+    ).toBeInTheDocument();
   });
 
   it('limpa a sessao salva antes de criar uma nova sala', async () => {

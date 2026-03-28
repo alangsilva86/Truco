@@ -20,6 +20,7 @@ export type CardPlayMode = 'open' | 'covered';
 export type GamePhase =
   | 'WAITING_PLAYERS'
   | 'DEALING'
+  | 'HAND_OF_ELEVEN_DECISION'
   | 'PLAYING'
   | 'TRUCO_DECISION'
   | 'TRICK_END'
@@ -28,6 +29,7 @@ export type GamePhase =
 export type RoomLifecycle = 'OPEN' | 'LOCKED' | 'PAUSED_RECONNECT' | 'CLOSED';
 export type ConnectionState = 'connected' | 'reconnecting' | 'disconnected';
 export type TrucoResponseAction = 'accept' | 'run' | 'raise';
+export type HandOfElevenResponseAction = 'play' | 'run';
 
 export interface Card {
   id: string;
@@ -80,10 +82,17 @@ export interface AvailableTrucoResponseAction {
   currentAcceptedValue: number;
 }
 
+export interface AvailableHandOfElevenAction {
+  type: 'RESPOND_HAND_OF_ELEVEN';
+  playValue: number;
+  runPenalty: number;
+}
+
 export type AvailableAction =
   | AvailablePlayAction
   | AvailableTrucoAction
-  | AvailableTrucoResponseAction;
+  | AvailableTrucoResponseAction
+  | AvailableHandOfElevenAction;
 
 export interface ClientGameView {
   matchId: string;
@@ -126,6 +135,10 @@ export interface RespondTrucoPayload {
   action: TrucoResponseAction;
 }
 
+export interface RespondHandOfElevenPayload {
+  action: HandOfElevenResponseAction;
+}
+
 export interface RematchPayload {
   requestedBySeatId: SeatId;
 }
@@ -146,12 +159,17 @@ export type RespondTrucoCommand = BaseGameCommand<
   'RESPOND_TRUCO',
   RespondTrucoPayload
 >;
+export type RespondHandOfElevenCommand = BaseGameCommand<
+  'RESPOND_HAND_OF_ELEVEN',
+  RespondHandOfElevenPayload
+>;
 export type RematchCommand = BaseGameCommand<'REMATCH', RematchPayload>;
 
 export type GameCommand =
   | PlayCardCommand
   | RequestTrucoCommand
   | RespondTrucoCommand
+  | RespondHandOfElevenCommand
   | RematchCommand;
 
 export interface BaseEngineEvent<TType extends string, TPayload> {

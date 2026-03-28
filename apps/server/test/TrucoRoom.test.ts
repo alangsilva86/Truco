@@ -2,6 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { ColyseusTestServer, boot } from '@colyseus/testing';
 import { matchMaker } from 'colyseus';
 import { ClientGameView, ClientMatchEvent, GameCommand } from '@truco/contracts';
+import { MatchState } from '@truco/engine';
 import app from '../src/app.config.js';
 
 async function waitFor(
@@ -210,6 +211,56 @@ describe('TrucoRoom', () => {
     const nextView = await bootstrapView(guest);
 
     expect(nextView.visibleHands[1]).toHaveLength(2);
+  });
+
+  it('projects and resolves the mao de 11 decision through the room', async () => {
+    const room = await colyseus.createRoom('truco_room', {});
+    const host = await colyseus.connectTo(room, { nickname: 'Ana' });
+    const guest = await colyseus.connectTo(room, { nickname: 'Bia' });
+    host.onMessage('game_view', () => undefined);
+    guest.onMessage('game_view', () => undefined);
+    host.onMessage('match_event', () => undefined);
+    guest.onMessage('match_event', () => undefined);
+
+    await waitFor(
+      () =>
+        host.state.gamePhase === 'PLAYING' &&
+        guest.state.gamePhase === 'PLAYING',
+    );
+
+    const state = (
+      room as unknown as { runtime: { getState: () => MatchState } }
+    ).runtime.getState();
+    state.scores = { 0: 11, 1: 10 };
+    state.phase = 'HAND_OF_ELEVEN_DECISION';
+    state.currentRoundPoints = 1;
+    state.pendingTruco = null;
+    state.message = 'Mao de 11 para Ana.';
+
+    const hostView = await bootstrapView(host);
+    const guestView = await bootstrapView(guest);
+
+    expect(hostView.availableActions).toContainEqual({
+      type: 'RESPOND_HAND_OF_ELEVEN',
+      playValue: 3,
+      runPenalty: 1,
+    });
+    expect(guestView.availableActions).toHaveLength(0);
+
+    const command: GameCommand = {
+      commandId: 'hand-11-play',
+      issuedAt: Date.now(),
+      type: 'RESPOND_HAND_OF_ELEVEN',
+      payload: { action: 'play' },
+    };
+
+    host.send('command', command);
+
+    await waitFor(() => host.state.currentRoundPoints === 3);
+    const resolvedView = await bootstrapView(host);
+
+    expect(resolvedView.gamePhase).toBe('PLAYING');
+    expect(resolvedView.currentRoundPoints).toBe(3);
   });
 
   it('keeps the host seat reserved while reconnecting before the match starts', async () => {

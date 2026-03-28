@@ -27,9 +27,9 @@ export function TableHeader({
   onCopyCode,
   onLeave,
   connectionState = 'connected',
-  logCount = 0,
-  logsOpen = false,
-  onToggleLogs,
+  logCount: _logCount = 0,
+  logsOpen: _logsOpen = false,
+  onToggleLogs: _onToggleLogs,
   phoneMode = false,
 }: TableHeaderProps) {
   const statusClass =

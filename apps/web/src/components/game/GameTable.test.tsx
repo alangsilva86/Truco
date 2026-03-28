@@ -1,6 +1,9 @@
 // @vitest-environment jsdom
 
-import { AvailablePlayAction } from '@truco/contracts';
+import {
+  AvailableHandOfElevenAction,
+  AvailablePlayAction,
+} from '@truco/contracts';
 import { useState } from 'react';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
@@ -33,14 +36,18 @@ function createBaseProps() {
     codeCopied: false,
     rematchRequested: false,
     requestTrucoAction: null,
+    respondHandOfElevenAction: null,
     respondTrucoAction: null,
     onDismissError: () => undefined,
     onCopyCode: () => undefined,
     onLeave: () => undefined,
     onToggleCovered: () => undefined,
+    onPlayHandOfEleven: () => undefined,
+    onPlayCard: () => undefined,
     onRequestTruco: () => undefined,
     onRequestRematch: () => undefined,
     onAcceptTruco: () => undefined,
+    onRunHandOfEleven: () => undefined,
     onRaiseTruco: () => undefined,
     onRunTruco: () => undefined,
     patoTauntCount: 0,
@@ -73,16 +80,19 @@ describe('GameTable', () => {
         codeCopied={false}
         rematchRequested={false}
         playAction={null}
+        respondHandOfElevenAction={null}
         requestTrucoAction={null}
         respondTrucoAction={null}
         onDismissError={() => undefined}
         onCopyCode={() => undefined}
         onLeave={() => undefined}
         onToggleCovered={() => undefined}
+        onPlayHandOfEleven={() => undefined}
         onPlayCard={() => undefined}
         onRequestTruco={() => undefined}
         onRequestRematch={onRequestRematch}
         onAcceptTruco={() => undefined}
+        onRunHandOfEleven={() => undefined}
         onRaiseTruco={() => undefined}
         onRunTruco={() => undefined}
         patoTauntCount={0}
@@ -114,16 +124,19 @@ describe('GameTable', () => {
         codeCopied={false}
         rematchRequested
         playAction={null}
+        respondHandOfElevenAction={null}
         requestTrucoAction={null}
         respondTrucoAction={null}
         onDismissError={() => undefined}
         onCopyCode={() => undefined}
         onLeave={() => undefined}
         onToggleCovered={() => undefined}
+        onPlayHandOfEleven={() => undefined}
         onPlayCard={() => undefined}
         onRequestTruco={() => undefined}
         onRequestRematch={() => undefined}
         onAcceptTruco={() => undefined}
+        onRunHandOfEleven={() => undefined}
         onRaiseTruco={() => undefined}
         onRunTruco={() => undefined}
         patoTauntCount={0}
@@ -169,11 +182,9 @@ describe('GameTable', () => {
 
     expect(onPlayCard).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: /jogar aberta/i })).toBeVisible();
-    expect(
-      screen.getByRole('button', { name: /jogar coberta/i }),
-    ).toBeVisible();
+    expect(screen.getByRole('button', { name: /coberta/i })).toBeVisible();
 
-    fireEvent.click(screen.getByRole('button', { name: /jogar coberta/i }));
+    fireEvent.click(screen.getByRole('button', { name: /coberta/i }));
 
     expect(onPlayCard).toHaveBeenCalledWith(
       0,
@@ -208,9 +219,8 @@ describe('GameTable', () => {
       />,
     );
 
-    expect(screen.getByText(/assento do topo em foco/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/jogando agora: ana • parceiro · assento cima/i),
+      screen.getByText(/jogando pelo parceiro · ana • parceiro/i),
     ).toBeInTheDocument();
 
     const topCard = screen
@@ -275,9 +285,45 @@ describe('GameTable', () => {
 
     fireEvent.click(confirmButtons[confirmButtons.length - 1]);
 
-    expect(screen.getByText(/enviando jogada/i)).toBeInTheDocument();
     expect(
       screen.getAllByRole('button', { name: /a de ouros/i }).length,
     ).toBeGreaterThan(0);
+  });
+
+  it('mostra as opcoes de mao de 11 para a dupla com 11 pontos', () => {
+    const onPlayHandOfEleven = vi.fn();
+    const onRunHandOfEleven = vi.fn();
+    const view = createClientGameView({
+      gamePhase: 'HAND_OF_ELEVEN_DECISION',
+      scores: { 0: 11, 1: 10 },
+      turnSeatId: 1,
+      availableActions: [
+        {
+          type: 'RESPOND_HAND_OF_ELEVEN',
+          playValue: 3,
+          runPenalty: 1,
+        },
+      ],
+      message: 'Mao de 11 para Ana.',
+    });
+
+    render(
+      <GameTable
+        {...createBaseProps()}
+        view={view}
+        playAction={null}
+        respondHandOfElevenAction={
+          view.availableActions[0] as AvailableHandOfElevenAction
+        }
+        onPlayHandOfEleven={onPlayHandOfEleven}
+        onRunHandOfEleven={onRunHandOfEleven}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /jogar · vale 3/i }));
+    fireEvent.click(screen.getByRole('button', { name: /correr · perder 1/i }));
+
+    expect(onPlayHandOfEleven).toHaveBeenCalledTimes(1);
+    expect(onRunHandOfEleven).toHaveBeenCalledTimes(1);
   });
 });

@@ -28,6 +28,18 @@ function ownsSeat(teamId: TeamId, seatId: number): boolean {
   return TEAM_SEATS[teamId].includes(seatId as 0 | 1 | 2 | 3);
 }
 
+function getHandOfElevenDecisionTeam(state: MatchState): TeamId | null {
+  if (state.scores[0] === 11 && state.scores[1] < 11) {
+    return 0;
+  }
+
+  if (state.scores[1] === 11 && state.scores[0] < 11) {
+    return 1;
+  }
+
+  return null;
+}
+
 class BoundedCommandIdCache {
   private readonly ids = new Set<string>();
   private readonly order: string[] = [];
@@ -215,6 +227,15 @@ export class MatchRuntime {
         return this.state.pendingTruco.responseTeam === teamId
           ? null
           : 'Your team cannot answer this truco request.';
+      case 'RESPOND_HAND_OF_ELEVEN': {
+        const decidingTeam = getHandOfElevenDecisionTeam(this.state);
+        if (this.state.phase !== 'HAND_OF_ELEVEN_DECISION' || decidingTeam === null) {
+          return 'There is no hand of eleven decision.';
+        }
+        return decidingTeam === teamId
+          ? null
+          : 'Your team cannot answer the hand of eleven.';
+      }
       default:
         return null;
     }

@@ -111,6 +111,20 @@ function createBanner(params: {
     };
   }
 
+  if (view.gamePhase === 'HAND_OF_ELEVEN_DECISION') {
+    return scoreUs === 11
+      ? {
+          tone: 'warning',
+          title: 'Mao de 11',
+          detail: 'Escolha jogar valendo 3 ou correr e perder 1 ponto.',
+        }
+      : {
+          tone: 'opponent',
+          title: 'Mao de 11 deles',
+          detail: 'Aguardando a decisao do adversario para comecar a rodada.',
+        };
+  }
+
   if (
     view.gamePhase === 'TRUCO_DECISION' &&
     view.trucoPending?.responseTeam === params.viewerTeamId
@@ -175,6 +189,8 @@ function getPhaseLabel(view: ClientGameView): string {
       return 'Vaza resolvida';
     case 'ROUND_END':
       return 'Rodada encerrada';
+    case 'HAND_OF_ELEVEN_DECISION':
+      return 'Mao de 11';
     case 'TRUCO_DECISION':
       return 'Truco em decisao';
     case 'GAME_END':
@@ -200,14 +216,25 @@ function getCoveredHint(playAction: PlayAction | null): string {
 
 function getTrucoHint(
   view: ClientGameView,
+  viewerTeamId: TeamId,
   requestTrucoAction: TrucoAction | null,
 ): string {
   if (requestTrucoAction) {
     return `Pedir ${requestTrucoAction.nextValue} ponto${requestTrucoAction.nextValue > 1 ? 's' : ''} agora.`;
   }
 
+  if (view.gamePhase === 'HAND_OF_ELEVEN_DECISION') {
+    return view.scores[viewerTeamId] === 11
+      ? 'Na mao de 11, escolha jogar valendo 3 ou correr e ceder 1 ponto.'
+      : 'Nao vale truco enquanto o adversario decide a mao de 11.';
+  }
+
   if (view.gamePhase === 'TRUCO_DECISION') {
     return 'Resolva o truco pendente para retomar a rodada.';
+  }
+
+  if (view.scores[0] === 11 || view.scores[1] === 11) {
+    return 'Nao vale truco quando alguem esta com 11 pontos.';
   }
 
   if (view.gamePhase === 'GAME_END') {
@@ -324,7 +351,7 @@ export function createTablePresentation(params: {
       : `${view.players[seatLayout.bottom].nickname} e ${view.players[seatLayout.top].nickname} compartilham as cartas visiveis da dupla.`,
     phaseLabel: getPhaseLabel(view),
     coveredHint: getCoveredHint(playAction),
-    trucoHint: getTrucoHint(view, requestTrucoAction),
+    trucoHint: getTrucoHint(view, viewerTeamId, requestTrucoAction),
     trucoLabel: requestTrucoAction
       ? requestTrucoAction.nextValue === 3
         ? 'Truco!'

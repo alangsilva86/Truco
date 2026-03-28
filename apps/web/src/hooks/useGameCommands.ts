@@ -12,6 +12,10 @@ import { createCommand, findAction } from '../lib/commands.js';
 type PlayAction = Extract<AvailableAction, { type: 'PLAY_CARD' }>;
 type TrucoAction = Extract<AvailableAction, { type: 'REQUEST_TRUCO' }>;
 type TrucoResponseAction = Extract<AvailableAction, { type: 'RESPOND_TRUCO' }>;
+type HandOfElevenResponseAction = Extract<
+  AvailableAction,
+  { type: 'RESPOND_HAND_OF_ELEVEN' }
+>;
 
 interface UseGameCommandsOptions {
   sendCommand: (command: GameCommand) => void;
@@ -30,6 +34,9 @@ export function useGameCommands({ sendCommand, view }: UseGameCommandsOptions) {
     : null;
   const respondTrucoAction: TrucoResponseAction | null = view
     ? findAction(view.availableActions, 'RESPOND_TRUCO')
+    : null;
+  const respondHandOfElevenAction: HandOfElevenResponseAction | null = view
+    ? findAction(view.availableActions, 'RESPOND_HAND_OF_ELEVEN')
     : null;
 
   useEffect(() => {
@@ -91,16 +98,21 @@ export function useGameCommands({ sendCommand, view }: UseGameCommandsOptions) {
     coveredMode,
     onAcceptTruco: () =>
       sendCommand(createCommand('RESPOND_TRUCO', { action: 'accept' })),
+    onPlayHandOfEleven: () =>
+      sendCommand(createCommand('RESPOND_HAND_OF_ELEVEN', { action: 'play' })),
     onPlayCard: handleCardPlay,
     onRaiseTruco: () =>
       sendCommand(createCommand('RESPOND_TRUCO', { action: 'raise' })),
     onRequestRematch: handleRequestRematch,
     onRequestTruco: handleRequestTruco,
+    onRunHandOfEleven: () =>
+      sendCommand(createCommand('RESPOND_HAND_OF_ELEVEN', { action: 'run' })),
     onRunTruco: () =>
       sendCommand(createCommand('RESPOND_TRUCO', { action: 'run' })),
     onToggleCovered: () => setCoveredMode((current) => !current),
     playAction,
     rematchRequested,
+    respondHandOfElevenAction,
     requestTrucoAction,
     respondTrucoAction,
   };

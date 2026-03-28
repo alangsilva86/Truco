@@ -47,14 +47,17 @@ export default function App() {
   const {
     coveredMode,
     onAcceptTruco,
+    onPlayHandOfEleven,
     onPlayCard,
     onRaiseTruco,
     onRequestRematch,
     onRequestTruco,
+    onRunHandOfEleven,
     onRunTruco,
     onToggleCovered,
     playAction,
     rematchRequested,
+    respondHandOfElevenAction,
     requestTrucoAction,
     respondTrucoAction,
   } = useGameCommands({
@@ -109,16 +112,19 @@ export default function App() {
       codeCopied={codeCopied}
       rematchRequested={rematchRequested}
       playAction={playAction}
+      respondHandOfElevenAction={respondHandOfElevenAction}
       requestTrucoAction={requestTrucoAction}
       respondTrucoAction={respondTrucoAction}
       onDismissError={dismissError}
       onCopyCode={handleCopyCode}
       onLeave={leaveSession}
       onToggleCovered={onToggleCovered}
+      onPlayHandOfEleven={onPlayHandOfEleven}
       onPlayCard={onPlayCard}
       onRequestTruco={onRequestTruco}
       onRequestRematch={onRequestRematch}
       onAcceptTruco={onAcceptTruco}
+      onRunHandOfEleven={onRunHandOfEleven}
       onRaiseTruco={onRaiseTruco}
       onRunTruco={onRunTruco}
       patoTauntCount={patoTauntCount}
