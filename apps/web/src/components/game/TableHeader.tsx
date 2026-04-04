@@ -34,18 +34,18 @@ export function TableHeader({
 }: TableHeaderProps) {
   const statusClass =
     statusTone === 'warning'
-      ? 'border-amber-300/30 bg-amber-500/10 text-amber-200'
+      ? 'border-amber-100/80 bg-amber-400/24 text-amber-50 shadow-[0_0_16px_rgba(245,158,11,0.18)]'
       : statusTone === 'success'
-        ? 'border-emerald-300/25 bg-emerald-500/10 text-emerald-200'
-        : 'border-white/10 bg-white/5 text-white/60';
+        ? 'border-emerald-100/75 bg-emerald-500/20 text-emerald-50 shadow-[0_0_16px_rgba(16,185,129,0.18)]'
+        : 'border-white/14 bg-white/8 text-white/88';
 
   if (phoneMode) {
     const connectionDot =
       connectionState === 'reconnecting'
-        ? 'bg-amber-400 animate-pulse'
+        ? 'bg-amber-300 animate-pulse shadow-[0_0_10px_rgba(245,158,11,0.55)]'
         : connectionState === 'disconnected'
-          ? 'bg-rose-400'
-          : 'bg-emerald-400';
+          ? 'bg-rose-300 shadow-[0_0_10px_rgba(244,63,94,0.45)]'
+          : 'bg-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.5)]';
 
     return (
       <header className="table-surface safe-top flex items-center gap-2 rounded-[20px] px-3 py-2">
@@ -54,24 +54,26 @@ export function TableHeader({
           type="button"
           onClick={onCopyCode}
           title="Copiar código da sala"
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border border-white/10 bg-white/5 px-2.5 py-1.5 text-left"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border border-white/14 bg-white/8 px-2.5 py-1.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
         >
-          <div className={`h-1.5 w-1.5 shrink-0 rounded-full ${connectionDot}`} />
+          <div
+            className={`h-1.5 w-1.5 shrink-0 rounded-full ${connectionDot}`}
+          />
           <span className="min-w-0 flex-1 truncate font-mono text-sm font-black uppercase tracking-[0.14em] text-white/80">
             {roomCode}
           </span>
           {codeCopied ? (
-            <Check className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
+            <Check className="h-3.5 w-3.5 shrink-0 text-emerald-200" />
           ) : (
-            <Copy className="h-3.5 w-3.5 shrink-0 text-white/35" />
+            <Copy className="h-3.5 w-3.5 shrink-0 text-white/55" />
           )}
         </button>
 
         {/* Score — compact monospace */}
-        <div className="flex shrink-0 items-center gap-1 font-mono text-sm font-black tabular-nums">
-          <span className="text-emerald-300">{scoreUs}</span>
+        <div className="flex shrink-0 items-center gap-1 rounded-[14px] border border-white/14 bg-white/8 px-2.5 py-1.5 font-mono text-sm font-black tabular-nums shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
+          <span className="text-emerald-200">{scoreUs}</span>
           <span className="text-white/25">–</span>
-          <span className="text-rose-300">{scoreThem}</span>
+          <span className="text-rose-200">{scoreThem}</span>
         </div>
 
         {/* Leave */}
@@ -79,7 +81,7 @@ export function TableHeader({
           type="button"
           onClick={onLeave}
           title="Sair da sala"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border border-white/10 bg-white/5 text-white/55"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border border-white/14 bg-white/8 text-white/72"
         >
           <LogOut className="h-4 w-4" />
         </button>
@@ -101,7 +103,7 @@ export function TableHeader({
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/55 transition hover:bg-white/10 hover:text-white"
         >
           {codeCopied ? (
-            <Check className="h-3.5 w-3.5 text-emerald-400" />
+            <Check className="h-3.5 w-3.5 text-emerald-200" />
           ) : (
             <Copy className="h-3.5 w-3.5" />
           )}
@@ -111,14 +113,18 @@ export function TableHeader({
       {/* Score — compact blocks */}
       <div className="flex shrink-0 items-stretch overflow-hidden rounded-[14px] border border-white/10 bg-black/30">
         <div className="px-3 py-1.5 text-center">
-          <p className="text-[9px] uppercase tracking-[0.2em] text-white/35">Nós</p>
-          <p className="font-mono text-xl font-black leading-none text-emerald-300">
+          <p className="text-[9px] uppercase tracking-[0.2em] text-white/35">
+            Nós
+          </p>
+          <p className="font-mono text-xl font-black leading-none text-emerald-200">
             {scoreUs}
           </p>
         </div>
         <div className="border-l border-white/10 px-3 py-1.5 text-center">
-          <p className="text-[9px] uppercase tracking-[0.2em] text-white/35">Eles</p>
-          <p className="font-mono text-xl font-black leading-none text-rose-300">
+          <p className="text-[9px] uppercase tracking-[0.2em] text-white/35">
+            Eles
+          </p>
+          <p className="font-mono text-xl font-black leading-none text-rose-200">
             {scoreThem}
           </p>
         </div>

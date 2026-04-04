@@ -562,15 +562,15 @@ export function GameTable({
               />
 
               {presentation.isWaiting && error && (
-                <div className="mx-2 mt-2 flex items-center justify-between gap-2 rounded-[22px] border border-rose-400/20 bg-rose-500/10 px-3 py-2.5">
-                  <div className="flex items-center gap-2 text-sm text-rose-100">
+                <div className="mx-2 mt-2 flex items-center justify-between gap-2 rounded-[22px] border border-rose-100/70 bg-rose-500/20 px-3 py-2.5 shadow-[0_0_18px_rgba(244,63,94,0.12)]">
+                  <div className="flex items-center gap-2 text-sm font-medium text-rose-50">
                     <AlertCircle className="h-4 w-4 shrink-0" />
                     {error}
                   </div>
                   <button
                     type="button"
                     onClick={onDismissError}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl text-rose-100/60"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl text-rose-50/80"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -726,15 +726,15 @@ export function GameTable({
               />
 
               {error && (
-                <div className="mx-3 mt-2 flex items-center justify-between gap-2 rounded-[24px] border border-rose-400/20 bg-rose-500/10 px-3 py-2.5">
-                  <div className="flex items-center gap-2 text-sm text-rose-100">
+                <div className="mx-3 mt-2 flex items-center justify-between gap-2 rounded-[24px] border border-rose-100/70 bg-rose-500/20 px-3 py-2.5 shadow-[0_0_18px_rgba(244,63,94,0.12)]">
+                  <div className="flex items-center gap-2 text-sm font-medium text-rose-50">
                     <AlertCircle className="h-4 w-4 shrink-0" />
                     {error}
                   </div>
                   <button
                     type="button"
                     onClick={onDismissError}
-                    className="flex h-9 w-9 items-center justify-center rounded-xl text-rose-100/60 transition hover:text-rose-100"
+                    className="flex h-9 w-9 items-center justify-center rounded-xl text-rose-50/80 transition hover:text-rose-50"
                   >
                     <X className="h-4 w-4" />
                   </button>
@@ -1098,7 +1098,10 @@ export function GameTable({
       )}
 
       {/* Toast overlay */}
-      <div className="pointer-events-none fixed inset-x-0 top-16 z-50 flex flex-col items-center gap-2">
+      <div
+        aria-live="polite"
+        className="pointer-events-none fixed inset-x-0 top-16 z-50 flex flex-col items-center gap-2"
+      >
         {toasts.map((toast) => (
           <div
             key={toast.id}
@@ -1107,7 +1110,7 @@ export function GameTable({
                 ? 'border-emerald-200/70 bg-emerald-400/26 text-emerald-50 shadow-[0_0_24px_rgba(16,185,129,0.32)]'
                 : toast.tone === 'rose'
                   ? 'border-rose-200/70 bg-rose-500/24 text-rose-50 shadow-[0_0_24px_rgba(244,63,94,0.28)]'
-                  : 'border-amber-300/40 bg-amber-400/15 text-amber-200'
+                  : 'border-amber-100/80 bg-amber-400/24 text-amber-50 shadow-[0_0_24px_rgba(245,158,11,0.26)]'
             }`}
           >
             {toast.text}

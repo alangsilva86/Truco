@@ -25,7 +25,10 @@ interface ActionConfirmTrayProps {
   onRequestTruco: () => void;
 }
 
-function getSelectedCardLabel(card: Card | null, manilhaRank?: Rank | null): string {
+function getSelectedCardLabel(
+  card: Card | null,
+  manilhaRank?: Rank | null,
+): string {
   if (!card) return '';
   if (manilhaRank && card.rank === manilhaRank) {
     return `${manilhaNickname(card.suit)}! · ${card.rank} de ${card.suit}`;
@@ -82,7 +85,7 @@ export function ActionConfirmTray({
                 type="button"
                 onClick={onConfirmCovered}
                 disabled={commandPending}
-                className="flex min-h-11 items-center gap-1.5 rounded-2xl border border-amber-300/30 bg-amber-400/10 px-3.5 text-xs font-black uppercase tracking-[0.14em] text-amber-100 transition active:brightness-90"
+                className="flex min-h-11 items-center gap-1.5 rounded-2xl border border-amber-100/75 bg-amber-400/22 px-3.5 text-xs font-black uppercase tracking-[0.14em] text-amber-50 shadow-[0_0_16px_rgba(245,158,11,0.16)] transition active:brightness-90"
               >
                 <EyeOff className="h-3.5 w-3.5" />
                 Coberta
@@ -123,8 +126,8 @@ export function ActionConfirmTray({
               title={trucoHint}
               className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] transition ${
                 canRequestTruco
-                  ? 'border-amber-400/35 bg-amber-400/10 text-amber-300/80 active:bg-amber-400/20'
-                  : 'border-white/8 bg-transparent text-white/20'
+                  ? 'border-amber-100/70 bg-amber-400/18 text-amber-50 active:bg-amber-400/24'
+                  : 'border-white/10 bg-transparent text-white/35'
               }`}
             >
               <Swords className="h-3.5 w-3.5 shrink-0" />
@@ -142,7 +145,7 @@ export function ActionConfirmTray({
       )}
 
       {error && (
-        <div className="mt-2 flex items-center gap-2 rounded-[14px] border border-rose-400/20 bg-rose-500/10 px-3 py-1.5 text-xs text-rose-100">
+        <div className="mt-2 flex items-center gap-2 rounded-[14px] border border-rose-100/70 bg-rose-500/20 px-3 py-1.5 text-xs font-medium text-rose-50 shadow-[0_0_16px_rgba(244,63,94,0.14)]">
           <AlertCircle className="h-3.5 w-3.5 shrink-0" />
           {error}
         </div>

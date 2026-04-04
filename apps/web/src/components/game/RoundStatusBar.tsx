@@ -1,10 +1,5 @@
 import { Card, ConnectionState, Rank } from '@truco/contracts';
-import {
-  AlertCircle,
-  List,
-  LoaderCircle,
-  Swords,
-} from 'lucide-react';
+import { AlertCircle, List, LoaderCircle, Swords } from 'lucide-react';
 import { ManilhaFan, MiniCard } from '../Card.js';
 import { TableBannerModel, TrickDotTone } from '../../lib/tablePresentation.js';
 
@@ -23,8 +18,10 @@ interface RoundStatusBarProps {
 }
 
 function dotClass(dot: TrickDotTone): string {
-  if (dot === 'us') return 'bg-emerald-400 border-emerald-400';
-  if (dot === 'them') return 'bg-rose-400 border-rose-400';
+  if (dot === 'us')
+    return 'border-emerald-100 bg-emerald-300 shadow-[0_0_0_1px_rgba(16,185,129,0.3)]';
+  if (dot === 'them')
+    return 'border-rose-100 bg-rose-300 shadow-[0_0_0_1px_rgba(244,63,94,0.28)]';
   if (dot === 'tie') return 'bg-white/70 border-white/70';
   return 'bg-transparent border-white/20';
 }
@@ -44,14 +41,14 @@ export function RoundStatusBar({
 }: RoundStatusBarProps) {
   const bannerToneClass =
     banner?.tone === 'player'
-      ? 'border-emerald-400/40 bg-emerald-500/12 text-emerald-200'
+      ? 'border-emerald-100/75 bg-emerald-500/22 text-emerald-50 shadow-[0_0_20px_rgba(16,185,129,0.22)]'
       : banner?.tone === 'opponent'
-        ? 'border-rose-400/35 bg-rose-500/12 text-rose-200'
+        ? 'border-rose-100/75 bg-rose-500/22 text-rose-50 shadow-[0_0_20px_rgba(244,63,94,0.2)]'
         : banner?.tone === 'warning'
-          ? 'border-amber-300/35 bg-amber-500/12 text-amber-200'
+          ? 'border-amber-100/80 bg-amber-400/24 text-amber-50 shadow-[0_0_20px_rgba(245,158,11,0.22)]'
           : banner?.tone === 'finished'
-            ? 'border-sky-300/25 bg-sky-500/10 text-sky-100'
-            : 'border-white/10 bg-white/5 text-white/60';
+            ? 'border-sky-100/75 bg-sky-500/18 text-sky-50 shadow-[0_0_18px_rgba(14,165,233,0.18)]'
+            : 'border-white/14 bg-white/8 text-white/85';
 
   return (
     <section className="table-surface mx-3 mt-2 flex min-h-0 items-center gap-2.5 rounded-[20px] px-3 py-2 sm:gap-3 sm:rounded-[24px] sm:px-4">
@@ -66,7 +63,7 @@ export function RoundStatusBar({
       )}
 
       {/* Context detail — takes remaining space, truncated */}
-      <p className="min-w-0 flex-1 truncate text-xs font-medium text-white/55 sm:text-[13px]">
+      <p className="min-w-0 flex-1 truncate text-xs font-semibold text-white/82 sm:text-[13px]">
         {isWaiting ? 'Aguardando jogadores...' : (banner?.detail ?? '')}
       </p>
 
@@ -87,7 +84,9 @@ export function RoundStatusBar({
           {vira && (
             <div className="flex items-center gap-1">
               <MiniCard rank={vira.rank} suit={vira.suit} size="xs" />
-              <span className="text-[9px] font-medium uppercase tracking-[0.14em] text-white/30">Vira</span>
+              <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-white/55">
+                Vira
+              </span>
             </div>
           )}
 
@@ -99,7 +98,7 @@ export function RoundStatusBar({
           )}
 
           {/* Points */}
-          <span className="rounded-full border border-white/10 bg-black/20 px-2 py-0.5 text-[10px] font-black text-white/70">
+          <span className="rounded-full border border-white/16 bg-white/10 px-2.5 py-0.5 text-[10px] font-black text-white/92 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
             {currentRoundPoints}pt
           </span>
 
@@ -117,8 +116,8 @@ export function RoundStatusBar({
           onClick={onToggleLogs}
           className={`flex h-7 items-center gap-1.5 rounded-xl border px-2.5 text-[10px] font-black uppercase tracking-[0.14em] transition ${
             logsOpen
-              ? 'border-emerald-300/25 bg-emerald-500/10 text-emerald-200'
-              : 'border-white/10 bg-white/5 text-white/50 hover:text-white/80'
+              ? 'border-emerald-100/70 bg-emerald-500/20 text-emerald-50'
+              : 'border-white/14 bg-white/8 text-white/72 hover:text-white'
           }`}
         >
           <List className="h-3 w-3" />
@@ -128,13 +127,13 @@ export function RoundStatusBar({
 
       {/* Connection alert — only when not connected */}
       {connectionState === 'reconnecting' && (
-        <LoaderCircle className="h-3.5 w-3.5 shrink-0 animate-spin text-amber-400" />
+        <LoaderCircle className="h-3.5 w-3.5 shrink-0 animate-spin text-amber-200" />
       )}
       {connectionState === 'disconnected' && (
-        <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-400" />
+        <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-200" />
       )}
       {connectionState === 'connected' && (
-        <Swords className="h-3.5 w-3.5 shrink-0 text-emerald-300/40" />
+        <Swords className="h-3.5 w-3.5 shrink-0 text-emerald-200/75" />
       )}
     </section>
   );
