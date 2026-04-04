@@ -94,7 +94,14 @@ describe('engine', () => {
     expect(left.hands).toEqual(right.hands);
     expect(left.vira).toEqual(right.vira);
     expect(left.manilhaRank).toEqual(right.manilhaRank);
-    expect(left.turnSeatId).toEqual(1);
+    expect(left.turnSeatId).toEqual(3);
+  });
+
+  it('avanca o turno em sentido anti-horario', () => {
+    const state = startReadyMatch(42);
+    const afterFirstPlay = playCard(state, 'anti-clockwise');
+
+    expect(afterFirstPlay.turnSeatId).toBe(2);
   });
 
   it('projects only the own team cards to the client view', () => {

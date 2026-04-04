@@ -6,6 +6,7 @@ import {
   SeatId,
   Suit,
   SUITS,
+  getCounterClockwiseSeat,
   getTeamForSeat,
 } from '@truco/contracts';
 
@@ -114,7 +115,10 @@ export function getTrickWinner(
   }
 
   for (let offset = 1; offset < orderedCards.length; offset += 1) {
-    const currentSeatId = ((firstPlayer + offset) % 4) as SeatId;
+    let currentSeatId = firstPlayer;
+    for (let step = 0; step < offset; step += 1) {
+      currentSeatId = getCounterClockwiseSeat(currentSeatId);
+    }
     const currentCard = roundCards[currentSeatId];
 
     if (!currentCard) {

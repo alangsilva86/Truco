@@ -25,8 +25,8 @@ interface MatchRuntimeOptions {
 }
 
 const DEALING_TRANSITION_MS = 1_800;
-const TRICK_END_TRANSITION_MS = 2_400;
-const ROUND_END_TRANSITION_MS = 3_400;
+const TRICK_END_TRANSITION_MS = 2_000;
+const ROUND_END_TRANSITION_MS = 2_000;
 
 function ownsSeat(teamId: TeamId, seatId: number): boolean {
   return TEAM_SEATS[teamId].includes(seatId as 0 | 1 | 2 | 3);
@@ -233,7 +233,10 @@ export class MatchRuntime {
           : 'Your team cannot answer this truco request.';
       case 'RESPOND_HAND_OF_ELEVEN': {
         const decidingTeam = getHandOfElevenDecisionTeam(this.state);
-        if (this.state.phase !== 'HAND_OF_ELEVEN_DECISION' || decidingTeam === null) {
+        if (
+          this.state.phase !== 'HAND_OF_ELEVEN_DECISION' ||
+          decidingTeam === null
+        ) {
           return 'There is no hand of eleven decision.';
         }
         return decidingTeam === teamId

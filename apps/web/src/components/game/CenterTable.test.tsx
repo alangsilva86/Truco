@@ -43,6 +43,7 @@ describe('CenterTable', () => {
         manilhaRank={null}
         viewerTeamId={0}
         seatLayout={getSeatLayoutForTeam(0)}
+        resolutionPhase={null}
       />,
     );
 
@@ -85,5 +86,35 @@ describe('CenterTable', () => {
     ).toContain('card-enter-right');
 
     expect(container.querySelectorAll('svg').length).toBeGreaterThan(0);
+  });
+
+  it('aplica zoom nas cartas durante o fim da vaza', () => {
+    const { container } = render(
+      <CenterTable
+        mode="table"
+        roomCode="ABC123"
+        codeCopied={false}
+        onCopyCode={vi.fn()}
+        roundCards={[
+          {
+            seatId: 0,
+            hidden: false,
+            card: { id: 'A-Ouros', rank: 'A', suit: 'Ouros' },
+          },
+        ]}
+        manilhaRank={null}
+        viewerTeamId={0}
+        seatLayout={getSeatLayoutForTeam(0)}
+        resolutionPhase="TRICK_END"
+      />,
+    );
+
+    const zoomLayer = container.querySelector(
+      '[data-resolution-phase="TRICK_END"]',
+    );
+
+    expect(zoomLayer).toHaveStyle({
+      animation: 'resolved-table-zoom 2s cubic-bezier(0.22, 1, 0.36, 1) both',
+    });
   });
 });

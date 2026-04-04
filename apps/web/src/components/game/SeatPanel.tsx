@@ -10,6 +10,7 @@ interface BaseSeatPanelProps {
   nickname: string;
   dealer: boolean;
   active: boolean;
+  roundRole: 'mao' | 'pe' | null;
 }
 
 interface HiddenSeatPanelProps extends BaseSeatPanelProps {
@@ -54,8 +55,28 @@ function getToneClass(tone: SeatTone, active: boolean): string {
   return 'border-emerald-300/20 bg-black/20 text-emerald-100/80';
 }
 
+function getRoleLabel(
+  roundRole: 'mao' | 'pe' | null,
+  dealer: boolean,
+): string | null {
+  if (roundRole === 'mao') {
+    return 'Mao';
+  }
+
+  if (roundRole === 'pe') {
+    return 'Pe';
+  }
+
+  if (dealer) {
+    return 'D';
+  }
+
+  return null;
+}
+
 export function SeatPanel(props: SeatPanelProps) {
   const badgeClass = getToneClass(props.tone, props.active);
+  const roleLabel = getRoleLabel(props.roundRole, props.dealer);
 
   if (props.mode === 'hidden') {
     return (
@@ -63,12 +84,16 @@ export function SeatPanel(props: SeatPanelProps) {
         className={`flex flex-col items-center gap-1.5 ${props.orientation === 'left' || props.orientation === 'right' ? 'max-w-[4.75rem] sm:max-w-none' : ''}`}
       >
         <div
-          className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] sm:px-3 sm:text-xs sm:tracking-[0.18em] ${badgeClass}`}
+          className={`flex flex-col items-center gap-1 rounded-2xl border px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] sm:px-3 sm:text-xs sm:tracking-[0.18em] ${badgeClass}`}
         >
           <span className="block max-w-[4rem] truncate sm:max-w-[7rem]">
             {props.nickname}
           </span>
-          {props.dealer && <span className="ml-1 text-amber-300/80">·D</span>}
+          {roleLabel && (
+            <span className="rounded-full border border-white/12 bg-black/20 px-2 py-0.5 text-[8px] tracking-[0.2em] text-white/78 sm:text-[9px]">
+              {roleLabel}
+            </span>
+          )}
         </div>
 
         <div
@@ -110,12 +135,16 @@ export function SeatPanel(props: SeatPanelProps) {
       className={`flex flex-col items-center gap-1.5 sm:gap-2 ${isBottom || isTop ? 'w-full' : ''}`}
     >
       <div
-        className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] sm:px-3 sm:text-xs sm:tracking-[0.18em] ${badgeClass}`}
+        className={`flex flex-col items-center gap-1 rounded-2xl border px-2.5 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] sm:px-3 sm:text-xs sm:tracking-[0.18em] ${badgeClass}`}
       >
         <span className="block max-w-[9rem] truncate sm:max-w-[10rem]">
           {props.nickname}
         </span>
-        {props.dealer && <span className="ml-1 text-amber-300/80">·D</span>}
+        {roleLabel && (
+          <span className="rounded-full border border-white/12 bg-black/20 px-2 py-0.5 text-[8px] tracking-[0.2em] text-white/78 sm:text-[9px]">
+            {roleLabel}
+          </span>
+        )}
       </div>
 
       <div

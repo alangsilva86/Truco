@@ -4,6 +4,7 @@ import {
   ClientGameView,
   SeatId,
   TeamId,
+  getCounterClockwiseSeat,
   getSeatLayoutForTeam,
 } from '@truco/contracts';
 
@@ -23,6 +24,7 @@ export interface TableSeatModel {
   nickname: string;
   dealer: boolean;
   active: boolean;
+  roundRole: 'mao' | 'pe' | null;
 }
 
 export interface TableBannerModel {
@@ -135,42 +137,26 @@ function createBanner(params: {
   }
 
   if (view.gamePhase === 'TRICK_END') {
-    const latestTrick = view.trickHistory[view.trickHistory.length - 1];
-    const winnerName =
-      latestTrick && latestTrick.winnerSeatId !== 'tie'
-        ? view.players[latestTrick.winnerSeatId].nickname
-        : null;
-
     return {
-      tone:
-        latestTrick?.winnerSeatId !== 'tie' &&
-        latestTrick.winnerSeatId % 2 === viewerTeamId
-          ? 'player'
-          : latestTrick?.winnerSeatId === 'tie'
-            ? 'waiting'
-            : 'opponent',
-      title: winnerName ? 'Vaza resolvida' : 'Vaza empatada',
-      detail: winnerName
-        ? `${winnerName} levou a mesa. Confira as cartas antes da proxima saida.`
-        : 'Ninguem levou a vaza. A mesa vai seguir com nova abertura.',
+      tone: 'waiting',
+      title: 'Mesa aberta',
+      detail:
+        'As cartas da vaza aproximam para leitura antes da proxima saida.',
     };
   }
 
   if (view.gamePhase === 'ROUND_END') {
-    const viewerWonRound = scoreUs > scoreThem;
-
     return {
-      tone: viewerWonRound ? 'player' : 'opponent',
-      title: 'Rodada encerrada',
-      detail: viewerWonRound
-        ? 'Sua dupla fechou a rodada. Veja a vaza final e o novo placar.'
-        : 'A dupla adversaria fechou a rodada. Confira como a mesa foi decidida.',
+      tone: 'finished',
+      title: 'Ultima vaza em foco',
+      detail:
+        'A mesa segura as cartas por 2 segundos antes da nova distribuicao.',
     };
   }
 
   if (
     view.gamePhase === 'TRUCO_DECISION' &&
-    view.trucoPending?.responseTeam === params.viewerTeamId
+    view.trucoPending?.responseTeam === viewerTeamId
   ) {
     return {
       tone: 'player',
@@ -307,6 +293,21 @@ export function createTablePresentation(params: {
   const scoreUs = viewerTeamId === 0 ? view.scores[0] : view.scores[1];
   const scoreThem = viewerTeamId === 0 ? view.scores[1] : view.scores[0];
   const gameWon = isGameEnd && scoreUs >= 12;
+  const handStarterSeatId =
+    view.dealerSeatId === null
+      ? null
+      : getCounterClockwiseSeat(view.dealerSeatId);
+  const getRoundRole = (seatId: SeatId): 'mao' | 'pe' | null => {
+    if (handStarterSeatId === seatId) {
+      return 'mao';
+    }
+
+    if (view.dealerSeatId === seatId) {
+      return 'pe';
+    }
+
+    return null;
+  };
   const activeOwnedSeatId = isBottomTurn
     ? seatLayout.bottom
     : isTopTurn
@@ -366,12 +367,14 @@ export function createTablePresentation(params: {
       nickname: view.players[seatLayout.top].nickname,
       dealer: view.dealerSeatId === seatLayout.top,
       active: Boolean(isTopTurn),
+      roundRole: getRoundRole(seatLayout.top),
     },
     bottomSeat: {
       seatId: seatLayout.bottom,
       nickname: view.players[seatLayout.bottom].nickname,
       dealer: view.dealerSeatId === seatLayout.bottom,
       active: Boolean(isBottomTurn),
+      roundRole: getRoundRole(seatLayout.bottom),
     },
     leftSeat: {
       seatId: seatLayout.left,
@@ -379,6 +382,7 @@ export function createTablePresentation(params: {
       dealer: view.dealerSeatId === seatLayout.left,
       active: Boolean(isOpponentLeftTurn),
       hiddenCount: view.opponentHandCounts[seatLayout.left] ?? 0,
+      roundRole: getRoundRole(seatLayout.left),
     },
     rightSeat: {
       seatId: seatLayout.right,
@@ -386,6 +390,7 @@ export function createTablePresentation(params: {
       dealer: view.dealerSeatId === seatLayout.right,
       active: Boolean(isOpponentRightTurn),
       hiddenCount: view.opponentHandCounts[seatLayout.right] ?? 0,
+      roundRole: getRoundRole(seatLayout.right),
     },
     topCards: view.visibleHands[seatLayout.top] ?? [],
     bottomCards: view.visibleHands[seatLayout.bottom] ?? [],

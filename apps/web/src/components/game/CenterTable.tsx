@@ -121,6 +121,7 @@ interface CenterTableProps {
   manilhaRank: Rank | null;
   viewerTeamId: TeamId;
   seatLayout: { bottom: SeatId; top: SeatId; left: SeatId; right: SeatId };
+  resolutionPhase: 'TRICK_END' | 'ROUND_END' | null;
 }
 
 export function CenterTable({
@@ -132,6 +133,7 @@ export function CenterTable({
   manilhaRank,
   viewerTeamId,
   seatLayout,
+  resolutionPhase,
 }: CenterTableProps) {
   const rotationCacheRef = useRef<Map<string, number>>(new Map());
 
@@ -205,6 +207,13 @@ export function CenterTable({
           const flyInStyle: CSSProperties = {
             animation: `card-enter-${direction} 0.42s cubic-bezier(0.22, 1, 0.36, 1) both`,
           };
+          const resolutionStyle: CSSProperties | undefined = resolutionPhase
+            ? {
+                animation:
+                  'resolved-table-zoom 2s cubic-bezier(0.22, 1, 0.36, 1) both',
+                transformOrigin: 'center center',
+              }
+            : undefined;
 
           return (
             <div
@@ -218,7 +227,11 @@ export function CenterTable({
               }}
             >
               <div style={flyInStyle}>
-                <div className="relative">
+                <div
+                  className="relative"
+                  data-resolution-phase={resolutionPhase ?? undefined}
+                  style={resolutionStyle}
+                >
                   {isWinning && (
                     <div className="absolute -top-5 left-1/2 z-10 -translate-x-1/2">
                       <Crown className="h-4 w-4 text-amber-400 drop-shadow-[0_0_4px_rgba(251,191,36,0.8)]" />

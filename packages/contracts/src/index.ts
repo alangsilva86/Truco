@@ -256,6 +256,10 @@ export function getPartnerSeat(seatId: SeatId): SeatId {
   return ((seatId + 2) % 4) as SeatId;
 }
 
+export function getCounterClockwiseSeat(seatId: SeatId): SeatId {
+  return ((seatId + 3) % 4) as SeatId;
+}
+
 export function getOpponentSeats(teamId: TeamId): SeatId[] {
   return TEAM_SEATS[teamId === 0 ? 1 : 0];
 }

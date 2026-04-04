@@ -12,6 +12,7 @@ import {
   TeamId,
   TEAM_SEATS,
   TrickView,
+  getCounterClockwiseSeat,
   getPartnerSeat,
   getTeamForSeat,
 } from '@truco/contracts';
@@ -145,7 +146,7 @@ function startRound(
     throw new Error('Failed to draw the vira card.');
   }
 
-  const nextTurnSeatId = ((dealerSeatId + 1) % 4) as SeatId;
+  const nextTurnSeatId = getCounterClockwiseSeat(dealerSeatId);
 
   state.deck = deck;
   state.hands = hands;
@@ -248,7 +249,7 @@ function resolveTrickAndMaybeRound(state: MatchState): ClientMatchEvent[] {
     }),
   );
 
-  const handStarterSeatId = ((state.dealerSeatId! + 1) % 4) as SeatId;
+  const handStarterSeatId = getCounterClockwiseSeat(state.dealerSeatId!);
   const roundWinnerTeam = getRoundWinnerTeam(
     state.trickWinners,
     handStarterSeatId,
@@ -257,10 +258,7 @@ function resolveTrickAndMaybeRound(state: MatchState): ClientMatchEvent[] {
   if (roundWinnerTeam === null) {
     state.phase = 'TRICK_END';
     state.pendingTransition = { kind: 'ADVANCE_TRICK', nextTurnSeatId };
-    state.message =
-      winnerSeatId === 'tie'
-        ? 'Vaza empatada.'
-        : `${state.players[winnerSeatId].nickname} venceu a vaza.`;
+    state.message = 'Vaza concluida. Leia as cartas na mesa.';
     return events;
   }
 
@@ -291,11 +289,8 @@ function resolveTrickAndMaybeRound(state: MatchState): ClientMatchEvent[] {
     return events;
   }
 
-  queueNextRound(state, ((state.dealerSeatId! + 1) % 4) as SeatId);
-  state.message =
-    roundWinnerTeam === 0
-      ? 'Time 0 venceu a rodada.'
-      : 'Time 1 venceu a rodada.';
+  queueNextRound(state, getCounterClockwiseSeat(state.dealerSeatId!));
+  state.message = 'Rodada encerrada. Leia a ultima vaza na mesa.';
   return events;
 }
 
@@ -344,8 +339,8 @@ function resolveTrucoRun(state: MatchState): ClientMatchEvent[] {
     return events;
   }
 
-  queueNextRound(state, ((state.dealerSeatId + 1) % 4) as SeatId);
-  state.message = `Time ${awardedTeam} ganhou ${awardedPoints} ponto(s).`;
+  queueNextRound(state, getCounterClockwiseSeat(state.dealerSeatId));
+  state.message = 'Rodada encerrada.';
   return events;
 }
 
@@ -414,7 +409,7 @@ function playCard(
   if (playedCardsCount === 4) {
     events.push(...resolveTrickAndMaybeRound(nextState));
   } else {
-    nextState.turnSeatId = ((seatId + 1) % 4) as SeatId;
+    nextState.turnSeatId = getCounterClockwiseSeat(seatId);
   }
 
   return withStateVersion(nextState, events);
@@ -586,8 +581,8 @@ function resolveHandOfElevenRun(
     return events;
   }
 
-  queueNextRound(state, ((state.dealerSeatId + 1) % 4) as SeatId);
-  state.message = `Time ${runnerTeam} correu na mao de 11.`;
+  queueNextRound(state, getCounterClockwiseSeat(state.dealerSeatId));
+  state.message = 'Rodada encerrada.';
   return events;
 }
 
@@ -642,7 +637,7 @@ function rematch(
     nextState.lastRoundWinnerTeam = null;
     beginDealing(
       nextState,
-      (((nextState.dealerSeatId ?? 3) + 1) % 4) as SeatId,
+      getCounterClockwiseSeat((nextState.dealerSeatId ?? 0) as SeatId),
     );
     return withStateVersion(nextState, []);
   }

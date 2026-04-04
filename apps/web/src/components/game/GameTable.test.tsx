@@ -7,7 +7,13 @@ import {
 } from '@truco/contracts';
 import { useState } from 'react';
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createClientGameView } from '../../test/fixtures.js';
 import { createIdleReconnectStatus } from '../../lib/reconnect.js';
@@ -356,11 +362,7 @@ describe('GameTable', () => {
     });
 
     const { rerender } = render(
-      <GameTable
-        {...createBaseProps()}
-        view={initialView}
-        playAction={null}
-      />,
+      <GameTable {...createBaseProps()} view={initialView} playAction={null} />,
     );
 
     rerender(
@@ -377,11 +379,41 @@ describe('GameTable', () => {
     expect(screen.getByText(/aceito! vale 3pts/i)).toBeInTheDocument();
   });
 
-  it('mostra banner com resultado da rodada durante round_end', () => {
+  it('marca visualmente mao e pe nos assentos da rodada', () => {
+    render(
+      <GameTable
+        {...createBaseProps()}
+        view={createClientGameView({
+          dealerSeatId: 1,
+          turnSeatId: 0,
+        })}
+        playAction={
+          createClientGameView().availableActions[0] as AvailablePlayAction
+        }
+      />,
+    );
+
+    expect(screen.getByText(/^mao$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^pe$/i)).toBeInTheDocument();
+  });
+
+  it('remove o banner textual e aplica zoom na ultima vaza durante round_end', () => {
     const view = createClientGameView({
       gamePhase: 'ROUND_END',
       currentRoundPoints: 2,
       scores: { 0: 8, 1: 3 },
+      roundCards: [
+        {
+          seatId: 0,
+          hidden: false,
+          card: { id: 'A-Ouros', rank: 'A', suit: 'Ouros' },
+        },
+        {
+          seatId: 2,
+          hidden: false,
+          card: { id: '3-Paus', rank: '3', suit: 'Paus' },
+        },
+      ],
       trickHistory: [
         {
           winnerSeatId: 0,
@@ -398,17 +430,13 @@ describe('GameTable', () => {
       ],
     });
 
-    render(
-      <GameTable
-        {...createBaseProps()}
-        view={view}
-        playAction={null}
-      />,
-    );
+    render(<GameTable {...createBaseProps()} view={view} playAction={null} />);
 
-    expect(screen.getByText(/rodada ganha/i)).toBeInTheDocument();
-    expect(screen.getByText(/\+2 pontos/i)).toBeInTheDocument();
-    expect(screen.getByText(/8 x 3/i)).toBeInTheDocument();
+    expect(screen.queryByText(/rodada ganha/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\+2 pontos/i)).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-resolution-phase="ROUND_END"]'),
+    ).toBeInTheDocument();
   });
 
   it('mostra a camada de distribuicao durante dealing', () => {
@@ -424,18 +452,12 @@ describe('GameTable', () => {
       message: 'Distribuindo as cartas...',
     });
 
-    render(
-      <GameTable
-        {...createBaseProps()}
-        view={view}
-        playAction={null}
-      />,
-    );
+    render(<GameTable {...createBaseProps()} view={view} playAction={null} />);
 
     expect(screen.getAllByText(/distribuindo/i).length).toBeGreaterThan(0);
   });
 
-  it('mostra o spotlight de fim de vaza durante trick_end', () => {
+  it('remove o aviso textual e destaca a mesa durante trick_end', () => {
     const view = createClientGameView({
       gamePhase: 'TRICK_END',
       roundCards: [
@@ -469,16 +491,13 @@ describe('GameTable', () => {
       ],
     });
 
-    render(
-      <GameTable
-        {...createBaseProps()}
-        view={view}
-        playAction={null}
-      />,
-    );
+    render(<GameTable {...createBaseProps()} view={view} playAction={null} />);
 
-    expect(screen.getByText(/fim da vaza/i)).toBeInTheDocument();
-    expect(screen.getByText(/ana levou a vaza/i)).toBeInTheDocument();
+    expect(screen.queryByText(/fim da vaza/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/ana levou a vaza/i)).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-resolution-phase="TRICK_END"]'),
+    ).toBeInTheDocument();
   });
 
   it('mostra cartas da dupla no sheet de truco', () => {

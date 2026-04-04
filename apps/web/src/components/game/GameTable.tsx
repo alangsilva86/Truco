@@ -33,13 +33,11 @@ import { HandOfElevenDecisionSheet } from './HandOfElevenDecisionSheet.js';
 import { MatchLogDrawer } from './MatchLogDrawer.js';
 import { ReactionPicker } from './ReactionPicker.js';
 import { ReconnectRecoveryOverlay } from './ReconnectRecoveryOverlay.js';
-import { RoundResultBanner } from './RoundResultBanner.js';
 import { RoundContextRail } from './RoundContextRail.js';
 import { RoundStatusBar } from './RoundStatusBar.js';
 import { SeatPanel } from './SeatPanel.js';
 import { TableHeader } from './TableHeader.js';
 import { TopSeatFocusOverlay } from './TopSeatFocusOverlay.js';
-import { TrickResultBanner } from './TrickResultBanner.js';
 import { TrucoDecisionSheet } from './TrucoDecisionSheet.js';
 
 type PlayAction = Extract<AvailableAction, { type: 'PLAY_CARD' }>;
@@ -373,7 +371,6 @@ export function GameTable({
     view.ownedSeatIds.includes(view.trucoPending.requestedBySeatId),
   );
   const selectedCard = selectedPlay?.card ?? null;
-  const latestTrick = view.trickHistory[view.trickHistory.length - 1] ?? null;
   const activeSeatName =
     presentation.activeOwnedSeatId !== null
       ? (view.players[presentation.activeOwnedSeatId]?.nickname ?? null)
@@ -500,6 +497,7 @@ export function GameTable({
           nickname={presentation.topSeat.nickname}
           dealer={presentation.topSeat.dealer}
           active={presentation.topSeat.active}
+          roundRole={presentation.topSeat.roundRole}
           cards={presentation.topCards}
           manilhaRank={view.manilhaRank}
           onPlayCard={(card) =>
@@ -520,6 +518,7 @@ export function GameTable({
           nickname={presentation.bottomSeat.nickname}
           dealer={presentation.bottomSeat.dealer}
           active={presentation.bottomSeat.active}
+          roundRole={presentation.bottomSeat.roundRole}
           cards={presentation.bottomCards}
           manilhaRank={view.manilhaRank}
           onPlayCard={(card) =>
@@ -601,6 +600,7 @@ export function GameTable({
                         nickname={presentation.bottomSeat.nickname}
                         dealer={presentation.bottomSeat.dealer}
                         active={false}
+                        roundRole={presentation.bottomSeat.roundRole}
                         cards={presentation.bottomCards}
                         manilhaRank={view.manilhaRank}
                         disabled
@@ -615,6 +615,7 @@ export function GameTable({
                         nickname={presentation.topSeat.nickname}
                         dealer={presentation.topSeat.dealer}
                         active={presentation.topSeat.active}
+                        roundRole={presentation.topSeat.roundRole}
                         cards={presentation.topCards}
                         manilhaRank={view.manilhaRank}
                         disabled
@@ -636,6 +637,7 @@ export function GameTable({
                           nickname={presentation.leftSeat.nickname}
                           dealer={presentation.leftSeat.dealer}
                           active={presentation.leftSeat.active}
+                          roundRole={presentation.leftSeat.roundRole}
                           count={presentation.leftSeat.hiddenCount}
                         />
                       </div>
@@ -648,6 +650,7 @@ export function GameTable({
                           nickname={presentation.rightSeat.nickname}
                           dealer={presentation.rightSeat.dealer}
                           active={presentation.rightSeat.active}
+                          roundRole={presentation.rightSeat.roundRole}
                           count={presentation.rightSeat.hiddenCount}
                         />
                       </div>
@@ -661,7 +664,9 @@ export function GameTable({
                   />
 
                   {view.gamePhase === 'DEALING' && (
-                    <DealingAnimationLayer seatLayout={presentation.seatLayout} />
+                    <DealingAnimationLayer
+                      seatLayout={presentation.seatLayout}
+                    />
                   )}
 
                   <div className="flex h-full w-full items-center justify-center px-[4.25rem]">
@@ -674,6 +679,12 @@ export function GameTable({
                       manilhaRank={view.manilhaRank}
                       viewerTeamId={viewerTeamId}
                       seatLayout={presentation.seatLayout}
+                      resolutionPhase={
+                        view.gamePhase === 'TRICK_END' ||
+                        view.gamePhase === 'ROUND_END'
+                          ? view.gamePhase
+                          : null
+                      }
                     />
                   </div>
 
@@ -761,6 +772,7 @@ export function GameTable({
                       nickname={presentation.topSeat.nickname}
                       dealer={presentation.topSeat.dealer}
                       active={presentation.topSeat.active}
+                      roundRole={presentation.topSeat.roundRole}
                       cards={presentation.topCards}
                       manilhaRank={view.manilhaRank}
                       onPlayCard={(card) =>
@@ -788,6 +800,7 @@ export function GameTable({
                           nickname={presentation.leftSeat.nickname}
                           dealer={presentation.leftSeat.dealer}
                           active={presentation.leftSeat.active}
+                          roundRole={presentation.leftSeat.roundRole}
                           count={presentation.leftSeat.hiddenCount}
                         />
                       </div>
@@ -800,6 +813,7 @@ export function GameTable({
                           nickname={presentation.rightSeat.nickname}
                           dealer={presentation.rightSeat.dealer}
                           active={presentation.rightSeat.active}
+                          roundRole={presentation.rightSeat.roundRole}
                           count={presentation.rightSeat.hiddenCount}
                         />
                       </div>
@@ -813,7 +827,9 @@ export function GameTable({
                   />
 
                   {view.gamePhase === 'DEALING' && (
-                    <DealingAnimationLayer seatLayout={presentation.seatLayout} />
+                    <DealingAnimationLayer
+                      seatLayout={presentation.seatLayout}
+                    />
                   )}
 
                   <div className="flex h-full items-center justify-center px-[5.5rem] sm:px-36">
@@ -826,6 +842,12 @@ export function GameTable({
                       manilhaRank={view.manilhaRank}
                       viewerTeamId={viewerTeamId}
                       seatLayout={presentation.seatLayout}
+                      resolutionPhase={
+                        view.gamePhase === 'TRICK_END' ||
+                        view.gamePhase === 'ROUND_END'
+                          ? view.gamePhase
+                          : null
+                      }
                     />
                   </div>
                 </div>
@@ -839,6 +861,7 @@ export function GameTable({
                       nickname={presentation.bottomSeat.nickname}
                       dealer={presentation.bottomSeat.dealer}
                       active={presentation.bottomSeat.active}
+                      roundRole={presentation.bottomSeat.roundRole}
                       cards={presentation.bottomCards}
                       manilhaRank={view.manilhaRank}
                       onPlayCard={(card) =>
@@ -967,29 +990,6 @@ export function GameTable({
           status={reconnectStatus}
           onRetry={onRetryReconnect}
           onReturnToLobby={onReturnToLobby}
-        />
-      )}
-
-      {view.gamePhase === 'TRICK_END' && (
-        <TrickResultBanner
-          trick={latestTrick}
-          players={view.players}
-          viewerTeamId={viewerTeamId}
-          seatLayout={presentation.seatLayout}
-          manilhaRank={view.manilhaRank}
-        />
-      )}
-
-      {view.gamePhase === 'ROUND_END' && (
-        <RoundResultBanner
-          trickHistory={view.trickHistory}
-          players={view.players}
-          viewerTeamId={viewerTeamId}
-          seatLayout={presentation.seatLayout}
-          manilhaRank={view.manilhaRank}
-          awardedPoints={view.currentRoundPoints}
-          scoreUs={presentation.scoreUs}
-          scoreThem={presentation.scoreThem}
         />
       )}
 

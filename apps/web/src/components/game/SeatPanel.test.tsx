@@ -19,6 +19,7 @@ describe('SeatPanel', () => {
         nickname="Bia"
         dealer={false}
         active={false}
+        roundRole={null}
         count={3}
       />,
     );
@@ -38,5 +39,23 @@ describe('SeatPanel', () => {
       transform: 'rotate(5deg) translateY(-0.2rem)',
       left: '2.8rem',
     });
+  });
+
+  it('mostra o marcador visual de mao', () => {
+    const { getByText } = render(
+      <SeatPanel
+        mode="visible"
+        orientation="bottom"
+        tone="player"
+        nickname="Ana"
+        dealer={false}
+        active
+        roundRole="mao"
+        cards={[{ id: 'A-Ouros', rank: 'A', suit: 'Ouros' }]}
+        manilhaRank={null}
+      />,
+    );
+
+    expect(getByText(/^mao$/i)).toBeInTheDocument();
   });
 });

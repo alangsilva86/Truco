@@ -9,7 +9,11 @@ import {
 } from 'vitest';
 import { ColyseusTestServer, boot } from '@colyseus/testing';
 import { matchMaker } from 'colyseus';
-import { ClientGameView, ClientMatchEvent, GameCommand } from '@truco/contracts';
+import {
+  ClientGameView,
+  ClientMatchEvent,
+  GameCommand,
+} from '@truco/contracts';
 import { MatchState } from '@truco/engine';
 
 async function waitFor(
@@ -123,7 +127,8 @@ describe('TrucoRoom', () => {
 
     await waitFor(
       () =>
-        typeof host.state.roomCode === 'string' && host.state.roomCode.length === 6,
+        typeof host.state.roomCode === 'string' &&
+        host.state.roomCode.length === 6,
     );
     const roomCode = host.state.roomCode;
 
@@ -234,10 +239,15 @@ describe('TrucoRoom', () => {
     guest.onMessage('match_event', () => undefined);
 
     await waitFor(() => guest.state.gamePhase === 'PLAYING');
-    await waitFor(() => guest.state.turnSeatId === 1);
+    await waitFor(
+      () =>
+        guest.state.turnSeatId !== null &&
+        [1, 3].includes(guest.state.turnSeatId),
+    );
 
     const initialView = await bootstrapView(guest);
-    const firstCardId = initialView.visibleHands[1]?.[0]?.id;
+    const activeSeatId = initialView.turnSeatId as 1 | 3;
+    const firstCardId = initialView.visibleHands[activeSeatId]?.[0]?.id;
     expect(firstCardId).toBeDefined();
 
     const duplicateCommand: GameCommand = {
@@ -245,7 +255,7 @@ describe('TrucoRoom', () => {
       issuedAt: Date.now(),
       type: 'PLAY_CARD',
       payload: {
-        seatId: 1,
+        seatId: activeSeatId,
         cardId: firstCardId!,
         mode: 'open',
       },
@@ -258,7 +268,7 @@ describe('TrucoRoom', () => {
     await waitFor(() => guest.state.stateVersion > previousStateVersion);
     const nextView = await bootstrapView(guest);
 
-    expect(nextView.visibleHands[1]).toHaveLength(2);
+    expect(nextView.visibleHands[activeSeatId]).toHaveLength(2);
   });
 
   it('projects and resolves the mao de 11 decision through the room', async () => {
@@ -446,7 +456,9 @@ describe('TrucoRoom', () => {
         guest.state.gamePhase === 'GAME_END',
     );
 
-    await expect(colyseus.sdk.reconnect(reconnectionToken)).rejects.toBeTruthy();
+    await expect(
+      colyseus.sdk.reconnect(reconnectionToken),
+    ).rejects.toBeTruthy();
   });
 
   it('respects the configured reconnect window and records expiry', async () => {
@@ -464,7 +476,9 @@ describe('TrucoRoom', () => {
       await waitFor(() => room.clients.length === 0);
       await new Promise((resolve) => setTimeout(resolve, 1_250));
 
-      await expect(colyseus.sdk.reconnect(reconnectionToken)).rejects.toBeTruthy();
+      await expect(
+        colyseus.sdk.reconnect(reconnectionToken),
+      ).rejects.toBeTruthy();
 
       const metricsResponse = await colyseus.http.get('/metrics');
       expect(metricsResponse.data).toMatchObject({
