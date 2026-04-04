@@ -367,7 +367,7 @@ describe('GameTable', () => {
     expect(onRunHandOfEleven).toHaveBeenCalledTimes(1);
   });
 
-  it('mostra toast emerald quando o truco pedido por nos e aceito', () => {
+  it('mostra aviso quando o truco pedido por nos e aceito', () => {
     const initialView = createClientGameView({
       gamePhase: 'TRUCO_DECISION',
       trucoPending: {
@@ -393,7 +393,37 @@ describe('GameTable', () => {
       />,
     );
 
-    expect(screen.getByText(/aceito! vale 3pts/i)).toBeInTheDocument();
+    expect(screen.getByText(/truco aceito! vale 3pts/i)).toBeInTheDocument();
+  });
+
+  it('mostra aviso quando aceitamos o truco deles', () => {
+    const initialView = createClientGameView({
+      gamePhase: 'TRUCO_DECISION',
+      trucoPending: {
+        requestedBySeatId: 1,
+        requestedValue: 6,
+        acceptedValue: 3,
+        responseTeam: 0,
+      },
+    });
+
+    const { rerender } = render(
+      <GameTable {...createBaseProps()} view={initialView} playAction={null} />,
+    );
+
+    rerender(
+      <GameTable
+        {...createBaseProps()}
+        view={createClientGameView({
+          gamePhase: 'PLAYING',
+          trucoPending: null,
+          currentRoundPoints: 6,
+        })}
+        playAction={null}
+      />,
+    );
+
+    expect(screen.getByText(/seis aceito! vale 6pts/i)).toBeInTheDocument();
   });
 
   it('marca visualmente mao e pe nos assentos da rodada', () => {

@@ -101,6 +101,11 @@ describe('CenterTable', () => {
             hidden: false,
             card: { id: 'A-Ouros', rank: 'A', suit: 'Ouros' },
           },
+          {
+            seatId: 1,
+            hidden: false,
+            card: { id: '7-Copas', rank: '7', suit: 'Copas' },
+          },
         ]}
         manilhaRank={null}
         viewerTeamId={0}
@@ -110,11 +115,17 @@ describe('CenterTable', () => {
     );
 
     const zoomLayer = container.querySelector(
-      '[data-resolution-phase="TRICK_END"]',
+      '[data-resolution-phase="TRICK_END"]:not([data-winning-card="true"])',
     );
 
     expect(zoomLayer).toHaveStyle({
       animation: 'resolved-table-zoom 2s cubic-bezier(0.22, 1, 0.36, 1) both',
+    });
+
+    const winningCard = container.querySelector('[data-winning-card="true"]');
+
+    expect(winningCard).toHaveStyle({
+      animation: 'resolved-winning-card 2s cubic-bezier(0.22, 1, 0.36, 1) both',
     });
   });
 
@@ -159,12 +170,19 @@ describe('CenterTable', () => {
     ).toBeInTheDocument();
 
     const spotlightLayer = container.querySelector(
-      '[data-resolution-phase="ROUND_END"]',
+      '[data-resolution-phase="ROUND_END"]:not([data-winning-card="true"])',
     );
 
     expect(spotlightLayer).toHaveStyle({
       animation:
         'resolved-round-spotlight 2s cubic-bezier(0.22, 1, 0.36, 1) both',
+    });
+
+    const winningCard = container.querySelector('[data-winning-card="true"]');
+
+    expect(winningCard).toHaveStyle({
+      animation:
+        'resolved-round-winning-card 2s cubic-bezier(0.22, 1, 0.36, 1) both',
     });
   });
 });

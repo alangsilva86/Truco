@@ -215,10 +215,10 @@ export function CenterTable({
             : Z_BY_DIRECTION[direction];
 
           const ringClass = isWinning
-            ? 'ring-2 ring-amber-400 shadow-[0_0_0_2px_rgba(251,191,36,0.35),0_0_16px_rgba(251,191,36,0.25)]'
+            ? 'ring-[3px] ring-amber-300 shadow-[0_0_0_3px_rgba(252,211,77,0.55),0_0_28px_rgba(251,191,36,0.4)]'
             : isOurTeam
-              ? 'ring-2 ring-emerald-400/60 shadow-[0_0_0_2px_rgba(52,211,153,0.25)]'
-              : 'ring-2 ring-rose-400/60 shadow-[0_0_0_2px_rgba(251,113,133,0.25)]';
+              ? 'ring-[3px] ring-emerald-300 shadow-[0_0_0_3px_rgba(52,211,153,0.34),0_0_22px_rgba(16,185,129,0.24)]'
+              : 'ring-[3px] ring-rose-300 shadow-[0_0_0_3px_rgba(251,113,133,0.34),0_0_22px_rgba(244,63,94,0.24)]';
 
           const flyInStyle: CSSProperties = {
             animation: `card-enter-${direction} 0.42s cubic-bezier(0.22, 1, 0.36, 1) both`,
@@ -226,9 +226,13 @@ export function CenterTable({
           const resolutionStyle: CSSProperties | undefined = resolutionPhase
             ? {
                 animation:
-                  resolutionPhase === 'ROUND_END'
-                    ? 'resolved-round-spotlight 2s cubic-bezier(0.22, 1, 0.36, 1) both'
-                    : 'resolved-table-zoom 2s cubic-bezier(0.22, 1, 0.36, 1) both',
+                  isWinning && resolutionPhase === 'ROUND_END'
+                    ? 'resolved-round-winning-card 2s cubic-bezier(0.22, 1, 0.36, 1) both'
+                    : isWinning
+                      ? 'resolved-winning-card 2s cubic-bezier(0.22, 1, 0.36, 1) both'
+                      : resolutionPhase === 'ROUND_END'
+                        ? 'resolved-round-spotlight 2s cubic-bezier(0.22, 1, 0.36, 1) both'
+                        : 'resolved-table-zoom 2s cubic-bezier(0.22, 1, 0.36, 1) both',
                 transformOrigin: 'center center',
               }
             : undefined;
@@ -248,6 +252,7 @@ export function CenterTable({
                 <div
                   className="relative"
                   data-resolution-phase={resolutionPhase ?? undefined}
+                  data-winning-card={isWinning ? 'true' : undefined}
                   style={resolutionStyle}
                 >
                   {isWinning && (

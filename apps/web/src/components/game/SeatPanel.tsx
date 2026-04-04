@@ -33,26 +33,26 @@ type SeatPanelProps = HiddenSeatPanelProps | VisibleSeatPanelProps;
 
 function getToneClass(tone: SeatTone, active: boolean): string {
   if (active && tone === 'player') {
-    return 'border-emerald-400/55 bg-emerald-500/15 text-emerald-100 shadow-[0_0_14px_rgba(52,211,153,0.22)]';
+    return 'border-emerald-200/80 bg-emerald-400/24 text-emerald-50 shadow-[0_0_18px_rgba(16,185,129,0.36)]';
   }
 
   if (active && tone === 'partner') {
-    return 'border-emerald-300/55 bg-emerald-400/12 text-emerald-100 shadow-[0_0_14px_rgba(110,231,183,0.22)]';
+    return 'border-emerald-100/75 bg-emerald-300/22 text-emerald-50 shadow-[0_0_18px_rgba(52,211,153,0.32)]';
   }
 
   if (active && tone === 'opponent') {
-    return 'border-rose-400/45 bg-rose-500/15 text-rose-100 shadow-[0_0_12px_rgba(251,113,133,0.18)]';
+    return 'border-rose-200/80 bg-rose-500/22 text-rose-50 shadow-[0_0_18px_rgba(244,63,94,0.34)]';
   }
 
   if (tone === 'partner') {
-    return 'border-sky-300/20 bg-sky-500/8 text-sky-100';
+    return 'border-sky-200/32 bg-sky-400/14 text-sky-50';
   }
 
   if (tone === 'opponent') {
-    return 'border-rose-300/18 bg-black/20 text-rose-100/80';
+    return 'border-rose-300/28 bg-rose-500/10 text-rose-100/92';
   }
 
-  return 'border-emerald-300/20 bg-black/20 text-emerald-100/80';
+  return 'border-emerald-300/28 bg-emerald-500/10 text-emerald-100/92';
 }
 
 function getRoleLabel(

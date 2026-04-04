@@ -88,6 +88,21 @@ interface SelectedPlayState {
   seatId: SeatId;
 }
 
+function getTrucoAcceptedLabel(value: number): string {
+  switch (value) {
+    case 3:
+      return 'TRUCO';
+    case 6:
+      return 'SEIS';
+    case 9:
+      return 'NOVE';
+    case 12:
+      return 'DOZE';
+    default:
+      return `${value}`;
+  }
+}
+
 export function GameTable({
   view,
   viewerTeamId,
@@ -130,7 +145,7 @@ export function GameTable({
     null,
   );
   const [toasts, setToasts] = useState<
-    { id: number; text: string; tone: 'amber' | 'emerald' }[]
+    { id: number; text: string; tone: 'amber' | 'emerald' | 'rose' }[]
   >([]);
   const [trucoShout, setTrucoShout] = useState<{
     label: string;
@@ -150,7 +165,7 @@ export function GameTable({
   const prevTrucoPendingRef = useRef(view.trucoPending);
 
   const showToast = useCallback(
-    (text: string, tone: 'amber' | 'emerald' = 'amber') => {
+    (text: string, tone: 'amber' | 'emerald' | 'rose' = 'amber') => {
       const id = Date.now() + Math.random();
       setToasts((prev) => [...prev.slice(-2), { id, text, tone }]);
       setTimeout(() => {
@@ -331,18 +346,20 @@ export function GameTable({
     }
   }, [patoTauntCount]);
 
-  // Toast: ACEITO! when the opponent accepts our truco request
+  // Toast: accepted truco escalation when play resumes
   useEffect(() => {
     const prevPending = prevTrucoPendingRef.current;
     const currPending = view.trucoPending;
 
-    if (
-      prevPending &&
-      !currPending &&
-      view.gamePhase === 'PLAYING' &&
-      view.ownedSeatIds.includes(prevPending.requestedBySeatId)
-    ) {
-      showToast(`ACEITO! Vale ${prevPending.requestedValue}pts`, 'emerald');
+    if (prevPending && !currPending && view.gamePhase === 'PLAYING') {
+      const requestedByUs = view.ownedSeatIds.includes(
+        prevPending.requestedBySeatId,
+      );
+      const trucoLabel = getTrucoAcceptedLabel(prevPending.requestedValue);
+      showToast(
+        `${trucoLabel} ACEITO! Vale ${prevPending.requestedValue}pts`,
+        requestedByUs ? 'emerald' : 'rose',
+      );
     }
 
     prevTrucoPendingRef.current = currPending;
@@ -1087,8 +1104,10 @@ export function GameTable({
             key={toast.id}
             className={`animate-in fade-in slide-in-from-top-2 rounded-full border px-5 py-2 font-mono text-sm font-black uppercase tracking-[0.22em] shadow-lg backdrop-blur-sm duration-300 ${
               toast.tone === 'emerald'
-                ? 'border-emerald-300/40 bg-emerald-400/15 text-emerald-200'
-                : 'border-amber-300/40 bg-amber-400/15 text-amber-200'
+                ? 'border-emerald-200/70 bg-emerald-400/26 text-emerald-50 shadow-[0_0_24px_rgba(16,185,129,0.32)]'
+                : toast.tone === 'rose'
+                  ? 'border-rose-200/70 bg-rose-500/24 text-rose-50 shadow-[0_0_24px_rgba(244,63,94,0.28)]'
+                  : 'border-amber-300/40 bg-amber-400/15 text-amber-200'
             }`}
           >
             {toast.text}
