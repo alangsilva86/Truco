@@ -262,6 +262,36 @@
   }
 }
 
+@keyframes resolved-round-spotlight {
+  0% {
+    transform: scale(1) translateY(0);
+    filter: saturate(1) brightness(1);
+  }
+  16% {
+    transform: scale(1.42) translateY(-0.55rem);
+    filter: saturate(1.18) brightness(1.12);
+  }
+  100% {
+    transform: scale(1.42) translateY(-0.55rem);
+    filter: saturate(1.18) brightness(1.12);
+  }
+}
+
+@keyframes resolved-round-overlay {
+  0% {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  18% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+}
+
 @layer utilities {
   .felt-noise {
     background-color: #0b3b28;

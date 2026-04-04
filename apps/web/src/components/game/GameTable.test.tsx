@@ -246,12 +246,29 @@ describe('GameTable', () => {
       screen.getByText(/jogando pelo parceiro · ana • parceiro/i),
     ).toBeInTheDocument();
 
-    const topCard = screen
-      .getAllByRole('button', { name: /3 de paus/i })
-      .find((button) => !button.hasAttribute('disabled'));
+    const topSeat = document.querySelector('[data-seat-orientation="top"]');
+    const bottomSeat = document.querySelector(
+      '[data-seat-orientation="bottom"]',
+    );
 
-    expect(topCard).toBeDefined();
-    fireEvent.click(topCard!);
+    expect(topSeat).not.toBeNull();
+    expect(bottomSeat).not.toBeNull();
+    expect(
+      within(topSeat as HTMLElement).getByRole('button', {
+        name: /3 de paus/i,
+      }),
+    ).toBeEnabled();
+    expect(
+      within(bottomSeat as HTMLElement).queryByRole('button', {
+        name: /3 de paus/i,
+      }),
+    ).not.toBeInTheDocument();
+
+    const topCard = within(topSeat as HTMLElement).getByRole('button', {
+      name: /3 de paus/i,
+    });
+
+    fireEvent.click(topCard);
     const confirmButtons = screen.getAllByRole('button', {
       name: /jogar aberta/i,
     });

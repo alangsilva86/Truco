@@ -117,4 +117,54 @@ describe('CenterTable', () => {
       animation: 'resolved-table-zoom 2s cubic-bezier(0.22, 1, 0.36, 1) both',
     });
   });
+
+  it('destaca as quatro cartas com spotlight no fim da rodada', () => {
+    const { container } = render(
+      <CenterTable
+        mode="table"
+        roomCode="ABC123"
+        codeCopied={false}
+        onCopyCode={vi.fn()}
+        roundCards={[
+          {
+            seatId: 0,
+            hidden: false,
+            card: { id: 'A-Ouros', rank: 'A', suit: 'Ouros' },
+          },
+          {
+            seatId: 2,
+            hidden: false,
+            card: { id: '3-Paus', rank: '3', suit: 'Paus' },
+          },
+          {
+            seatId: 1,
+            hidden: false,
+            card: { id: '7-Copas', rank: '7', suit: 'Copas' },
+          },
+          {
+            seatId: 3,
+            hidden: false,
+            card: { id: 'K-Espadas', rank: 'K', suit: 'Espadas' },
+          },
+        ]}
+        manilhaRank={null}
+        viewerTeamId={0}
+        seatLayout={getSeatLayoutForTeam(0)}
+        resolutionPhase="ROUND_END"
+      />,
+    );
+
+    expect(
+      container.querySelector('[data-round-end-overlay="true"]'),
+    ).toBeInTheDocument();
+
+    const spotlightLayer = container.querySelector(
+      '[data-resolution-phase="ROUND_END"]',
+    );
+
+    expect(spotlightLayer).toHaveStyle({
+      animation:
+        'resolved-round-spotlight 2s cubic-bezier(0.22, 1, 0.36, 1) both',
+    });
+  });
 });

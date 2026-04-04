@@ -2,11 +2,7 @@ interface TopSeatFocusOverlayProps {
   nickname: string;
 }
 
-/**
- * Non-blocking indicator shown on the felt when the top seat (partner)
- * needs to play. Cards are shown in the bottom tray instead of here,
- * so the center felt (played cards) remains fully visible.
- */
+/** Non-blocking indicator shown on the felt when the top seat (partner) needs to play. */
 export function TopSeatFocusOverlay({ nickname }: TopSeatFocusOverlayProps) {
   return (
     <div className="pointer-events-none absolute inset-x-0 top-1 z-20 flex justify-center">

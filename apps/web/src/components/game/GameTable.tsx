@@ -487,55 +487,28 @@ export function GameTable({
 
   const phoneTrayHand =
     !presentation.isWaiting && !presentation.isGameEnd ? (
-      presentation.topSeatFocus ? (
-        // Partner's turn: bring PARTNER cards to the bottom tray so the
-        // felt (played cards) stays fully visible for decision-making.
-        <SeatPanel
-          mode="visible"
-          orientation="bottom"
-          tone="partner"
-          nickname={presentation.topSeat.nickname}
-          dealer={presentation.topSeat.dealer}
-          active={presentation.topSeat.active}
-          roundRole={presentation.topSeat.roundRole}
-          cards={presentation.topCards}
-          manilhaRank={view.manilhaRank}
-          onPlayCard={(card) =>
-            handleSelectCard(presentation.topSeat.seatId, card)
-          }
-          disabled={
-            !presentation.topSeat.active || commandPending || decisionSheetOpen
-          }
-          highlightCards={false}
-          pendingCardId={pendingPlayCardId}
-          selectedCardId={selectedCard?.id ?? null}
-        />
-      ) : (
-        <SeatPanel
-          mode="visible"
-          orientation="bottom"
-          tone="player"
-          nickname={presentation.bottomSeat.nickname}
-          dealer={presentation.bottomSeat.dealer}
-          active={presentation.bottomSeat.active}
-          roundRole={presentation.bottomSeat.roundRole}
-          cards={presentation.bottomCards}
-          manilhaRank={view.manilhaRank}
-          onPlayCard={(card) =>
-            isPhoneLayout
-              ? handleSelectCard(presentation.bottomSeat.seatId, card)
-              : onPlayCard(presentation.bottomSeat.seatId, card)
-          }
-          disabled={
-            !presentation.bottomSeat.active ||
-            commandPending ||
-            decisionSheetOpen
-          }
-          highlightCards={false}
-          pendingCardId={pendingPlayCardId}
-          selectedCardId={selectedCard?.id ?? null}
-        />
-      )
+      <SeatPanel
+        mode="visible"
+        orientation="bottom"
+        tone="player"
+        nickname={presentation.bottomSeat.nickname}
+        dealer={presentation.bottomSeat.dealer}
+        active={presentation.bottomSeat.active}
+        roundRole={presentation.bottomSeat.roundRole}
+        cards={presentation.bottomCards}
+        manilhaRank={view.manilhaRank}
+        onPlayCard={(card) =>
+          isPhoneLayout
+            ? handleSelectCard(presentation.bottomSeat.seatId, card)
+            : onPlayCard(presentation.bottomSeat.seatId, card)
+        }
+        disabled={
+          !presentation.bottomSeat.active || commandPending || decisionSheetOpen
+        }
+        highlightCards={false}
+        pendingCardId={pendingPlayCardId}
+        selectedCardId={selectedCard?.id ?? null}
+      />
     ) : null;
 
   return (
@@ -590,39 +563,28 @@ export function GameTable({
               <div className="relative flex min-h-0 flex-1 flex-col px-2 pb-1.5">
                 {!presentation.isWaiting && !presentation.isGameEnd && (
                   <div className="relative z-10 flex justify-center pt-1">
-                    {presentation.topSeatFocus ? (
-                      // When partner plays: show PLAYER's own cards at the top as reference.
-                      // Partner's interactive cards move to the bottom tray.
-                      <SeatPanel
-                        mode="visible"
-                        orientation="top"
-                        tone="player"
-                        nickname={presentation.bottomSeat.nickname}
-                        dealer={presentation.bottomSeat.dealer}
-                        active={false}
-                        roundRole={presentation.bottomSeat.roundRole}
-                        cards={presentation.bottomCards}
-                        manilhaRank={view.manilhaRank}
-                        disabled
-                        highlightCards={false}
-                      />
-                    ) : (
-                      // Normal: show partner's cards at the top as reference.
-                      <SeatPanel
-                        mode="visible"
-                        orientation="top"
-                        tone="partner"
-                        nickname={presentation.topSeat.nickname}
-                        dealer={presentation.topSeat.dealer}
-                        active={presentation.topSeat.active}
-                        roundRole={presentation.topSeat.roundRole}
-                        cards={presentation.topCards}
-                        manilhaRank={view.manilhaRank}
-                        disabled
-                        highlightCards={false}
-                        pendingCardId={pendingPlayCardId}
-                      />
-                    )}
+                    <SeatPanel
+                      mode="visible"
+                      orientation="top"
+                      tone="partner"
+                      nickname={presentation.topSeat.nickname}
+                      dealer={presentation.topSeat.dealer}
+                      active={presentation.topSeat.active}
+                      roundRole={presentation.topSeat.roundRole}
+                      cards={presentation.topCards}
+                      manilhaRank={view.manilhaRank}
+                      onPlayCard={(card) =>
+                        handleSelectCard(presentation.topSeat.seatId, card)
+                      }
+                      disabled={
+                        !presentation.topSeat.active ||
+                        commandPending ||
+                        decisionSheetOpen
+                      }
+                      highlightCards={false}
+                      pendingCardId={pendingPlayCardId}
+                      selectedCardId={selectedCard?.id ?? null}
+                    />
                   </div>
                 )}
 

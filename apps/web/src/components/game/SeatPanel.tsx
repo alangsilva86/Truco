@@ -81,6 +81,7 @@ export function SeatPanel(props: SeatPanelProps) {
   if (props.mode === 'hidden') {
     return (
       <div
+        data-seat-orientation={props.orientation}
         className={`flex flex-col items-center gap-1.5 ${props.orientation === 'left' || props.orientation === 'right' ? 'max-w-[4.75rem] sm:max-w-none' : ''}`}
       >
         <div
@@ -132,6 +133,7 @@ export function SeatPanel(props: SeatPanelProps) {
 
   return (
     <div
+      data-seat-orientation={props.orientation}
       className={`flex flex-col items-center gap-1.5 sm:gap-2 ${isBottom || isTop ? 'w-full' : ''}`}
     >
       <div

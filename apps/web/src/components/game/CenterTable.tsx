@@ -180,6 +180,8 @@ export function CenterTable({
   }
 
   const winningIndex = getWinningIndex(roundCards, manilhaRank);
+  const isRoundEndSpotlight =
+    resolutionPhase === 'ROUND_END' && roundCards.length === 4;
 
   return (
     <div className="relative h-full w-full">
@@ -187,6 +189,18 @@ export function CenterTable({
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <div className="h-24 w-full rounded-full bg-emerald-950/60 blur-3xl sm:h-36" />
       </div>
+      {isRoundEndSpotlight && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center">
+          <div
+            data-round-end-overlay="true"
+            className="h-40 w-40 rounded-full border border-amber-300/15 bg-[radial-gradient(circle,rgba(251,191,36,0.22)_0%,rgba(251,191,36,0.08)_32%,rgba(5,46,22,0)_72%)] blur-sm sm:h-56 sm:w-56"
+            style={{
+              animation:
+                'resolved-round-overlay 2s cubic-bezier(0.22, 1, 0.36, 1) both',
+            }}
+          />
+        </div>
+      )}
 
       {roundCards.length > 0 &&
         roundCards.map((playedCard, i) => {
@@ -196,7 +210,9 @@ export function CenterTable({
           const rotation = getRotation(cardKey, direction);
           const isOurTeam = playedCard.seatId % 2 === viewerTeamId;
           const isWinning = winningIndex === i;
-          const zIndex = Z_BY_DIRECTION[direction];
+          const zIndex = isRoundEndSpotlight
+            ? 20 + Z_BY_DIRECTION[direction]
+            : Z_BY_DIRECTION[direction];
 
           const ringClass = isWinning
             ? 'ring-2 ring-amber-400 shadow-[0_0_0_2px_rgba(251,191,36,0.35),0_0_16px_rgba(251,191,36,0.25)]'
@@ -210,7 +226,9 @@ export function CenterTable({
           const resolutionStyle: CSSProperties | undefined = resolutionPhase
             ? {
                 animation:
-                  'resolved-table-zoom 2s cubic-bezier(0.22, 1, 0.36, 1) both',
+                  resolutionPhase === 'ROUND_END'
+                    ? 'resolved-round-spotlight 2s cubic-bezier(0.22, 1, 0.36, 1) both'
+                    : 'resolved-table-zoom 2s cubic-bezier(0.22, 1, 0.36, 1) both',
                 transformOrigin: 'center center',
               }
             : undefined;
