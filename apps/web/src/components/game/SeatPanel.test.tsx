@@ -17,6 +17,7 @@ describe('SeatPanel', () => {
         orientation="left"
         tone="opponent"
         nickname="Bia"
+        connected
         dealer={false}
         active={false}
         roundRole={null}
@@ -48,6 +49,7 @@ describe('SeatPanel', () => {
         orientation="bottom"
         tone="player"
         nickname="Ana"
+        connected
         dealer={false}
         active
         roundRole="mao"
@@ -57,5 +59,23 @@ describe('SeatPanel', () => {
     );
 
     expect(getByText(/^mao$/i)).toBeInTheDocument();
+  });
+
+  it('mostra indicador offline quando o jogador desconecta', () => {
+    const { getByLabelText } = render(
+      <SeatPanel
+        mode="hidden"
+        orientation="right"
+        tone="opponent"
+        nickname="Bia"
+        connected={false}
+        dealer={false}
+        active={false}
+        roundRole={null}
+        count={3}
+      />,
+    );
+
+    expect(getByLabelText(/offline/i)).toBeInTheDocument();
   });
 });

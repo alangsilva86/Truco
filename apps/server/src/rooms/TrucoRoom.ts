@@ -128,6 +128,22 @@ export class TrucoRoom extends Room<{
         return;
       }
 
+      if (this.lifecycle === 'PAUSED_RECONNECT') {
+        client.send('command_rejected', {
+          message: 'Partida pausada aguardando reconexao do adversario.',
+          commandId: message.commandId,
+        });
+        return;
+      }
+
+      if (this.lifecycle === 'CLOSED') {
+        client.send('command_rejected', {
+          message: 'Esta sala foi encerrada.',
+          commandId: message.commandId,
+        });
+        return;
+      }
+
       this.runtime.enqueuePlayerCommand(teamId, message);
     },
     pato_taunt: (client: Client) => {

@@ -8,6 +8,7 @@ interface BaseSeatPanelProps {
   orientation: SeatOrientation;
   tone: SeatTone;
   nickname: string;
+  connected: boolean;
   dealer: boolean;
   active: boolean;
   roundRole: 'mao' | 'pe' | null;
@@ -74,6 +75,12 @@ function getRoleLabel(
   return null;
 }
 
+function getConnectionClass(connected: boolean): string {
+  return connected
+    ? 'bg-emerald-300 shadow-[0_0_8px_rgba(16,185,129,0.42)]'
+    : 'bg-rose-300 shadow-[0_0_8px_rgba(244,63,94,0.42)]';
+}
+
 export function SeatPanel(props: SeatPanelProps) {
   const badgeClass = getToneClass(props.tone, props.active);
   const roleLabel = getRoleLabel(props.roundRole, props.dealer);
@@ -90,11 +97,17 @@ export function SeatPanel(props: SeatPanelProps) {
           <span className="block max-w-[4rem] truncate sm:max-w-[7rem]">
             {props.nickname}
           </span>
-          {roleLabel && (
-            <span className="rounded-full border border-white/12 bg-black/20 px-2 py-0.5 text-[8px] tracking-[0.2em] text-white/78 sm:text-[9px]">
-              {roleLabel}
-            </span>
-          )}
+          <div className="flex items-center gap-1.5">
+            {roleLabel && (
+              <span className="rounded-full border border-white/12 bg-black/20 px-2 py-0.5 text-[8px] tracking-[0.2em] text-white/78 sm:text-[9px]">
+                {roleLabel}
+              </span>
+            )}
+            <span
+              aria-label={props.connected ? 'online' : 'offline'}
+              className={`h-1.5 w-1.5 rounded-full ${getConnectionClass(props.connected)}`}
+            />
+          </div>
         </div>
 
         <div
@@ -142,11 +155,17 @@ export function SeatPanel(props: SeatPanelProps) {
         <span className="block max-w-[9rem] truncate sm:max-w-[10rem]">
           {props.nickname}
         </span>
-        {roleLabel && (
-          <span className="rounded-full border border-white/12 bg-black/20 px-2 py-0.5 text-[8px] tracking-[0.2em] text-white/78 sm:text-[9px]">
-            {roleLabel}
-          </span>
-        )}
+        <div className="flex items-center gap-1.5">
+          {roleLabel && (
+            <span className="rounded-full border border-white/12 bg-black/20 px-2 py-0.5 text-[8px] tracking-[0.2em] text-white/78 sm:text-[9px]">
+              {roleLabel}
+            </span>
+          )}
+          <span
+            aria-label={props.connected ? 'online' : 'offline'}
+            className={`h-1.5 w-1.5 rounded-full ${getConnectionClass(props.connected)}`}
+          />
+        </div>
       </div>
 
       <div

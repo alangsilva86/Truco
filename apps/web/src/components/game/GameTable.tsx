@@ -392,6 +392,20 @@ export function GameTable({
     presentation.activeOwnedSeatId !== null
       ? (view.players[presentation.activeOwnedSeatId]?.nickname ?? null)
       : null;
+  const disconnectedOpponentNames = [
+    presentation.leftSeat,
+    presentation.rightSeat,
+  ]
+    .filter((seat) => !seat.connected)
+    .map((seat) => seat.nickname);
+  const pausedReconnectTitle =
+    disconnectedOpponentNames.length === 1
+      ? `${disconnectedOpponentNames[0]} desconectou`
+      : disconnectedOpponentNames.length > 1
+        ? 'Adversarios desconectados'
+        : 'Adversario desconectou';
+  const roomClosed = view.roomLifecycle === 'CLOSED';
+  const rematchDisabled = commandPending || rematchRequested || roomClosed;
 
   useEffect(() => {
     if (decisionSheetOpen) {
@@ -509,6 +523,7 @@ export function GameTable({
         orientation="bottom"
         tone="player"
         nickname={presentation.bottomSeat.nickname}
+        connected={presentation.bottomSeat.connected}
         dealer={presentation.bottomSeat.dealer}
         active={presentation.bottomSeat.active}
         roundRole={presentation.bottomSeat.roundRole}
@@ -585,6 +600,7 @@ export function GameTable({
                       orientation="top"
                       tone="partner"
                       nickname={presentation.topSeat.nickname}
+                      connected={presentation.topSeat.connected}
                       dealer={presentation.topSeat.dealer}
                       active={presentation.topSeat.active}
                       roundRole={presentation.topSeat.roundRole}
@@ -614,6 +630,7 @@ export function GameTable({
                           orientation="left"
                           tone="opponent"
                           nickname={presentation.leftSeat.nickname}
+                          connected={presentation.leftSeat.connected}
                           dealer={presentation.leftSeat.dealer}
                           active={presentation.leftSeat.active}
                           roundRole={presentation.leftSeat.roundRole}
@@ -627,6 +644,7 @@ export function GameTable({
                           orientation="right"
                           tone="opponent"
                           nickname={presentation.rightSeat.nickname}
+                          connected={presentation.rightSeat.connected}
                           dealer={presentation.rightSeat.dealer}
                           active={presentation.rightSeat.active}
                           roundRole={presentation.rightSeat.roundRole}
@@ -749,6 +767,7 @@ export function GameTable({
                       orientation="top"
                       tone="partner"
                       nickname={presentation.topSeat.nickname}
+                      connected={presentation.topSeat.connected}
                       dealer={presentation.topSeat.dealer}
                       active={presentation.topSeat.active}
                       roundRole={presentation.topSeat.roundRole}
@@ -777,6 +796,7 @@ export function GameTable({
                           orientation="left"
                           tone="opponent"
                           nickname={presentation.leftSeat.nickname}
+                          connected={presentation.leftSeat.connected}
                           dealer={presentation.leftSeat.dealer}
                           active={presentation.leftSeat.active}
                           roundRole={presentation.leftSeat.roundRole}
@@ -790,6 +810,7 @@ export function GameTable({
                           orientation="right"
                           tone="opponent"
                           nickname={presentation.rightSeat.nickname}
+                          connected={presentation.rightSeat.connected}
                           dealer={presentation.rightSeat.dealer}
                           active={presentation.rightSeat.active}
                           roundRole={presentation.rightSeat.roundRole}
@@ -838,6 +859,7 @@ export function GameTable({
                       orientation="bottom"
                       tone="player"
                       nickname={presentation.bottomSeat.nickname}
+                      connected={presentation.bottomSeat.connected}
                       dealer={presentation.bottomSeat.dealer}
                       active={presentation.bottomSeat.active}
                       roundRole={presentation.bottomSeat.roundRole}
@@ -901,16 +923,18 @@ export function GameTable({
               <p className="mt-2 text-sm text-white/55">
                 {presentation.gameWon
                   ? 'Sua dupla venceu a partida.'
-                  : 'A partida terminou. Peça revanche ou saia da sala.'}
+                  : roomClosed
+                    ? 'A sala foi encerrada. Voce pode voltar ao lobby.'
+                    : 'A partida terminou. Peca revanche ou saia da sala.'}
               </p>
             </div>
 
             <button
               type="button"
               onClick={onRequestRematch}
-              disabled={commandPending || rematchRequested}
+              disabled={rematchDisabled}
               className={`flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-black uppercase tracking-[0.18em] transition ${
-                rematchRequested
+                rematchDisabled
                   ? 'border border-white/15 bg-white/5 text-white/50'
                   : 'bg-emerald-400 text-black hover:brightness-105'
               }`}
@@ -920,7 +944,11 @@ export function GameTable({
               ) : (
                 <RefreshCcw className="h-4 w-4" />
               )}
-              {rematchRequested ? 'Aguardando adversario...' : 'Pedir revanche'}
+              {rematchRequested
+                ? 'Aguardando adversario...'
+                : roomClosed
+                  ? 'Sala encerrada'
+                  : 'Pedir revanche'}
             </button>
 
             <button
@@ -946,7 +974,7 @@ export function GameTable({
                 Conexao interrompida
               </p>
               <h3 className="mt-2 text-2xl font-black text-white">
-                Adversario desconectou
+                {pausedReconnectTitle}
               </h3>
               <p className="mt-2 text-sm text-white/55">
                 O jogo continua automaticamente assim que ele reconectar.

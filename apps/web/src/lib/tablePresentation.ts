@@ -22,6 +22,7 @@ export type TrickDotTone = 'us' | 'them' | 'tie' | 'empty';
 export interface TableSeatModel {
   seatId: SeatId;
   nickname: string;
+  connected: boolean;
   dealer: boolean;
   active: boolean;
   roundRole: 'mao' | 'pe' | null;
@@ -365,6 +366,7 @@ export function createTablePresentation(params: {
     topSeat: {
       seatId: seatLayout.top,
       nickname: view.players[seatLayout.top].nickname,
+      connected: view.players[seatLayout.top].connected,
       dealer: view.dealerSeatId === seatLayout.top,
       active: Boolean(isTopTurn),
       roundRole: getRoundRole(seatLayout.top),
@@ -372,6 +374,7 @@ export function createTablePresentation(params: {
     bottomSeat: {
       seatId: seatLayout.bottom,
       nickname: view.players[seatLayout.bottom].nickname,
+      connected: view.players[seatLayout.bottom].connected,
       dealer: view.dealerSeatId === seatLayout.bottom,
       active: Boolean(isBottomTurn),
       roundRole: getRoundRole(seatLayout.bottom),
@@ -379,6 +382,7 @@ export function createTablePresentation(params: {
     leftSeat: {
       seatId: seatLayout.left,
       nickname: view.players[seatLayout.left].nickname,
+      connected: view.players[seatLayout.left].connected,
       dealer: view.dealerSeatId === seatLayout.left,
       active: Boolean(isOpponentLeftTurn),
       hiddenCount: view.opponentHandCounts[seatLayout.left] ?? 0,
@@ -387,6 +391,7 @@ export function createTablePresentation(params: {
     rightSeat: {
       seatId: seatLayout.right,
       nickname: view.players[seatLayout.right].nickname,
+      connected: view.players[seatLayout.right].connected,
       dealer: view.dealerSeatId === seatLayout.right,
       active: Boolean(isOpponentRightTurn),
       hiddenCount: view.opponentHandCounts[seatLayout.right] ?? 0,

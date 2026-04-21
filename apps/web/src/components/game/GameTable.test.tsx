@@ -172,6 +172,30 @@ describe('GameTable', () => {
     ).toBeDisabled();
   });
 
+  it('desabilita revanche quando a sala foi encerrada', () => {
+    const onRequestRematch = vi.fn();
+    const view = createClientGameView({
+      gamePhase: 'GAME_END',
+      roomLifecycle: 'CLOSED',
+      scores: { 0: 12, 1: 5 },
+      message: 'Partida encerrada por abandono.',
+    });
+
+    render(
+      <GameTable
+        {...createBaseProps()}
+        view={view}
+        playAction={null}
+        onRequestRematch={onRequestRematch}
+      />,
+    );
+
+    const button = screen.getByRole('button', { name: /sala encerrada/i });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(onRequestRematch).not.toHaveBeenCalled();
+  });
+
   it('exige confirmacao explicita antes de jogar carta no mobile', () => {
     setViewport(375, 812);
     const onPlayCard = vi.fn();

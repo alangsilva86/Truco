@@ -71,6 +71,8 @@ async function expectHttpError(
 
 describe('TrucoRoom', () => {
   let app: Awaited<typeof import('../src/app.config.js')>['default'];
+  // Colyseus test server SDK type is intentionally generic for room state fixtures.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let colyseus: ColyseusTestServer<any>;
 
   beforeAll(async () => {
@@ -388,6 +390,46 @@ describe('TrucoRoom', () => {
 
     const guestView = await bootstrapView(reconnectedGuest);
     expect(guestView.players[1].connected).toBe(true);
+  });
+
+  it('rejects gameplay commands while the room is paused for reconnect', async () => {
+    const room = await colyseus.createRoom('truco_room', {});
+    const host = await colyseus.connectTo(room, { nickname: 'Ana' });
+    const guest = await colyseus.connectTo(room, { nickname: 'Bia' });
+    host.onMessage('game_view', () => undefined);
+    guest.onMessage('game_view', () => undefined);
+    host.onMessage('match_event', () => undefined);
+    guest.onMessage('match_event', () => undefined);
+
+    await waitFor(
+      () =>
+        host.state.gamePhase === 'PLAYING' &&
+        guest.state.gamePhase === 'PLAYING',
+    );
+
+    dropConnection(guest);
+    await waitFor(() => host.state.roomLifecycle === 'PAUSED_RECONNECT');
+
+    const commandId = 'paused-reconnect-block';
+    const rejection = onceMessage<{ commandId?: string; message?: string }>(
+      host,
+      'command_rejected',
+    );
+    host.send('command', {
+      commandId,
+      issuedAt: Date.now(),
+      type: 'PLAY_CARD',
+      payload: {
+        seatId: 1,
+        cardId: 'fake-card',
+        mode: 'open',
+      },
+    } satisfies GameCommand);
+
+    await expect(rejection).resolves.toMatchObject({
+      commandId,
+      message: expect.stringContaining('Partida pausada'),
+    });
   });
 
   it('tracks client-reported reconnect recovery metrics', async () => {
