@@ -42,6 +42,7 @@ import { TrucoDecisionSheet } from './TrucoDecisionSheet.js';
 
 type PlayAction = Extract<AvailableAction, { type: 'PLAY_CARD' }>;
 type TrucoAction = Extract<AvailableAction, { type: 'REQUEST_TRUCO' }>;
+type RunRoundAction = Extract<AvailableAction, { type: 'RUN_ROUND' }>;
 type TrucoResponseAction = Extract<AvailableAction, { type: 'RESPOND_TRUCO' }>;
 type HandOfElevenResponseAction = Extract<
   AvailableAction,
@@ -63,6 +64,7 @@ interface GameTableProps {
   playAction: PlayAction | null;
   respondHandOfElevenAction: HandOfElevenResponseAction | null;
   requestTrucoAction: TrucoAction | null;
+  runRoundAction: RunRoundAction | null;
   respondTrucoAction: TrucoResponseAction | null;
   onDismissError: () => void;
   onCopyCode: (code: string) => void;
@@ -74,6 +76,7 @@ interface GameTableProps {
   onPlayCard: (seatId: SeatId, card: Card, mode?: CardPlayMode) => void;
   onRequestTruco: () => void;
   onRequestRematch: () => void;
+  onRunRound: () => void;
   onAcceptTruco: () => void;
   onRunHandOfEleven: () => void;
   onRaiseTruco: () => void;
@@ -118,6 +121,7 @@ export function GameTable({
   playAction,
   respondHandOfElevenAction,
   requestTrucoAction,
+  runRoundAction,
   respondTrucoAction,
   onDismissError,
   onCopyCode,
@@ -129,6 +133,7 @@ export function GameTable({
   onPlayCard,
   onRequestTruco,
   onRequestRematch,
+  onRunRound,
   onAcceptTruco,
   onRunHandOfEleven,
   onRaiseTruco,
@@ -406,6 +411,7 @@ export function GameTable({
         : 'Adversario desconectou';
   const roomClosed = view.roomLifecycle === 'CLOSED';
   const rematchDisabled = commandPending || rematchRequested || roomClosed;
+  const canRunRound = Boolean(runRoundAction) && !presentation.isPausedReconnect;
 
   useEffect(() => {
     if (decisionSheetOpen) {
@@ -489,6 +495,11 @@ export function GameTable({
     setPendingPlayCardId(null);
     showTrucoShout(presentation.trucoLabel.toUpperCase());
     onRequestTruco();
+  }
+
+  function handleRunRoundPress(): void {
+    triggerHaptic([18, 35, 18]);
+    onRunRound();
   }
 
   function handleAcceptTrucoPress(): void {
@@ -715,12 +726,15 @@ export function GameTable({
                     selectedCard={selectedCard}
                     trucoHint={presentation.trucoHint}
                     trucoLabel={presentation.trucoLabel}
+                    canRunRound={canRunRound}
+                    runRoundHint="Desiste da rodada atual e concede 1 ponto ao adversario."
                     onCancelSelection={() =>
                       !commandPending ? setSelectedPlay(null) : undefined
                     }
                     onConfirmCovered={() => handleConfirmPlay('covered')}
                     onConfirmOpen={() => handleConfirmPlay('open')}
                     onRequestTruco={handleRequestTrucoPress}
+                    onRunRound={handleRunRoundPress}
                   >
                     {phoneTrayHand}
                   </ActionConfirmTray>
@@ -884,9 +898,12 @@ export function GameTable({
                     trucoEnabled={presentation.canRequestTruco}
                     trucoHint={presentation.trucoHint}
                     trucoLabel={presentation.trucoLabel}
+                    runRoundEnabled={canRunRound}
+                    runRoundHint="Desiste da rodada atual e concede 1 ponto ao adversario."
                     commandPending={commandPending}
                     onToggleCovered={onToggleCovered}
                     onRequestTruco={handleRequestTrucoPress}
+                    onRunRound={handleRunRoundPress}
                   />
                 </div>
               </div>
@@ -1070,6 +1087,7 @@ export function GameTable({
         onAccept={handleAcceptTrucoPress}
         onRaise={handleRaiseTrucoPress}
         onRun={handleRunTrucoPress}
+        onRunRound={handleRunRoundPress}
       />
 
       {/* Truco shout overlay */}

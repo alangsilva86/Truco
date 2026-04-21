@@ -163,13 +163,27 @@ describe('engine', () => {
     expect(accepted.nextState.phase).toBe('PLAYING');
   });
 
-  it('exposes legal actions only to the active team', () => {
+  it('keeps play actions for active team but allows running for both teams', () => {
     const state = startReadyMatch(99);
     const activeTeam = (state.turnSeatId ?? 1) % 2 === 0 ? 0 : (1 as TeamId);
     const waitingTeam = activeTeam === 0 ? 1 : 0;
 
-    expect(getLegalActions(state, activeTeam)).not.toHaveLength(0);
-    expect(getLegalActions(state, waitingTeam)).toHaveLength(0);
+    expect(
+      getLegalActions(state, activeTeam).some((action) => action.type === 'PLAY_CARD'),
+    ).toBe(true);
+    expect(
+      getLegalActions(state, waitingTeam).some(
+        (action) => action.type === 'PLAY_CARD',
+      ),
+    ).toBe(false);
+    expect(
+      getLegalActions(state, activeTeam).some((action) => action.type === 'RUN_ROUND'),
+    ).toBe(true);
+    expect(
+      getLegalActions(state, waitingTeam).some(
+        (action) => action.type === 'RUN_ROUND',
+      ),
+    ).toBe(true);
   });
 
   // ── New tests ─────────────────────────────────────────────────────────────────
@@ -267,7 +281,11 @@ describe('engine', () => {
       playValue: 3,
       runPenalty: 1,
     });
-    expect(getLegalActions(state, 1)).toHaveLength(0);
+    expect(getLegalActions(state, 1)).toContainEqual({
+      type: 'RUN_ROUND',
+      seatIds: [1, 3],
+      awardedPoints: 1,
+    });
 
     const afterPlay = applyCommand(state, {
       commandId: 'hand-11-play',
@@ -303,6 +321,54 @@ describe('engine', () => {
     expect(afterRun.error).toBeUndefined();
     expect(afterRun.nextState.scores).toEqual({ 0: 11, 1: 11 });
     expect(afterRun.nextState.phase).toBe('ROUND_END');
+  });
+
+  it('allows running the round during play and awards 1 point to the opponent', () => {
+    const state = startReadyMatch(34);
+    const runnerSeat = state.turnSeatId ?? 0;
+    const runnerTeam = (runnerSeat % 2) as TeamId;
+    const awardedTeam: TeamId = runnerTeam === 0 ? 1 : 0;
+
+    const result = applyCommand(state, {
+      commandId: 'run-round-playing',
+      issuedAt: Date.now(),
+      type: 'RUN_ROUND',
+      payload: { requestedBySeatId: runnerSeat },
+    });
+
+    expect(result.error).toBeUndefined();
+    expect(result.nextState.phase).toBe('ROUND_END');
+    expect(result.nextState.scores[awardedTeam]).toBe(1);
+    expect(result.events.some((event) => event.type === 'ROUND_RUN')).toBe(true);
+  });
+
+  it('awards 1 point when running after a truco request', () => {
+    const state = startReadyMatch(35);
+    const requesterSeat = state.turnSeatId ?? 0;
+    const requesterTeam = (requesterSeat % 2) as TeamId;
+    const runnerTeam: TeamId = requesterTeam === 0 ? 1 : 0;
+    const runnerSeat = runnerTeam === 0 ? 0 : 1;
+    const awardedTeam: TeamId = runnerTeam === 0 ? 1 : 0;
+
+    const requested = applyCommand(state, {
+      commandId: 'truco-before-run-round',
+      issuedAt: Date.now(),
+      type: 'REQUEST_TRUCO',
+      payload: { seatId: requesterSeat },
+    });
+    expect(requested.error).toBeUndefined();
+    expect(requested.nextState.phase).toBe('TRUCO_DECISION');
+
+    const ranRound = applyCommand(requested.nextState, {
+      commandId: 'run-round-after-truco',
+      issuedAt: Date.now(),
+      type: 'RUN_ROUND',
+      payload: { requestedBySeatId: runnerSeat },
+    });
+
+    expect(ranRound.error).toBeUndefined();
+    expect(ranRound.nextState.phase).toBe('ROUND_END');
+    expect(ranRound.nextState.scores[awardedTeam]).toBe(1);
   });
 
   it('starts 11 x 11 as mao de ferro worth 3 without truco', () => {

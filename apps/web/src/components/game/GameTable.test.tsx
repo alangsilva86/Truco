@@ -3,6 +3,7 @@
 import {
   AvailableHandOfElevenAction,
   AvailablePlayAction,
+  AvailableRunRoundAction,
   AvailableTrucoResponseAction,
 } from '@truco/contracts';
 import { useState } from 'react';
@@ -46,6 +47,7 @@ function createBaseProps() {
     codeCopied: false,
     rematchRequested: false,
     requestTrucoAction: null,
+    runRoundAction: null,
     respondHandOfElevenAction: null,
     respondTrucoAction: null,
     onDismissError: () => undefined,
@@ -58,6 +60,7 @@ function createBaseProps() {
     onPlayCard: () => undefined,
     onRequestTruco: () => undefined,
     onRequestRematch: () => undefined,
+    onRunRound: () => undefined,
     onAcceptTruco: () => undefined,
     onRunHandOfEleven: () => undefined,
     onRaiseTruco: () => undefined,
@@ -97,6 +100,7 @@ describe('GameTable', () => {
         playAction={null}
         respondHandOfElevenAction={null}
         requestTrucoAction={null}
+        runRoundAction={null}
         respondTrucoAction={null}
         onDismissError={() => undefined}
         onCopyCode={() => undefined}
@@ -108,6 +112,7 @@ describe('GameTable', () => {
         onPlayCard={() => undefined}
         onRequestTruco={() => undefined}
         onRequestRematch={onRequestRematch}
+        onRunRound={() => undefined}
         onAcceptTruco={() => undefined}
         onRunHandOfEleven={() => undefined}
         onRaiseTruco={() => undefined}
@@ -146,6 +151,7 @@ describe('GameTable', () => {
         playAction={null}
         respondHandOfElevenAction={null}
         requestTrucoAction={null}
+        runRoundAction={null}
         respondTrucoAction={null}
         onDismissError={() => undefined}
         onCopyCode={() => undefined}
@@ -157,6 +163,7 @@ describe('GameTable', () => {
         onPlayCard={() => undefined}
         onRequestTruco={() => undefined}
         onRequestRematch={() => undefined}
+        onRunRound={() => undefined}
         onAcceptTruco={() => undefined}
         onRunHandOfEleven={() => undefined}
         onRaiseTruco={() => undefined}
@@ -194,6 +201,31 @@ describe('GameTable', () => {
     expect(button).toBeDisabled();
     fireEvent.click(button);
     expect(onRequestRematch).not.toHaveBeenCalled();
+  });
+
+  it('permite correr da rodada quando a acao esta disponivel', () => {
+    const onRunRound = vi.fn();
+    const view = createClientGameView({
+      gamePhase: 'PLAYING',
+    });
+    const runRoundAction: AvailableRunRoundAction = {
+      type: 'RUN_ROUND',
+      seatIds: [0, 2],
+      awardedPoints: 1,
+    };
+
+    render(
+      <GameTable
+        {...createBaseProps()}
+        view={view}
+        playAction={null}
+        runRoundAction={runRoundAction}
+        onRunRound={onRunRound}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /correr/i }));
+    expect(onRunRound).toHaveBeenCalledTimes(1);
   });
 
   it('exige confirmacao explicita antes de jogar carta no mobile', () => {

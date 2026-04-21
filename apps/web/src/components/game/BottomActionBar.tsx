@@ -1,4 +1,4 @@
-import { EyeOff, Swords } from 'lucide-react';
+import { EyeOff, Flag, Swords } from 'lucide-react';
 
 interface BottomActionBarProps {
   show: boolean;
@@ -8,9 +8,12 @@ interface BottomActionBarProps {
   trucoEnabled: boolean;
   trucoHint: string;
   trucoLabel: string;
+  runRoundEnabled: boolean;
+  runRoundHint: string;
   commandPending: boolean;
   onToggleCovered: () => void;
   onRequestTruco: () => void;
+  onRunRound: () => void;
 }
 
 export function BottomActionBar({
@@ -21,9 +24,12 @@ export function BottomActionBar({
   trucoEnabled,
   trucoHint,
   trucoLabel,
+  runRoundEnabled,
+  runRoundHint,
   commandPending,
   onToggleCovered,
   onRequestTruco,
+  onRunRound,
 }: BottomActionBarProps) {
   if (!show) {
     return null;
@@ -55,6 +61,21 @@ export function BottomActionBar({
       >
         <Swords className="h-3.5 w-3.5 shrink-0" />
         {trucoLabel}
+      </button>
+
+      <button
+        type="button"
+        onClick={onRunRound}
+        disabled={!runRoundEnabled || commandPending}
+        title={runRoundHint}
+        className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.14em] transition-all duration-150 ${
+          runRoundEnabled
+            ? 'border-rose-100/75 bg-rose-500/16 text-rose-100 active:bg-rose-500/24'
+            : 'border-white/10 bg-transparent text-white/35'
+        }`}
+      >
+        <Flag className="h-3.5 w-3.5 shrink-0" />
+        Correr
       </button>
     </div>
   );

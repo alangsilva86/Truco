@@ -224,6 +224,10 @@ export class MatchRuntime {
         return ownsSeat(teamId, command.payload.requestedBySeatId)
           ? null
           : 'This command targets a seat outside of your team.';
+      case 'RUN_ROUND':
+        return ownsSeat(teamId, command.payload.requestedBySeatId)
+          ? null
+          : 'This command targets a seat outside of your team.';
       case 'RESPOND_TRUCO':
         if (!this.state.pendingTruco) {
           return 'There is no pending truco decision.';

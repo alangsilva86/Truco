@@ -8,6 +8,7 @@ import {
   PendingTrucoState,
   PlayerInfo,
   RematchCommand,
+  RunRoundCommand,
   SeatId,
   TeamId,
   TEAM_SEATS,
@@ -41,6 +42,7 @@ type PendingTransition =
 
 const HAND_OF_ELEVEN_PLAY_VALUE = 3;
 const HAND_OF_ELEVEN_RUN_PENALTY = 1;
+const ROUND_RUN_AWARDED_POINTS = 1;
 
 export interface MatchState {
   matchId: string;
@@ -344,12 +346,74 @@ function resolveTrucoRun(state: MatchState): ClientMatchEvent[] {
   return events;
 }
 
+function resolveRoundRun(
+  state: MatchState,
+  seatId: SeatId,
+): ClientMatchEvent[] {
+  const events: ClientMatchEvent[] = [];
+
+  if (state.dealerSeatId === null) {
+    return events;
+  }
+
+  const runnerTeam = getTeamForSeat(seatId);
+  const awardedTeam = runnerTeam === 0 ? 1 : 0;
+  const awardedPoints = ROUND_RUN_AWARDED_POINTS;
+
+  state.pendingTruco = null;
+  state.scores[awardedTeam] += awardedPoints;
+  state.lastRoundWinnerTeam = awardedTeam;
+
+  events.push(
+    createEvent(state, 'ROUND_RUN', {
+      seatId,
+      runnerTeam,
+      awardedTeam,
+      awardedPoints,
+    }),
+  );
+
+  events.push(
+    createEvent(state, 'ROUND_ENDED', {
+      winnerTeam: awardedTeam,
+      awardedPoints,
+      scores: { ...state.scores },
+    }),
+  );
+
+  if (state.scores[awardedTeam] >= 12) {
+    state.phase = 'GAME_END';
+    state.pendingTransition = null;
+    state.gameWinnerTeam = awardedTeam;
+    state.message = `${state.players[TEAM_SEATS[awardedTeam][0]].nickname} venceu o jogo.`;
+    events.push(
+      createEvent(state, 'GAME_ENDED', {
+        winnerTeam: awardedTeam,
+        scores: { ...state.scores },
+      }),
+    );
+    return events;
+  }
+
+  queueNextRound(state, getCounterClockwiseSeat(state.dealerSeatId));
+  state.message = `${state.players[seatId].nickname} correu da rodada.`;
+  return events;
+}
+
 function resolveRaiseSeat(teamId: TeamId): SeatId {
   return TEAM_SEATS[teamId][0];
 }
 
 function canSeatPlayCovered(state: MatchState): boolean {
   return state.trickHistory.length > 0;
+}
+
+function canRunRound(phase: GamePhase): boolean {
+  return (
+    phase === 'PLAYING' ||
+    phase === 'TRUCO_DECISION' ||
+    phase === 'HAND_OF_ELEVEN_DECISION'
+  );
 }
 
 function createInvalidResult(
@@ -616,6 +680,21 @@ function respondHandOfEleven(
   );
 }
 
+function runRound(state: MatchState, command: RunRoundCommand): ApplyCommandResult {
+  if (!canRunRound(state.phase)) {
+    return createInvalidResult(
+      state,
+      'Running the round is only available while a round is active.',
+    );
+  }
+
+  const nextState = cloneState(state);
+  return withStateVersion(
+    nextState,
+    resolveRoundRun(nextState, command.payload.requestedBySeatId),
+  );
+}
+
 function rematch(
   state: MatchState,
   command: RematchCommand,
@@ -779,6 +858,8 @@ export function applyCommand(
       return respondTruco(state, command);
     case 'RESPOND_HAND_OF_ELEVEN':
       return respondHandOfEleven(state, command);
+    case 'RUN_ROUND':
+      return runRound(state, command);
     case 'REMATCH':
       return rematch(state, command);
     default:
@@ -791,6 +872,14 @@ export function getLegalActions(
   viewerTeamId: TeamId,
 ): AvailableAction[] {
   const actions: AvailableAction[] = [];
+
+  if (canRunRound(state.phase)) {
+    actions.push({
+      type: 'RUN_ROUND',
+      seatIds: TEAM_SEATS[viewerTeamId],
+      awardedPoints: ROUND_RUN_AWARDED_POINTS,
+    });
+  }
 
   if (state.phase === 'HAND_OF_ELEVEN_DECISION') {
     const decidingTeam = getHandOfElevenDecisionTeam(state);

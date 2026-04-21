@@ -88,11 +88,18 @@ export interface AvailableHandOfElevenAction {
   runPenalty: number;
 }
 
+export interface AvailableRunRoundAction {
+  type: 'RUN_ROUND';
+  seatIds: SeatId[];
+  awardedPoints: number;
+}
+
 export type AvailableAction =
   | AvailablePlayAction
   | AvailableTrucoAction
   | AvailableTrucoResponseAction
-  | AvailableHandOfElevenAction;
+  | AvailableHandOfElevenAction
+  | AvailableRunRoundAction;
 
 export interface ClientGameView {
   matchId: string;
@@ -143,6 +150,10 @@ export interface RematchPayload {
   requestedBySeatId: SeatId;
 }
 
+export interface RunRoundPayload {
+  requestedBySeatId: SeatId;
+}
+
 export interface BaseGameCommand<TType extends string, TPayload> {
   commandId: string;
   issuedAt: number;
@@ -164,13 +175,15 @@ export type RespondHandOfElevenCommand = BaseGameCommand<
   RespondHandOfElevenPayload
 >;
 export type RematchCommand = BaseGameCommand<'REMATCH', RematchPayload>;
+export type RunRoundCommand = BaseGameCommand<'RUN_ROUND', RunRoundPayload>;
 
 export type GameCommand =
   | PlayCardCommand
   | RequestTrucoCommand
   | RespondTrucoCommand
   | RespondHandOfElevenCommand
-  | RematchCommand;
+  | RematchCommand
+  | RunRoundCommand;
 
 export interface BaseEngineEvent<TType extends string, TPayload> {
   cursor: number;
@@ -201,6 +214,15 @@ export type EngineEvent =
   | BaseEngineEvent<
       'TRUCO_RUN',
       { runnerTeam: TeamId; awardedTeam: TeamId; awardedPoints: number }
+    >
+  | BaseEngineEvent<
+      'ROUND_RUN',
+      {
+        seatId: SeatId;
+        runnerTeam: TeamId;
+        awardedTeam: TeamId;
+        awardedPoints: number;
+      }
     >
   | BaseEngineEvent<
       'TRICK_WON',

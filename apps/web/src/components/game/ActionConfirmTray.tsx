@@ -1,5 +1,5 @@
 import { Card, Rank } from '@truco/contracts';
-import { AlertCircle, EyeOff, LoaderCircle, Swords } from 'lucide-react';
+import { AlertCircle, EyeOff, Flag, LoaderCircle, Swords } from 'lucide-react';
 import { ReactNode } from 'react';
 import { manilhaNickname } from '../Card.js';
 
@@ -9,6 +9,7 @@ interface ActionConfirmTrayProps {
   bannerDetail: string;
   bannerTitle: string;
   canPlayCovered: boolean;
+  canRunRound: boolean;
   canRequestTruco: boolean;
   children?: ReactNode;
   commandPending: boolean;
@@ -16,6 +17,7 @@ interface ActionConfirmTrayProps {
   error: string | null;
   manilhaRank?: Rank | null;
   pendingPlay: boolean;
+  runRoundHint: string;
   selectedCard: Card | null;
   trucoHint: string;
   trucoLabel: string;
@@ -23,6 +25,7 @@ interface ActionConfirmTrayProps {
   onConfirmCovered: () => void;
   onConfirmOpen: () => void;
   onRequestTruco: () => void;
+  onRunRound: () => void;
 }
 
 function getSelectedCardLabel(
@@ -38,6 +41,7 @@ function getSelectedCardLabel(
 
 export function ActionConfirmTray({
   canPlayCovered,
+  canRunRound,
   canRequestTruco,
   children,
   commandPending,
@@ -45,6 +49,7 @@ export function ActionConfirmTray({
   error,
   manilhaRank,
   pendingPlay,
+  runRoundHint,
   selectedCard,
   trucoHint,
   trucoLabel,
@@ -52,6 +57,7 @@ export function ActionConfirmTray({
   onConfirmCovered,
   onConfirmOpen,
   onRequestTruco,
+  onRunRound,
 }: ActionConfirmTrayProps) {
   const isSelectionActive = Boolean(selectedCard);
 
@@ -132,6 +138,21 @@ export function ActionConfirmTray({
             >
               <Swords className="h-3.5 w-3.5 shrink-0" />
               {trucoLabel}
+            </button>
+
+            <button
+              type="button"
+              onClick={onRunRound}
+              disabled={!canRunRound || commandPending}
+              title={runRoundHint}
+              className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[11px] font-black uppercase tracking-[0.14em] transition ${
+                canRunRound
+                  ? 'border-rose-100/75 bg-rose-500/16 text-rose-100 active:bg-rose-500/24'
+                  : 'border-white/10 bg-transparent text-white/35'
+              }`}
+            >
+              <Flag className="h-3.5 w-3.5 shrink-0" />
+              Correr
             </button>
           </>
         )}

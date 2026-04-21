@@ -273,6 +273,38 @@ describe('TrucoRoom', () => {
     expect(nextView.visibleHands[activeSeatId]).toHaveLength(2);
   });
 
+  it('allows a player to run the round and awards 1 point to the opponent', async () => {
+    const room = await colyseus.createRoom('truco_room', {});
+    const host = await colyseus.connectTo(room, { nickname: 'Ana' });
+    const guest = await colyseus.connectTo(room, { nickname: 'Bia' });
+    host.onMessage('game_view', () => undefined);
+    guest.onMessage('game_view', () => undefined);
+    host.onMessage('match_event', () => undefined);
+    guest.onMessage('match_event', () => undefined);
+
+    await waitFor(
+      () =>
+        host.state.gamePhase === 'PLAYING' &&
+        guest.state.gamePhase === 'PLAYING',
+    );
+
+    const hostView = await bootstrapView(host);
+    const runRound: GameCommand = {
+      commandId: 'run-round-1',
+      issuedAt: Date.now(),
+      type: 'RUN_ROUND',
+      payload: {
+        requestedBySeatId: hostView.ownedSeatIds[0],
+      },
+    };
+    host.send('command', runRound);
+
+    await waitFor(() => host.state.gamePhase === 'ROUND_END');
+    const afterRun = await bootstrapView(host);
+
+    expect(afterRun.scores[1]).toBe(1);
+  });
+
   it('projects and resolves the mao de 11 decision through the room', async () => {
     const room = await colyseus.createRoom('truco_room', {});
     const host = await colyseus.connectTo(room, { nickname: 'Ana' });
@@ -305,7 +337,11 @@ describe('TrucoRoom', () => {
       playValue: 3,
       runPenalty: 1,
     });
-    expect(guestView.availableActions).toHaveLength(0);
+    expect(guestView.availableActions).toContainEqual({
+      type: 'RUN_ROUND',
+      seatIds: [1, 3],
+      awardedPoints: 1,
+    });
 
     const command: GameCommand = {
       commandId: 'hand-11-play',

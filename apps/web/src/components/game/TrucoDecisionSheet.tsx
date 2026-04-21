@@ -18,6 +18,7 @@ interface TrucoDecisionSheetProps {
   onAccept: () => void;
   onRaise: () => void;
   onRun: () => void;
+  onRunRound: () => void;
 }
 
 export function TrucoDecisionSheet({
@@ -34,6 +35,7 @@ export function TrucoDecisionSheet({
   onAccept,
   onRaise,
   onRun,
+  onRunRound,
 }: TrucoDecisionSheetProps) {
   const [patoKey, setPatoKey] = useState(0);
 
@@ -125,6 +127,15 @@ export function TrucoDecisionSheet({
               Aumentar · levar para {raiseTarget}
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={onRunRound}
+            disabled={commandPending}
+            className="min-h-12 rounded-2xl border border-rose-200/25 bg-rose-500/8 px-4 py-3 text-sm font-black uppercase tracking-[0.18em] text-rose-100 disabled:opacity-45"
+          >
+            Correr rodada · dar 1 pra eles
+          </button>
 
           <button
             type="button"

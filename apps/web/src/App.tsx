@@ -56,6 +56,7 @@ export default function App() {
     onPlayCard,
     onRaiseTruco,
     onRequestRematch,
+    onRunRound,
     onRequestTruco,
     onRunHandOfEleven,
     onRunTruco,
@@ -64,6 +65,7 @@ export default function App() {
     rematchRequested,
     respondHandOfElevenAction,
     requestTrucoAction,
+    runRoundAction,
     respondTrucoAction,
   } = useGameCommands({
     sendCommand,
@@ -121,6 +123,7 @@ export default function App() {
       playAction={playAction}
       respondHandOfElevenAction={respondHandOfElevenAction}
       requestTrucoAction={requestTrucoAction}
+      runRoundAction={runRoundAction}
       respondTrucoAction={respondTrucoAction}
       onDismissError={dismissError}
       onCopyCode={handleCopyCode}
@@ -133,6 +136,7 @@ export default function App() {
       onPlayCard={onPlayCard}
       onRequestTruco={onRequestTruco}
       onRequestRematch={onRequestRematch}
+      onRunRound={onRunRound}
       onAcceptTruco={onAcceptTruco}
       onRunHandOfEleven={onRunHandOfEleven}
       onRaiseTruco={onRaiseTruco}

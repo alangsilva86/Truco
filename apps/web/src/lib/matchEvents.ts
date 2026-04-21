@@ -22,6 +22,8 @@ export function describeEvent(
       return `${name(event.payload.seatId)} aumentou para ${event.payload.requestedValue}`;
     case 'TRUCO_RUN':
       return `Correram · ${event.payload.awardedPoints} pts para eles`;
+    case 'ROUND_RUN':
+      return `${name(event.payload.seatId)} correu da rodada · +${event.payload.awardedPoints} para eles`;
     case 'TRICK_WON':
       return event.payload.winnerSeatId === 'tie'
         ? 'Vaza empatada'

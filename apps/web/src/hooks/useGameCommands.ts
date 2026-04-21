@@ -12,6 +12,7 @@ import { createCommand, findAction } from '../lib/commands.js';
 type PlayAction = Extract<AvailableAction, { type: 'PLAY_CARD' }>;
 type TrucoAction = Extract<AvailableAction, { type: 'REQUEST_TRUCO' }>;
 type TrucoResponseAction = Extract<AvailableAction, { type: 'RESPOND_TRUCO' }>;
+type RunRoundAction = Extract<AvailableAction, { type: 'RUN_ROUND' }>;
 type HandOfElevenResponseAction = Extract<
   AvailableAction,
   { type: 'RESPOND_HAND_OF_ELEVEN' }
@@ -34,6 +35,9 @@ export function useGameCommands({ sendCommand, view }: UseGameCommandsOptions) {
     : null;
   const respondTrucoAction: TrucoResponseAction | null = view
     ? findAction(view.availableActions, 'RESPOND_TRUCO')
+    : null;
+  const runRoundAction: RunRoundAction | null = view
+    ? findAction(view.availableActions, 'RUN_ROUND')
     : null;
   const respondHandOfElevenAction: HandOfElevenResponseAction | null = view
     ? findAction(view.availableActions, 'RESPOND_HAND_OF_ELEVEN')
@@ -94,6 +98,18 @@ export function useGameCommands({ sendCommand, view }: UseGameCommandsOptions) {
     );
   }
 
+  function handleRunRound(): void {
+    if (!view || !runRoundAction) {
+      return;
+    }
+
+    sendCommand(
+      createCommand('RUN_ROUND', {
+        requestedBySeatId: view.ownedSeatIds[0],
+      }),
+    );
+  }
+
   return {
     coveredMode,
     onAcceptTruco: () =>
@@ -104,6 +120,7 @@ export function useGameCommands({ sendCommand, view }: UseGameCommandsOptions) {
     onRaiseTruco: () =>
       sendCommand(createCommand('RESPOND_TRUCO', { action: 'raise' })),
     onRequestRematch: handleRequestRematch,
+    onRunRound: handleRunRound,
     onRequestTruco: handleRequestTruco,
     onRunHandOfEleven: () =>
       sendCommand(createCommand('RESPOND_HAND_OF_ELEVEN', { action: 'run' })),
@@ -114,6 +131,7 @@ export function useGameCommands({ sendCommand, view }: UseGameCommandsOptions) {
     rematchRequested,
     respondHandOfElevenAction,
     requestTrucoAction,
+    runRoundAction,
     respondTrucoAction,
   };
 }
