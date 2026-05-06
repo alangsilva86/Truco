@@ -2,11 +2,34 @@ import { serverRuntime } from '../config/runtime.js';
 
 type LogLevel = 'info' | 'warn' | 'error';
 
+const levelPriority: Record<LogLevel, number> = {
+  error: 3,
+  info: 1,
+  warn: 2,
+};
+
+function getConfiguredLevel(): LogLevel {
+  const rawLevel = String(process.env.LOG_LEVEL ?? 'info')
+    .trim()
+    .toLowerCase();
+
+  if (rawLevel === 'warn' || rawLevel === 'error') {
+    return rawLevel;
+  }
+
+  return 'info';
+}
+
 function write(
   level: LogLevel,
   event: string,
   data: Record<string, unknown>,
 ): void {
+  const configuredLevel = getConfiguredLevel();
+  if (levelPriority[level] < levelPriority[configuredLevel]) {
+    return;
+  }
+
   const payload = {
     ts: new Date().toISOString(),
     bootId: serverRuntime.bootId,

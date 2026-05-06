@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String            @id @default(cuid())
+  email      String?           @unique
+  nickname   String
+  avatarUrl  String?
+  isGuest    Boolean           @default(true)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  lastSeenAt DateTime?
+  ownedRooms Room[]            @relation("RoomOwner")
+  rooms      RoomParticipant[]
+}
+
+model Room {
+  id             String            @id @default(cuid())
+  roomCode       String            @unique
+  colyseusRoomId String?
+  status         String            @default("waiting")
+  ownerUserId    String?
+  maxPlayers     Int               @default(2)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  owner          User?             @relation("RoomOwner", fields: [ownerUserId], references: [id])
+  participants   RoomParticipant[]
+
+  @@index([status, createdAt])
+  @@index([ownerUserId, createdAt])
+}
+
+model RoomParticipant {
+  id        String    @id @default(cuid())
+  roomId    String
+  userId    String?
+  nickname  String
+  seat      Int?
+  team      Int?
+  sessionId String?
+  status    String    @default("joined")
+  joinedAt  DateTime  @default(now())
+  leftAt    DateTime?
+  room      Room      @relation(fields: [roomId], references: [id])
+  user      User?     @relation(fields: [userId], references: [id])
+
+  @@unique([roomId, userId])
+  @@index([roomId, status])
+  @@index([userId, joinedAt])
+}

@@ -31,8 +31,6 @@ function createStorageMock() {
 }
 
 const mocks = vi.hoisted(() => {
-  let lastRoom: FakeRoom | null = null;
-
   const gameView = {
     matchId: 'match-1',
     roomCode: 'RCN123',
@@ -87,14 +85,6 @@ const mocks = vi.hoisted(() => {
       this.dropHandler?.();
     }
 
-    emitLeave(): void {
-      this.leaveHandler?.();
-    }
-
-    emitReconnect(): void {
-      this.reconnectHandler?.();
-    }
-
     leave(): void {
       this.leaveHandler?.();
     }
@@ -118,36 +108,84 @@ const mocks = vi.hoisted(() => {
     }
 
     send(type: string): void {
-      if (type !== 'bootstrap') {
+      if (type === 'bootstrap') {
+        queueMicrotask(() => {
+          const handlers = this.messageHandlers.get('game_view') ?? [];
+          for (const handler of handlers) {
+            handler(gameView);
+          }
+        });
         return;
       }
 
-      queueMicrotask(() => {
-        const handlers = this.messageHandlers.get('game_view') ?? [];
-        for (const handler of handlers) {
-          handler(gameView);
-        }
-      });
+      if (type === 'client_reconnect_telemetry') {
+        return;
+      }
     }
   }
 
   function registerRoom(room: FakeRoom): FakeRoom {
-    lastRoom = room;
     return room;
   }
 
   return {
-    createRoom: () => registerRoom(new FakeRoom()),
-    create: vi.fn().mockImplementation(async () => registerRoom(new FakeRoom())),
+    createOrUpdateGuestUser: vi.fn().mockResolvedValue({
+      ok: true,
+      user: {
+        id: 'usr-1',
+        nickname: 'Ana',
+        avatarUrl: null,
+        isGuest: true,
+      },
+    }),
+    createRoomRequest: vi.fn().mockResolvedValue({
+      ok: true,
+      room: {
+        id: 'room-db-1',
+        roomCode: 'RCN123',
+        status: 'waiting',
+        players: 1,
+        maxPlayers: 2,
+        canJoin: true,
+        ownerUserId: 'usr-1',
+        createdAt: '2026-05-06T00:00:00.000Z',
+      },
+      joinUrl: 'https://truco.example/sala/RCN123',
+      colyseus: {
+        roomCode: 'RCN123',
+        roomId: 'room-1',
+        roomName: 'truco_room',
+        assignedTeamId: 0,
+      },
+    }),
+    fetchPublicRooms: vi.fn().mockResolvedValue({ ok: true, rooms: [] }),
     fetchServerVersion: vi.fn().mockResolvedValue({
       version: '1.0.0',
       bootId: 'boot-1',
       startedAt: '2026-03-28T00:00:00.000Z',
     }),
+    fetchUserRooms: vi.fn().mockResolvedValue({ ok: true, rooms: [] }),
     getClientReconnectBudgetMs: vi.fn().mockReturnValue(55_000),
-    getLastRoom: () => lastRoom,
     joinById: vi.fn().mockImplementation(async () => registerRoom(new FakeRoom())),
-    lookupRoom: vi.fn().mockResolvedValue({ roomId: 'room-join' }),
+    joinRoomRequest: vi.fn().mockResolvedValue({
+      ok: true,
+      room: {
+        id: 'room-db-2',
+        roomCode: 'ABCD12',
+        status: 'waiting',
+        players: 2,
+        maxPlayers: 2,
+        canJoin: true,
+        ownerUserId: 'usr-2',
+        createdAt: '2026-05-06T00:00:00.000Z',
+      },
+      colyseus: {
+        roomCode: 'ABCD12',
+        roomId: 'room-join',
+        roomName: 'truco_room',
+        assignedTeamId: 1,
+      },
+    }),
     reconnect: vi.fn().mockImplementation(async () => registerRoom(new FakeRoom())),
   };
 });
@@ -161,14 +199,17 @@ vi.mock('./lib/network.js', async () => {
   return {
     ...actual,
     createColyseusClient: () => ({
-      create: mocks.create,
       joinById: mocks.joinById,
       reconnect: mocks.reconnect,
     }),
+    createOrUpdateGuestUser: mocks.createOrUpdateGuestUser,
+    createRoomRequest: mocks.createRoomRequest,
+    fetchPublicRooms: mocks.fetchPublicRooms,
     fetchServerVersion: mocks.fetchServerVersion,
+    fetchUserRooms: mocks.fetchUserRooms,
     getClientReconnectBudgetMs: mocks.getClientReconnectBudgetMs,
     getDefaultRoomTimeoutMs: () => 100,
-    lookupRoom: mocks.lookupRoom,
+    joinRoomRequest: mocks.joinRoomRequest,
     withTimeout: async <T,>(operation: () => Promise<T>) => operation(),
   };
 });
@@ -178,6 +219,7 @@ describe('App', () => {
 
   afterEach(() => {
     cleanup();
+    window.history.pushState({}, '', '/');
   });
 
   beforeEach(() => {
@@ -186,21 +228,22 @@ describe('App', () => {
       value: localStorageMock,
     });
     localStorageMock.clear();
-    mocks.create.mockClear();
+    mocks.createOrUpdateGuestUser.mockClear();
+    mocks.createRoomRequest.mockClear();
+    mocks.fetchPublicRooms.mockClear();
+    mocks.fetchUserRooms.mockClear();
+    mocks.joinById.mockClear();
+    mocks.joinRoomRequest.mockClear();
+    mocks.reconnect.mockClear();
     mocks.fetchServerVersion.mockClear();
     mocks.fetchServerVersion.mockResolvedValue({
       version: '1.0.0',
       bootId: 'boot-1',
       startedAt: '2026-03-28T00:00:00.000Z',
     });
-    mocks.getClientReconnectBudgetMs.mockClear();
-    mocks.getClientReconnectBudgetMs.mockReturnValue(55_000);
-    mocks.joinById.mockClear();
-    mocks.lookupRoom.mockClear();
-    mocks.reconnect.mockClear();
   });
 
-  it('nao reconecta automaticamente usando a sessao salva', async () => {
+  it('nao reconecta automaticamente usando a sessao salva fora da rota da sala', async () => {
     localStorageMock.setItem(
       'truco-online-session',
       JSON.stringify({
@@ -211,6 +254,7 @@ describe('App', () => {
         reconnectionToken: 'token-123',
         viewerTeamId: 0,
         sessionId: 'session-123',
+        userId: 'usr-1',
       }),
     );
 
@@ -220,7 +264,8 @@ describe('App', () => {
     expect(mocks.reconnect).not.toHaveBeenCalled();
   });
 
-  it('reconecta manualmente usando o botao da sessao salva', async () => {
+  it('reconecta automaticamente quando a rota aponta para a mesma sala salva', async () => {
+    window.history.pushState({}, '', '/sala/RCN123');
     localStorageMock.setItem(
       'truco-online-session',
       JSON.stringify({
@@ -231,14 +276,11 @@ describe('App', () => {
         reconnectionToken: 'token-123',
         viewerTeamId: 0,
         sessionId: 'session-123',
+        userId: 'usr-1',
       }),
     );
 
     render(<App />);
-
-    fireEvent.click(
-      await screen.findByRole('button', { name: /reconectar · rcn123/i }),
-    );
 
     await waitFor(() => {
       expect(mocks.reconnect).toHaveBeenCalledWith('token-123');
@@ -249,7 +291,7 @@ describe('App', () => {
     ).toBeInTheDocument();
   });
 
-  it('limpa a sessao salva antes de criar uma nova sala', async () => {
+  it('cria usuario convidado, cria sala via API e persiste a nova sessao', async () => {
     localStorageMock.setItem(
       'truco-online-session',
       JSON.stringify({
@@ -260,57 +302,82 @@ describe('App', () => {
         reconnectionToken: 'token-old',
         viewerTeamId: 0,
         sessionId: 'session-old',
+        userId: 'usr-old',
       }),
     );
-    mocks.create.mockImplementationOnce(async () => {
-      expect(window.localStorage.getItem('truco-online-session')).toBeNull();
-      return mocks.createRoom();
-    });
 
     render(<App />);
 
-    fireEvent.click(screen.getAllByRole('button', { name: /criar sala/i })[1]);
+    fireEvent.change(screen.getByPlaceholderText(/seu apelido/i), {
+      target: { value: 'Ana' },
+    });
+    fireEvent.click(screen.getAllByRole('button', { name: /^criar sala$/i })[1]);
 
     await waitFor(() => {
-      expect(mocks.create).toHaveBeenCalled();
+      expect(mocks.createOrUpdateGuestUser).toHaveBeenCalledWith({
+        nickname: 'Ana',
+        userId: undefined,
+      });
+    });
+    expect(mocks.createRoomRequest).toHaveBeenCalledWith({
+      maxPlayers: 2,
+      nickname: 'Ana',
+      ownerUserId: 'usr-1',
+    });
+    expect(mocks.joinById).toHaveBeenCalledWith('room-1', {
+      assignedTeamId: 0,
+      nickname: 'Ana',
+      roomCode: 'RCN123',
+      userId: 'usr-1',
+    });
+
+    await screen.findByRole('button', { name: /sair da sala/i });
+    expect(
+      JSON.parse(localStorageMock.getItem('truco-online-session') ?? '{}'),
+    ).toMatchObject({
+      roomCode: 'RCN123',
+      roomId: 'room-1',
+      userId: 'usr-1',
+    });
+    expect(
+      JSON.parse(localStorageMock.getItem('truco-online-user') ?? '{}'),
+    ).toMatchObject({
+      id: 'usr-1',
+      nickname: 'Ana',
     });
   });
 
-  it('limpa a sessao salva antes de entrar por codigo', async () => {
-    localStorageMock.setItem(
-      'truco-online-session',
-      JSON.stringify({
-        nickname: 'Ana',
-        roomCode: 'OLD123',
-        roomId: 'room-old',
-        ownedSeatIds: [0, 2],
-        reconnectionToken: 'token-old',
-        viewerTeamId: 0,
-        sessionId: 'session-old',
-      }),
-    );
-    mocks.joinById.mockImplementationOnce(async () => {
-      expect(window.localStorage.getItem('truco-online-session')).toBeNull();
-      return mocks.createRoom();
-    });
-
+  it('entra por codigo usando a API de join e atualiza a rota da sala', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('button', { name: /entrar por codigo/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^entrar por codigo$/i }));
+    fireEvent.change(screen.getByPlaceholderText(/seu apelido/i), {
+      target: { value: 'Ana' },
+    });
     fireEvent.change(screen.getByPlaceholderText(/codigo da sala/i), {
       target: { value: 'ABCD12' },
     });
     fireEvent.click(
-      screen.getAllByRole('button', { name: /entrar por codigo/i })[1],
+      screen.getAllByRole('button', { name: /^entrar por codigo$/i })[1],
     );
 
     await waitFor(() => {
-      expect(mocks.lookupRoom).toHaveBeenCalledWith('ABCD12');
-      expect(mocks.joinById).toHaveBeenCalled();
+      expect(mocks.joinRoomRequest).toHaveBeenCalledWith({
+        nickname: 'Ana',
+        roomCode: 'ABCD12',
+        userId: 'usr-1',
+      });
     });
+    expect(mocks.joinById).toHaveBeenCalledWith('room-join', {
+      assignedTeamId: 1,
+      nickname: 'Ana',
+      roomCode: 'ABCD12',
+      userId: 'usr-1',
+    });
+    expect(window.location.pathname).toBe('/sala/ABCD12');
   });
 
-  it('mostra erro claro quando a reconexao manual falha', async () => {
+  it('permite reconexao manual pelo botao do lobby', async () => {
     localStorageMock.setItem(
       'truco-online-session',
       JSON.stringify({
@@ -321,103 +388,19 @@ describe('App', () => {
         reconnectionToken: 'token-123',
         viewerTeamId: 0,
         sessionId: 'session-123',
+        userId: 'usr-1',
       }),
     );
-    mocks.reconnect.mockRejectedValueOnce(new Error('expired'));
 
     render(<App />);
 
     fireEvent.click(
       await screen.findByRole('button', { name: /reconectar · rcn123/i }),
     );
-
-    expect(
-      await screen.findByText(/sua sessao expirou ou foi invalidada/i),
-    ).toBeInTheDocument();
-    expect(window.localStorage.getItem('truco-online-session')).toBeNull();
-  });
-
-  it('preserva a sessao salva quando a reconexao manual falha de forma transitória', async () => {
-    localStorageMock.setItem(
-      'truco-online-session',
-      JSON.stringify({
-        nickname: 'Ana',
-        roomCode: 'RCN123',
-        roomId: 'room-1',
-        ownedSeatIds: [0, 2],
-        reconnectionToken: 'token-123',
-        viewerTeamId: 0,
-        sessionId: 'session-123',
-      }),
-    );
-    mocks.getClientReconnectBudgetMs.mockReturnValueOnce(1);
-    mocks.reconnect.mockRejectedValueOnce(new Error('network down'));
-
-    render(<App />);
-
-    fireEvent.click(
-      await screen.findByRole('button', { name: /reconectar · rcn123/i }),
-    );
-
-    expect(
-      await screen.findByText(/backend ainda nao respondeu|reconexao falhou temporariamente/i),
-    ).toBeInTheDocument();
-    expect(window.localStorage.getItem('truco-online-session')).not.toBeNull();
-    expect(
-      screen.getByRole('button', { name: /reconectar · rcn123/i }),
-    ).toBeInTheDocument();
-  });
-
-  it('inicia o supervisor automatico depois que o reconnect nativo falha', async () => {
-    render(<App />);
-
-    fireEvent.change(screen.getByPlaceholderText(/seu apelido/i), {
-      target: { value: 'Ana' },
-    });
-    fireEvent.click(screen.getAllByRole('button', { name: /criar sala/i })[1]);
-
-    await screen.findByRole('button', { name: /sair da sala/i });
-    const room = mocks.getLastRoom();
-    expect(room).not.toBeNull();
-
-    mocks.reconnect.mockImplementationOnce(() => new Promise(() => undefined));
-
-    room!.emitDrop();
-    room!.emitLeave();
 
     await waitFor(() => {
       expect(mocks.reconnect).toHaveBeenCalledWith('token-123');
     });
-
-    expect(
-      await screen.findByText(/recuperando sessao/i),
-    ).toBeInTheDocument();
-  });
-
-  it('falha cedo quando detecta mudanca de bootId e preserva a sessao salva', async () => {
-    render(<App />);
-
-    fireEvent.change(screen.getByPlaceholderText(/seu apelido/i), {
-      target: { value: 'Ana' },
-    });
-    fireEvent.click(screen.getAllByRole('button', { name: /criar sala/i })[1]);
-
-    await screen.findByRole('button', { name: /sair da sala/i });
-    const room = mocks.getLastRoom();
-    expect(room).not.toBeNull();
-
-    mocks.fetchServerVersion.mockResolvedValueOnce({
-      version: '1.0.0',
-      bootId: 'boot-2',
-      startedAt: '2026-03-28T00:10:00.000Z',
-    });
-
-    room!.emitDrop();
-    room!.emitLeave();
-
-    expect(
-      await screen.findByRole('heading', { name: /servidor reiniciou/i }),
-    ).toBeInTheDocument();
-    expect(window.localStorage.getItem('truco-online-session')).not.toBeNull();
+    expect(window.location.pathname).toBe('/sala/RCN123');
   });
 });

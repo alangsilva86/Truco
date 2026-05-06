@@ -30,6 +30,77 @@ export type RoomLifecycle = 'OPEN' | 'LOCKED' | 'PAUSED_RECONNECT' | 'CLOSED';
 export type ConnectionState = 'connected' | 'reconnecting' | 'disconnected';
 export type TrucoResponseAction = 'accept' | 'run' | 'raise';
 export type HandOfElevenResponseAction = 'play' | 'run';
+export type RoomStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
+export type RoomLookupFailureReason =
+  | 'ROOM_NOT_FOUND'
+  | 'ROOM_FULL'
+  | 'ROOM_ALREADY_STARTED'
+  | 'ROOM_FINISHED'
+  | 'ROOM_UNAVAILABLE';
+
+export interface UserProfile {
+  id: string;
+  nickname: string;
+  avatarUrl?: string | null;
+  isGuest: boolean;
+}
+
+export interface PublicRoom {
+  id: string;
+  roomCode: string;
+  status: RoomStatus;
+  players: number;
+  maxPlayers: number;
+  canJoin: boolean;
+  ownerUserId?: string | null;
+  createdAt: string;
+}
+
+export type RoomLookupResponse =
+  | {
+      ok: true;
+      room: PublicRoom;
+    }
+  | {
+      ok: false;
+      reason: RoomLookupFailureReason;
+    };
+
+export interface PersistedColyseusRoom {
+  roomCode: string;
+  roomId: string;
+  roomName: 'truco_room';
+  assignedTeamId?: TeamId;
+}
+
+export interface CreateRoomResponse {
+  ok: true;
+  room: PublicRoom;
+  joinUrl: string;
+  colyseus: PersistedColyseusRoom;
+}
+
+export interface JoinRoomResponse {
+  ok: true;
+  room: PublicRoom;
+  colyseus: PersistedColyseusRoom;
+}
+
+export interface RoomListResponse {
+  ok: true;
+  rooms: PublicRoom[];
+}
+
+export interface CreateGuestUserInput {
+  nickname: string;
+  avatarUrl?: string | null;
+  userId?: string;
+}
+
+export interface GuestUserResponse {
+  ok: true;
+  user: UserProfile;
+}
 
 export interface Card {
   id: string;
@@ -256,6 +327,7 @@ export interface SessionInfo {
 }
 
 export interface ClientStorageSnapshot {
+  userId?: string;
   nickname: string;
   roomCode: string;
   roomId: string;

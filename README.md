@@ -1,134 +1,204 @@
 # Truco Platform
 
-Monorepo do Truco online 1v1 em dupla, com servidor autoritativo em Colyseus, engine compartilhada e cliente React.
+Monorepo do Truco online com frontend React/Vite, backend autoritativo em Colyseus, engine compartilhada e contratos TypeScript compartilhados.
+
+## Estado atual do produto
+
+Esta fase entrega deploy em producao, lobby com area do usuario, usuario convidado persistido, criacao/listagem/entrada em salas e reconnect basico.
+
+Importante: a runtime de jogo atual continua suportando `2` usuarios humanos por sala, cada um controlando uma dupla. A modelagem de persistencia ja deixa o projeto preparado para evoluir depois para fluxos com `4` usuarios humanos sem reescrever a base agora.
 
 ## Estrutura
 
 ```text
 apps/
-  server/   servidor realtime, salas e endpoints auxiliares
-  web/      lobby, mesa e cliente Colyseus
+  server/   servidor realtime, salas, API HTTP e persistencia
+  web/      lobby, area do usuario, sala e cliente Colyseus
 packages/
-  contracts/ tipos, comandos, eventos e projeções compartilhadas
-  engine/    regras puras, determinísticas e testáveis
+  contracts/ tipos, DTOs, comandos e eventos compartilhados
+  engine/    regras puras, deterministicas e testaveis
 ```
 
 ## Requisitos
 
 - Node.js 20+
 - npm 10+
+- Postgres para usuario/sala/participantes
+- Redis opcional em dev e recomendado em producao
 
 ## Subir localmente
 
-1. Instale dependências:
+1. Instale dependencias:
 
    ```bash
    npm install
    ```
 
-2. Opcionalmente copie o arquivo de ambiente:
+2. Copie o ambiente:
 
    ```bash
    cp .env.example .env
    ```
 
-3. Suba web e server juntos:
+3. Gere o Prisma Client:
+
+   ```bash
+   npm run db:generate -w @truco/server
+   ```
+
+4. Se quiser testar a camada completa de lobby/persistencia, configure `DATABASE_URL` e rode a migration:
+
+   ```bash
+   npm run db:dev -w @truco/server
+   ```
+
+5. Suba web e server:
 
    ```bash
    npm run dev
    ```
 
-4. Abra a aplicação em `http://localhost:3000`.
+6. Abra `http://localhost:3000`.
 
-## Endereços locais
+## Enderecos locais
 
 - Web: `http://localhost:3000`
-- Server Colyseus/HTTP: `http://127.0.0.1:2567`
-- Health check: `http://localhost:3000/health`
-- Version: `http://localhost:3000/version`
-- Lookup de sala: `http://localhost:3000/api/rooms/:roomCode`
-- Monitor do Colyseus: `http://localhost:3000/monitor`
-- Playground do Colyseus em dev: `http://127.0.0.1:2567/`
+- Server HTTP/WebSocket: `http://127.0.0.1:2567`
+- Health: `http://127.0.0.1:2567/health`
+- Version: `http://127.0.0.1:2567/version`
+- Monitor do Colyseus: `http://127.0.0.1:2567/monitor`
 
-O `apps/web` usa proxy do Vite para `/api`, `/health`, `/version` e `/monitor`, então o fluxo local não precisa configurar a origem HTTP manualmente.
-O endpoint `/version` agora retorna `{ version, bootId, startedAt }`, o que permite ao cliente detectar restart real do backend durante a janela de recovery.
+Em desenvolvimento, o frontend usa o proxy do Vite para `/api`, `/health`, `/version` e `/monitor`.
 
-## Variáveis de ambiente
+## Variaveis de ambiente
 
-Todas as variáveis são lidas a partir do root do monorepo.
+Todas as variaveis sao lidas a partir da raiz do monorepo.
 
-- `TRUCO_PROXY_TARGET`: alvo do proxy HTTP do Vite em desenvolvimento. Default: `http://127.0.0.1:2567`
-- `TRUCO_ALLOWED_ORIGINS`: lista separada por virgula das origens HTTP aceitas pelo backend. Suporta curingas como `https://*.vercel.app`
-- `RECONNECT_WINDOW_SECONDS`: janela de reconnect no servidor. Default: `60`
-- `VITE_SERVER_HTTP_URL`: sobrescreve a origem HTTP usada pelo cliente para lookup de sala e endpoints auxiliares. Em dev local pode ficar vazio para usar o proxy.
-- `VITE_SERVER_WS_URL`: sobrescreve a origem websocket do Colyseus. Em dev local, o cliente usa `ws://<host-atual>:2567`.
-- `VITE_CLIENT_RECONNECT_BUDGET_MS`: budget total do supervisor de recovery no cliente. Default: `55000`
+### Backend
 
-Se você for apontar o frontend para um servidor remoto, defina `VITE_SERVER_HTTP_URL` e `VITE_SERVER_WS_URL`.
+- `TRUCO_ALLOWED_ORIGINS`: origens HTTP aceitas pelo backend
+- `PUBLIC_SERVER_URL`: URL publica do backend em producao
+- `PUBLIC_WEB_URL`: URL publica do frontend em producao
+- `DATABASE_URL`: conexao Postgres usada pelo Prisma
+- `REDIS_URI`: conexao Redis para presence/room directory
+- `RECONNECT_WINDOW_SECONDS`: janela de reconnect do Colyseus. Default `60`
+- `LOG_LEVEL`: `info`, `warn` ou `error`
+
+### Frontend
+
+- `VITE_SERVER_HTTP_URL`: origem HTTP do backend
+- `VITE_SERVER_WS_URL`: origem WebSocket/WSS do backend
+- `VITE_CLIENT_RECONNECT_BUDGET_MS`: budget total de recovery no cliente. Default `55000`
+
+### Railway
+
+- `APP_RUNTIME`: `server` no servico de API/realtime, `web` no servico do frontend
+
+## API HTTP
+
+Endpoints principais:
+
+- `GET /health`
+- `GET /version`
+- `POST /api/users/guest`
+- `GET /api/users/:userId`
+- `GET /api/users/:userId/rooms`
+- `GET /api/rooms`
+- `POST /api/rooms`
+- `GET /api/rooms/:roomCode`
+- `POST /api/rooms/:roomCode/join`
 
 ## Scripts
 
-- `npm run dev`: sobe server e web em paralelo
-- `npm run dev:proxy`: alias de `npm run dev`
-- `npm run dev:server`: sobe apenas o servidor
+- `npm run dev`: sobe web + server em paralelo
+- `npm run dev:server`: sobe apenas o backend
 - `npm run dev:web`: sobe apenas o frontend
-- `npm run build:web`: gera apenas o bundle do frontend
-- `npm run lint`: valida TypeScript em todos os workspaces
-- `npm test`: roda unitários da engine e integração do room
-- `npm run build`: gera build do servidor e do frontend
-- `npm run clean`: remove artefatos de build e cobertura
+- `npm run build`: build completo
+- `npm run build:server`: build do backend
+- `npm run build:web`: build do frontend
+- `npm run start:server`: sobe o backend compilado
+- `npm run start:web`: serve o frontend compilado
+- `npm run railway:predeploy`: roda migration no servico backend antes do deploy
+- `npm test`: testes unitarios e de integracao
+- `npm run lint`: tipagem + eslint
 
-## Deploy no Vercel
+## Railway
 
-O projeto do Vercel deve publicar apenas `apps/web`. O repositório já inclui [vercel.json](/Users/momentum1/Documents/GitHub/Truco/vercel.json) para isso:
+O repositorio inclui [railway.toml](./railway.toml), que faz o seguinte em cada deploy:
 
-- `buildCommand`: `npm run build:web`
-- `outputDirectory`: `apps/web/dist`
+- build compartilhado com `npm run build`
+- pre-deploy com `npm run railway:predeploy`
+- healthcheck em `/health`
+- restart policy `ON_FAILURE`
 
-Importante: o backend realtime em Colyseus nao deve rodar no Vercel. O frontend pode ficar no Vercel, mas o servidor precisa ficar em outra infra stateful e expor:
+Como os dois servicos compartilham o mesmo monorepo, o comando `npm start` escolhe o processo correto pelo valor de `APP_RUNTIME`.
 
-- `VITE_SERVER_HTTP_URL`
-- `VITE_SERVER_WS_URL`
+### 1. Criar projeto e servicos
 
-Sem essas variaveis em Preview/Production, o frontend sobe, mas nao consegue criar/entrar em salas.
+```bash
+railway init -n Truco
+railway add --service truco-server
+railway add --service truco-web
+railway add --database postgres
+railway add --database redis
+```
 
-## Deploy do backend no Render
+### 2. Gerar dominios publicos
 
-O backend realtime deve subir como `Web Service` no Render. O repositório já inclui [render.yaml](/Users/momentum1/Documents/GitHub/Truco/render.yaml) com a configuracao base:
+```bash
+railway domain -s truco-server
+railway domain -s truco-web
+```
 
-- `runtime`: `node`
-- `buildCommand`: `npm ci && npm run build:server`
-- `startCommand`: `npm run start:server`
-- `healthCheckPath`: `/health`
-- `plan`: `starter`
-- `region`: `oregon`
-- `REDIS_URI`: configurado como secret/env var no serviço
-- `RECONNECT_WINDOW_SECONDS`: opcional; default `60`
+### 3. Configurar variaveis do backend
 
-Se voce configurar manualmente pelo painel, use estes valores:
+```bash
+railway variable set -s truco-server \
+  APP_RUNTIME=server \
+  DATABASE_URL='${{Postgres.DATABASE_URL}}' \
+  REDIS_URI='${{Redis.REDIS_URL}}' \
+  PUBLIC_SERVER_URL='https://${{truco-server.RAILWAY_PUBLIC_DOMAIN}}' \
+  PUBLIC_WEB_URL='https://${{truco-web.RAILWAY_PUBLIC_DOMAIN}}' \
+  TRUCO_ALLOWED_ORIGINS='https://${{truco-web.RAILWAY_PUBLIC_DOMAIN}}' \
+  RECONNECT_WINDOW_SECONDS=60 \
+  LOG_LEVEL=info
+```
 
-- `Root Directory`: vazio
-- `Build Command`: `npm ci && npm run build:server`
-- `Start Command`: `npm run start:server`
-- `Health Check Path`: `/health`
-- `REDIS_URI`: URL de um Redis compartilhado
-- `RECONNECT_WINDOW_SECONDS`: segundos da janela de reconnect do Colyseus
+### 4. Configurar variaveis do frontend
 
-O servidor usa a porta de `process.env.PORT` automaticamente via `@colyseus/tools`, entao nao e necessario fixar uma porta manualmente no Render.
+```bash
+railway variable set -s truco-web \
+  APP_RUNTIME=web \
+  VITE_SERVER_HTTP_URL='https://${{truco-server.RAILWAY_PUBLIC_DOMAIN}}' \
+  VITE_SERVER_WS_URL='wss://${{truco-server.RAILWAY_PUBLIC_DOMAIN}}' \
+  VITE_CLIENT_RECONNECT_BUDGET_MS=55000
+```
 
-Para producao realtime, use uma instancia always-on. O plano `free` do Render pode dormir/reiniciar o processo e perder o cache de salas ativas, quebrando reconexao e entrada por codigo. Redis melhora room directory, presence e futura evolucao multi-instancia, mas nao restaura o estado in-memory de uma partida depois que o processo reinicia.
+### 5. Fazer deploy
 
-Se `REDIS_URI` estiver definido, o Colyseus passa a usar `RedisDriver` e `RedisPresence` para room cache e matchmaking. Sem `REDIS_URI`, o ambiente local continua usando driver/presence em memoria.
-O frontend tenta primeiro o auto-reconnect nativo do Colyseus e, se ele falhar, continua tentando recuperar a sessao por ate `VITE_CLIENT_RECONNECT_BUDGET_MS`. Para preservar partida de forma confiavel, backend always-on continua sendo requisito operacional.
+```bash
+railway up --service truco-server
+railway up --service truco-web
+```
 
-Render recomenda fixar a versao do Node para evitar mudancas no runtime. O repositório inclui [.node-version](/Users/momentum1/Documents/GitHub/Truco/.node-version) com `22.22.0`.
+### 6. Verificacao rapida
 
-Depois do backend subir, configure no Vercel:
+```bash
+curl https://SEU_BACKEND.up.railway.app/health
+curl https://SEU_BACKEND.up.railway.app/version
+```
 
-- `VITE_SERVER_HTTP_URL=https://SEU-SERVICO.onrender.com`
-- `VITE_SERVER_WS_URL=wss://SEU-SERVICO.onrender.com`
+Depois valide no navegador:
 
-## Validação rápida
+1. Abrir o frontend.
+2. Criar usuario convidado.
+3. Criar sala.
+4. Copiar o link da sala.
+5. Abrir o link em aba anonima.
+6. Entrar com outro nickname.
+7. Atualizar as duas abas para validar reconnect.
+
+## Validacao local
 
 ```bash
 npm run lint

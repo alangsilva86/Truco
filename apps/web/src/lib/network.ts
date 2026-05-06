@@ -1,7 +1,17 @@
 import { Client } from '@colyseus/sdk';
-import { ClientStorageSnapshot } from '@truco/contracts';
+import type {
+  ClientStorageSnapshot,
+  CreateGuestUserInput,
+  CreateRoomResponse,
+  GuestUserResponse,
+  JoinRoomResponse,
+  RoomListResponse,
+  RoomLookupResponse,
+  UserProfile,
+} from '@truco/contracts';
 
-const STORAGE_KEY = 'truco-online-session';
+const SESSION_STORAGE_KEY = 'truco-online-session';
+const USER_STORAGE_KEY = 'truco-online-user';
 const DEFAULT_HTTP_TIMEOUT_MS = 5_000;
 const DEFAULT_RECONNECT_BUDGET_MS = 55_000;
 const DEFAULT_ROOM_TIMEOUT_MS = 6_000;
@@ -130,11 +140,108 @@ export async function fetchJson<T>(
   }
 }
 
+export async function sendJson<T>(
+  path: string,
+  init: {
+    body?: unknown;
+    method?: 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  },
+  timeoutMs = DEFAULT_HTTP_TIMEOUT_MS,
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(path, {
+      body: init.body ? JSON.stringify(init.body) : undefined,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      method: init.method ?? 'POST',
+      signal: controller.signal,
+    });
+    const body = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw Object.assign(new Error('HTTP request failed.'), {
+        body,
+        status: response.status,
+      });
+    }
+
+    return body as T;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error(`Requisicao excedeu o limite de ${timeoutMs}ms.`);
+    }
+
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+export async function createOrUpdateGuestUser(
+  input: CreateGuestUserInput,
+): Promise<GuestUserResponse> {
+  return sendJson<GuestUserResponse>(`${getServerHttpUrl()}/api/users/guest`, {
+    body: input,
+    method: 'POST',
+  });
+}
+
+export async function createRoomRequest(input: {
+  maxPlayers?: number;
+  nickname: string;
+  ownerUserId: string;
+}): Promise<CreateRoomResponse> {
+  return sendJson<CreateRoomResponse>(`${getServerHttpUrl()}/api/rooms`, {
+    body: input,
+    method: 'POST',
+  });
+}
+
 export async function lookupRoom(
   roomCode: string,
-): Promise<{ roomId: string }> {
-  return fetchJson<{ roomId: string }>(
+): Promise<RoomLookupResponse> {
+  return fetchJson<RoomLookupResponse>(
     `${getServerHttpUrl()}/api/rooms/${roomCode.trim().toUpperCase()}`,
+  );
+}
+
+export async function joinRoomRequest(input: {
+  nickname: string;
+  roomCode: string;
+  userId: string;
+}): Promise<JoinRoomResponse> {
+  return sendJson<JoinRoomResponse>(
+    `${getServerHttpUrl()}/api/rooms/${input.roomCode.trim().toUpperCase()}/join`,
+    {
+      body: {
+        nickname: input.nickname,
+        userId: input.userId,
+      },
+      method: 'POST',
+    },
+  );
+}
+
+export async function fetchUserRooms(userId: string): Promise<RoomListResponse> {
+  return fetchJson<RoomListResponse>(
+    `${getServerHttpUrl()}/api/users/${userId}/rooms`,
+  );
+}
+
+export async function fetchPublicRooms(): Promise<RoomListResponse> {
+  return fetchJson<RoomListResponse>(`${getServerHttpUrl()}/api/rooms`);
+}
+
+export async function fetchUser(userId: string): Promise<{
+  ok: true;
+  user: UserProfile;
+}> {
+  return fetchJson<{ ok: true; user: UserProfile }>(
+    `${getServerHttpUrl()}/api/users/${userId}`,
   );
 }
 
@@ -154,7 +261,7 @@ export function getDefaultRoomTimeoutMs(): number {
 }
 
 export function loadStoredSession(): ClientStorageSnapshot | null {
-  const raw = window.localStorage.getItem(STORAGE_KEY);
+  const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
   if (!raw) {
     return null;
   }
@@ -167,9 +274,30 @@ export function loadStoredSession(): ClientStorageSnapshot | null {
 }
 
 export function saveStoredSession(snapshot: ClientStorageSnapshot): void {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+  window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(snapshot));
 }
 
 export function clearStoredSession(): void {
-  window.localStorage.removeItem(STORAGE_KEY);
+  window.localStorage.removeItem(SESSION_STORAGE_KEY);
+}
+
+export function loadStoredUser(): UserProfile | null {
+  const raw = window.localStorage.getItem(USER_STORAGE_KEY);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw) as UserProfile;
+  } catch {
+    return null;
+  }
+}
+
+export function saveStoredUser(user: UserProfile): void {
+  window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
+}
+
+export function clearStoredUser(): void {
+  window.localStorage.removeItem(USER_STORAGE_KEY);
 }

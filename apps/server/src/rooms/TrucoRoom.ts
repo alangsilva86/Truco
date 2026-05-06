@@ -3,6 +3,8 @@ import { Client, CloseCode, Room } from 'colyseus';
 import { GameCommand, RoomLifecycle, SeatId, TeamId } from '@truco/contracts';
 import { MatchState, createMatch } from '@truco/engine';
 import { getReconnectWindowSeconds } from '../config/runtime.js';
+import { roomService } from '../modules/rooms/room.service.js';
+import { generateRoomCode } from '../modules/rooms/roomCode.js';
 import { logger } from '../observability/logger.js';
 import { serverMetrics } from '../observability/metrics.js';
 import { MatchRuntime } from '../runtime/MatchRuntime.js';
@@ -24,6 +26,7 @@ import {
 interface Participant {
   connected: boolean;
   nickname: string;
+  userId?: string | null;
 }
 
 interface ClientReconnectTelemetryPayload {
@@ -31,25 +34,17 @@ interface ClientReconnectTelemetryPayload {
   strategy: 'native' | 'supervisor';
 }
 
-// Unambiguous charset: excludes 0/O, 1/I, 2/Z, 5/S, 8/B
-const ROOM_CODE_CHARS = 'ACDEFGHJKMNPQRTUVWXY34679';
 const DISCONNECT_GRACE_MS = 2_000;
 
-async function createRoomCode(
-  existingCodeCheck: (code: string) => Promise<boolean>,
-): Promise<string> {
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    let code = '';
-    for (let i = 0; i < 6; i++) {
-      code +=
-        ROOM_CODE_CHARS[Math.floor(Math.random() * ROOM_CODE_CHARS.length)];
-    }
-    if (!(await existingCodeCheck(code))) {
-      return code;
-    }
-  }
+interface PersistentRoomAuth {
+  nickname: string;
+  roomCode: string;
+  teamId: TeamId;
+  userId: string;
+}
 
-  throw new Error('Failed to generate a unique room code after 20 attempts.');
+interface EphemeralRoomAuth {
+  nickname: string;
 }
 
 function buildPlayers(participants: Record<TeamId, Participant | null>) {
@@ -98,11 +93,14 @@ export class TrucoRoom extends Room<{
     0: null,
     1: null,
   };
+  private readonly sessionUserMap = new Map<string, string>();
   private readonly sessionTeamMap = new Map<string, TeamId>();
+  private readonly teamUserMap = new Map<TeamId, string>();
   private readonly clientsByTeam = new Map<TeamId, Client>();
   private readonly reactionRateLimit = new Map<string, number>();
   private readonly reconnectStartedAtBySession = new Map<string, number>();
   private readonly reconnectSequenceBySession = new Map<string, number>();
+  private persistentRoomId: string | null = null;
   private runtime: MatchRuntime | null = null;
   private roomCode = '';
   private lifecycle: RoomLifecycle = 'OPEN';
@@ -216,12 +214,21 @@ export class TrucoRoom extends Room<{
     },
   };
 
-  async onCreate(): Promise<void> {
-    this.roomCode = await createRoomCode(async (code) =>
-      Boolean(await findTrucoRoomByCode(code)),
-    );
+  async onCreate(options?: {
+    maxPlayers?: number;
+    persistentRoomId?: string;
+    roomCode?: string;
+  }): Promise<void> {
+    this.maxClients = 2;
+    this.persistentRoomId = options?.persistentRoomId ?? null;
+    this.roomCode =
+      options?.roomCode ??
+      (await generateRoomCode(async (code) =>
+        Boolean(await findTrucoRoomByCode(code)),
+      ));
     serverMetrics.increment('roomCreatedTotal');
     logger.info('room.created', {
+      persistentRoomId: this.persistentRoomId,
       roomCode: this.roomCode,
       roomId: this.roomId,
     });
@@ -230,17 +237,53 @@ export class TrucoRoom extends Room<{
     this.syncState();
   }
 
-  onJoin(client: Client, options: { nickname?: string }): void {
-    const teamId = this.assignTeam(client);
+  async onAuth(
+    client: Client,
+    options: {
+      assignedTeamId?: number;
+      nickname?: string;
+      roomCode?: string;
+      userId?: string;
+    },
+  ): Promise<PersistentRoomAuth | EphemeralRoomAuth> {
+    if (!this.persistentRoomId) {
+      return {
+        nickname: sanitizeNickname(options.nickname),
+      };
+    }
+
+    return roomService.authorizeRealtimeJoin({
+      assignedTeamId: Number(options.assignedTeamId),
+      nickname: String(options.nickname ?? ''),
+      persistentRoomId: this.persistentRoomId,
+      roomCode: String(options.roomCode ?? this.roomCode),
+      sessionId: client.sessionId,
+      userId: String(options.userId ?? ''),
+    });
+  }
+
+  onJoin(
+    client: Client,
+    options: { nickname?: string },
+    auth?: PersistentRoomAuth | EphemeralRoomAuth | null,
+  ): void {
+    const persistentAuth =
+      auth && 'teamId' in auth && 'userId' in auth ? auth : undefined;
+    const teamId = this.assignTeam(client, persistentAuth);
     if (teamId === null) {
       throw new Error('Room is already full.');
     }
 
     this.disconnectGraceManager.clear(teamId);
 
-    const nickname = sanitizeNickname(options.nickname);
-    this.participants[teamId] = { nickname, connected: true };
+    const nickname = auth?.nickname ?? sanitizeNickname(options.nickname);
+    const userId = persistentAuth?.userId ?? null;
+    this.participants[teamId] = { nickname, connected: true, userId };
     this.clientsByTeam.set(teamId, client);
+    if (userId) {
+      this.sessionUserMap.set(client.sessionId, userId);
+      this.teamUserMap.set(teamId, userId);
+    }
 
     if (!this.runtime && this.canStartMatch()) {
       this.startMatch();
@@ -260,6 +303,7 @@ export class TrucoRoom extends Room<{
       teamId,
       nickname,
       currentClients: this.clientsByTeam.size,
+      userId,
     });
   }
 
@@ -273,14 +317,16 @@ export class TrucoRoom extends Room<{
       this.clientsByTeam.delete(teamId);
     }
 
+    const userId = this.getUserIdForSession(client.sessionId, teamId);
+
     if (code === CloseCode.CONSENTED) {
-      this.handleConsentedLeave(teamId, client.sessionId);
+      this.handleConsentedLeave(teamId, client.sessionId, userId);
       return;
     }
 
     this.syncState(this.runtime?.getState());
     this.refreshDirectory();
-    this.scheduleDisconnectGrace(teamId);
+    this.scheduleDisconnectGrace(teamId, userId);
     this.beginReconnectTracking(teamId, client.sessionId);
 
     try {
@@ -301,6 +347,13 @@ export class TrucoRoom extends Room<{
       const wasMarkedDisconnected = participant?.connected === false;
       if (participant) {
         participant.connected = true;
+      }
+      if (userId) {
+        void roomService.markParticipantJoined(
+          this.persistentRoomId ?? this.roomId,
+          userId,
+          reconnectedClient.sessionId,
+        );
       }
 
       if (this.runtime) {
@@ -358,9 +411,23 @@ export class TrucoRoom extends Room<{
       } else {
         this.participants[teamId] = null;
         this.sessionTeamMap.delete(client.sessionId);
+        this.sessionUserMap.delete(client.sessionId);
+        this.teamUserMap.delete(teamId);
         this.reactionRateLimit.delete(client.sessionId);
-        this.lifecycle = 'OPEN';
+        if (userId && this.persistentRoomId) {
+          void roomService.markRoomFinished(this.persistentRoomId, 'abandoned');
+          this.lifecycle = 'CLOSED';
+        } else {
+          this.lifecycle = 'OPEN';
+        }
         this.syncState();
+      }
+
+      if (userId) {
+        void roomService.markParticipantLeft(
+          this.persistentRoomId ?? this.roomId,
+          userId,
+        );
       }
 
       this.refreshDirectory();
@@ -387,17 +454,34 @@ export class TrucoRoom extends Room<{
     this.reactionRateLimit.clear();
     this.reconnectStartedAtBySession.clear();
     this.reconnectSequenceBySession.clear();
+    this.sessionUserMap.clear();
+    this.teamUserMap.clear();
     this.runtime?.dispose();
     logger.info('room.disposed', {
+      persistentRoomId: this.persistentRoomId,
       roomCode: this.roomCode,
       roomId: this.roomId,
     });
   }
 
-  private assignTeam(client: Client): TeamId | null {
+  private assignTeam(
+    client: Client,
+    auth?: PersistentRoomAuth,
+  ): TeamId | null {
     const existing = this.sessionTeamMap.get(client.sessionId);
     if (existing !== undefined) {
       return existing;
+    }
+
+    if (auth) {
+      if (this.clientsByTeam.has(auth.teamId)) {
+        return null;
+      }
+
+      this.sessionTeamMap.set(client.sessionId, auth.teamId);
+      this.sessionUserMap.set(client.sessionId, auth.userId);
+      this.teamUserMap.set(auth.teamId, auth.userId);
+      return auth.teamId;
     }
 
     const teamId =
@@ -428,6 +512,9 @@ export class TrucoRoom extends Room<{
     this.lifecycle = 'LOCKED';
     this.matchStartedAt = Date.now();
     serverMetrics.increment('matchStartedTotal');
+    if (this.persistentRoomId) {
+      void roomService.markRoomPlaying(this.persistentRoomId);
+    }
 
     const initialState = createMatch(Date.now(), {
       matchId: `${this.roomId}-${Date.now()}`,
@@ -454,6 +541,9 @@ export class TrucoRoom extends Room<{
             durationMs: this.lastMatchDurationMs,
             winnerTeam: event.payload.winnerTeam,
           });
+          if (this.persistentRoomId) {
+            void roomService.markRoomFinished(this.persistentRoomId, 'finished');
+          }
         }
       },
       onReject: (ownerTeamId, message, commandId) => {
@@ -481,20 +571,34 @@ export class TrucoRoom extends Room<{
     }, 25);
   }
 
-  private handleConsentedLeave(teamId: TeamId, sessionId: string): void {
+  private handleConsentedLeave(
+    teamId: TeamId,
+    sessionId: string,
+    userId: string | null,
+  ): void {
     this.disconnectGraceManager.clear(teamId);
     this.clearReconnectTracking(sessionId);
     this.reactionRateLimit.delete(sessionId);
 
     if (!this.participants[teamId]) {
       this.sessionTeamMap.delete(sessionId);
+      this.sessionUserMap.delete(sessionId);
+      this.teamUserMap.delete(teamId);
       return;
     }
 
     if (!this.runtime) {
       this.participants[teamId] = null;
       this.sessionTeamMap.delete(sessionId);
-      this.lifecycle = 'OPEN';
+      this.sessionUserMap.delete(sessionId);
+      this.teamUserMap.delete(teamId);
+      if (userId && this.persistentRoomId) {
+        void roomService.markParticipantLeft(this.persistentRoomId, userId);
+        void roomService.markRoomFinished(this.persistentRoomId, 'abandoned');
+        this.lifecycle = 'CLOSED';
+      } else {
+        this.lifecycle = 'OPEN';
+      }
       this.syncState();
       this.refreshDirectory();
       logger.info('room.left.waiting', {
@@ -502,6 +606,9 @@ export class TrucoRoom extends Room<{
         roomId: this.roomId,
         teamId,
       });
+      if (this.lifecycle === 'CLOSED') {
+        void this.disconnect();
+      }
       return;
     }
 
@@ -510,7 +617,12 @@ export class TrucoRoom extends Room<{
     this.runtime.markTeamConnection(teamId, false);
     this.runtime.forceForfeit(teamId);
     this.sessionTeamMap.delete(sessionId);
+    this.sessionUserMap.delete(sessionId);
+    this.teamUserMap.delete(teamId);
     this.lifecycle = 'CLOSED';
+    if (userId && this.persistentRoomId) {
+      void roomService.markParticipantLeft(this.persistentRoomId, userId);
+    }
     this.syncState(this.runtime.getState());
     this.refreshDirectory();
     logger.info('room.left.match', {
@@ -520,7 +632,7 @@ export class TrucoRoom extends Room<{
     });
   }
 
-  private scheduleDisconnectGrace(teamId: TeamId): void {
+  private scheduleDisconnectGrace(teamId: TeamId, userId: string | null): void {
     this.disconnectGraceManager.schedule(teamId, DISCONNECT_GRACE_MS, () => {
       const participant = this.participants[teamId];
       if (!participant || this.clientsByTeam.has(teamId)) {
@@ -538,6 +650,10 @@ export class TrucoRoom extends Room<{
       } else {
         this.lifecycle = 'OPEN';
         this.syncState();
+      }
+
+      if (userId && this.persistentRoomId) {
+        void roomService.markParticipantDisconnected(this.persistentRoomId, userId);
       }
 
       this.refreshDirectory();
@@ -697,6 +813,12 @@ export class TrucoRoom extends Room<{
 
     this.sessionTeamMap.delete(previousSessionId);
     this.sessionTeamMap.set(nextSessionId, teamId);
+    const userId = this.sessionUserMap.get(previousSessionId);
+    if (userId) {
+      this.sessionUserMap.delete(previousSessionId);
+      this.sessionUserMap.set(nextSessionId, userId);
+      this.teamUserMap.set(teamId, userId);
+    }
     this.reactionRateLimit.delete(nextSessionId);
   }
 
@@ -721,5 +843,14 @@ export class TrucoRoom extends Room<{
     }
 
     return null;
+  }
+
+  private getUserIdForSession(
+    sessionId: string,
+    teamId: TeamId,
+  ): string | null {
+    return (
+      this.sessionUserMap.get(sessionId) ?? this.teamUserMap.get(teamId) ?? null
+    );
   }
 }

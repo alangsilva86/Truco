@@ -53,7 +53,7 @@ export function TableHeader({
         <button
           type="button"
           onClick={onCopyCode}
-          title="Copiar código da sala"
+          title="Copiar link da sala"
           className="flex min-w-0 flex-1 items-center gap-2 rounded-[14px] border border-white/14 bg-white/8 px-2.5 py-1.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
         >
           <div
@@ -99,7 +99,7 @@ export function TableHeader({
         <button
           type="button"
           onClick={onCopyCode}
-          title="Copiar codigo da sala"
+          title="Copiar link da sala"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-white/55 transition hover:bg-white/10 hover:text-white"
         >
           {codeCopied ? (

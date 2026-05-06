@@ -173,7 +173,7 @@ export function CenterTable({
           ) : (
             <Copy className="h-4 w-4" />
           )}
-          {codeCopied ? 'Codigo copiado' : 'Copiar codigo'}
+          {codeCopied ? 'Link copiado' : 'Copiar link'}
         </button>
       </div>
     );

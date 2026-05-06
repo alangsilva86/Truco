@@ -7,17 +7,20 @@ import {
   GameCommand,
   REACTION_PHRASES,
   SeatId,
+  UserProfile,
   getTeamForSeat,
 } from '@truco/contracts';
 import type { ConnectionState } from '@truco/contracts';
 import { RefObject, startTransition, useEffect, useRef, useState } from 'react';
 import { describeEvent } from '../lib/matchEvents.js';
 import {
+  createOrUpdateGuestUser,
   createColyseusClient,
+  createRoomRequest,
   fetchServerVersion,
   getClientReconnectBudgetMs,
   getDefaultRoomTimeoutMs,
-  lookupRoom,
+  joinRoomRequest,
   withTimeout,
 } from '../lib/network.js';
 import type { ServerVersionInfo } from '../lib/network.js';
@@ -38,7 +41,9 @@ interface UseRoomConnectionOptions {
   clearSession: () => void;
   nickname: string;
   persistSession: (snapshot: ClientStorageSnapshot) => void;
+  persistUser: (user: UserProfile) => void;
   sessionRef: RefObject<ClientStorageSnapshot | null>;
+  userRef: RefObject<UserProfile | null>;
 }
 
 interface RecoverySnapshot {
@@ -59,17 +64,15 @@ function getErrorMessage(caught: unknown, fallback: string): string {
 
 function getJoinRoomError(caught: unknown): string {
   if (caught && typeof caught === 'object' && 'body' in caught) {
-    const body = (caught as { body?: { error?: string } }).body;
-    if (body?.error === 'NOT_FOUND') {
-      return 'Sala nao encontrada ou expirada.';
+    const body = (caught as {
+      body?: { message?: string; reason?: string };
+    }).body;
+    if (typeof body?.message === 'string' && body.message.length > 0) {
+      return body.message;
     }
 
-    if (body?.error === 'CLOSED') {
-      return 'Esta sala foi encerrada.';
-    }
-
-    if (body?.error === 'LOCKED') {
-      return 'Esta sala ja esta cheia ou em andamento.';
+    if (body?.reason === 'ROOM_NOT_FOUND') {
+      return 'Nao encontramos essa sala. Confira o codigo ou peca um novo link para quem criou a sala.';
     }
   }
 
@@ -97,7 +100,9 @@ export function useRoomConnection({
   clearSession,
   nickname,
   persistSession,
+  persistUser,
   sessionRef,
+  userRef,
 }: UseRoomConnectionOptions) {
   const [view, setView] = useState<ClientGameView | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
@@ -272,6 +277,7 @@ export function useRoomConnection({
   async function attachRoom(
     room: Room,
     fallbackNickname: string,
+    fallbackUserId?: string,
   ): Promise<void> {
     roomRef.current = room;
     room.reconnection.minUptime = 0;
@@ -308,6 +314,7 @@ export function useRoomConnection({
           viewerTeamId: getTeamForSeat(nextView.ownedSeatIds[0]),
           reconnectionToken: room.reconnectionToken,
           sessionId: room.sessionId,
+          userId: fallbackUserId,
         });
         setCommandPending(false);
         setView(nextView);
@@ -592,6 +599,7 @@ export function useRoomConnection({
         await attachRoom(
           room,
           sessionRef.current?.nickname ?? options.fallbackNickname,
+          sessionRef.current?.userId ?? userRef.current?.id,
         );
         finalizeRecoverySuccess('supervisor', room, snapshot.startedAt);
         return;
@@ -640,69 +648,106 @@ export function useRoomConnection({
     applyTerminalRecoveryFailure(terminalReason, options);
   }
 
-  async function createRoom(): Promise<void> {
+  async function ensureGuestProfile(): Promise<UserProfile> {
+    const trimmedNickname = nickname.trim();
+    if (!trimmedNickname) {
+      throw new Error('Informe um apelido antes de continuar.');
+    }
+
+    const response = await createOrUpdateGuestUser({
+      nickname: trimmedNickname,
+      userId: userRef.current?.id,
+    });
+    persistUser(response.user);
+    return response.user;
+  }
+
+  async function connectToReservedRoom(
+    reservation: {
+      colyseus: {
+        assignedTeamId?: number;
+        roomCode: string;
+        roomId: string;
+      };
+    },
+    user: UserProfile,
+  ): Promise<void> {
+    const room = await withTimeout(
+      () =>
+        createColyseusClient().joinById(reservation.colyseus.roomId, {
+          assignedTeamId: reservation.colyseus.assignedTeamId,
+          nickname: user.nickname,
+          roomCode: reservation.colyseus.roomCode,
+          userId: user.id,
+        }),
+      getDefaultRoomTimeoutMs(),
+      'Entrada na sala',
+    );
+    await attachRoom(room, user.nickname, user.id);
+  }
+
+  async function createRoom(): Promise<string | null> {
     const trimmedNickname = nickname.trim();
     if (!trimmedNickname) {
       setError('Informe um apelido antes de criar a sala.');
-      return;
+      return null;
     }
 
     cancelRecoverySupervisor();
     dropSnapshotRef.current = null;
-    clearSession();
     setBusy(true);
     setError(null);
     setReconnectStatus(createIdleReconnectStatus());
 
     try {
-      const room = await withTimeout(
-        () =>
-          createColyseusClient().create('truco_room', {
-            nickname: trimmedNickname,
-          }),
-        getDefaultRoomTimeoutMs(),
-        'Criacao da sala',
-      );
-      await attachRoom(room, trimmedNickname);
+      const user = await ensureGuestProfile();
+      clearSession();
+      const createdRoom = await createRoomRequest({
+        maxPlayers: 2,
+        nickname: user.nickname,
+        ownerUserId: user.id,
+      });
+      await connectToReservedRoom(createdRoom, user);
+      return createdRoom.room.roomCode;
     } catch (caught) {
       setBusy(false);
       setError(getErrorMessage(caught, 'Falha ao criar a sala.'));
+      return null;
     }
   }
 
-  async function joinRoom(roomCode: string): Promise<void> {
+  async function joinRoom(roomCode: string): Promise<string | null> {
     const trimmedNickname = nickname.trim();
     if (!trimmedNickname) {
       setError('Informe um apelido antes de entrar.');
-      return;
+      return null;
     }
 
     if (!roomCode.trim()) {
       setError('Informe o codigo da sala.');
-      return;
+      return null;
     }
 
     cancelRecoverySupervisor();
     dropSnapshotRef.current = null;
-    clearSession();
     setBusy(true);
     setError(null);
     setReconnectStatus(createIdleReconnectStatus());
 
     try {
-      const { roomId } = await lookupRoom(roomCode);
-      const room = await withTimeout(
-        () =>
-          createColyseusClient().joinById(roomId, {
-            nickname: trimmedNickname,
-          }),
-        getDefaultRoomTimeoutMs(),
-        'Entrada na sala',
-      );
-      await attachRoom(room, trimmedNickname);
+      const user = await ensureGuestProfile();
+      clearSession();
+      const joinedRoom = await joinRoomRequest({
+        nickname: user.nickname,
+        roomCode,
+        userId: user.id,
+      });
+      await connectToReservedRoom(joinedRoom, user);
+      return joinedRoom.room.roomCode;
     } catch (caught) {
       setBusy(false);
       setError(getJoinRoomError(caught));
+      return null;
     }
   }
 
