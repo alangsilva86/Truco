@@ -5,6 +5,7 @@ import {
   ClientMatchEvent,
   ClientStorageSnapshot,
   GameCommand,
+  RoomMatchFormat,
   REACTION_PHRASES,
   SeatId,
   UserProfile,
@@ -686,7 +687,9 @@ export function useRoomConnection({
     await attachRoom(room, user.nickname, user.id);
   }
 
-  async function createRoom(): Promise<string | null> {
+  async function createRoom(
+    matchFormat: RoomMatchFormat = 'single',
+  ): Promise<string | null> {
     const trimmedNickname = nickname.trim();
     if (!trimmedNickname) {
       setError('Informe um apelido antes de criar a sala.');
@@ -704,6 +707,7 @@ export function useRoomConnection({
       clearSession();
       const createdRoom = await createRoomRequest({
         maxPlayers: 2,
+        matchFormat,
         nickname: user.nickname,
         ownerUserId: user.id,
       });

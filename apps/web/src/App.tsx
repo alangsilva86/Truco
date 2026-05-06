@@ -1,4 +1,4 @@
-import { PublicRoom, getTeamForSeat } from '@truco/contracts';
+import { PublicRoom, RoomMatchFormat, getTeamForSeat } from '@truco/contracts';
 import { useEffect, useRef, useState } from 'react';
 import { GameTable } from './components/game/GameTable.js';
 import { LobbyScreen } from './components/lobby/LobbyScreen.js';
@@ -15,6 +15,7 @@ function buildRoomLink(roomCode: string): string {
 export default function App() {
   const [copiedRoomCode, setCopiedRoomCode] = useState<string | null>(null);
   const [lobbyMode, setLobbyMode] = useState<'create' | 'join'>('create');
+  const [matchFormat, setMatchFormat] = useState<RoomMatchFormat>('single');
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [publicRooms, setPublicRooms] = useState<PublicRoom[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
@@ -187,7 +188,7 @@ export default function App() {
   }
 
   async function handleCreateRoom(): Promise<void> {
-    const roomCode = await createRoom();
+    const roomCode = await createRoom(matchFormat);
     if (roomCode) {
       navigateToRoom(roomCode);
     }
@@ -225,6 +226,7 @@ export default function App() {
         copiedRoomCode={copiedRoomCode}
         error={error}
         lobbyMode={lobbyMode}
+        matchFormat={matchFormat}
         nickname={nickname}
         onCopyRoomLink={handleCopyRoomLink}
         onCreateRoom={() => void handleCreateRoom()}
@@ -241,6 +243,7 @@ export default function App() {
           setLobbyMode(mode);
           dismissError();
         }}
+        setMatchFormat={setMatchFormat}
         setNickname={setNickname}
         setRoomCodeInput={setRoomCodeInput}
         storedSession={storedSession}

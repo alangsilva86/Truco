@@ -106,6 +106,19 @@ function getTrucoAcceptedLabel(value: number): string {
   }
 }
 
+function getNextRaiseTarget(requestedValue: number): number | null {
+  switch (requestedValue) {
+    case 3:
+      return 6;
+    case 6:
+      return 9;
+    case 9:
+      return 12;
+    default:
+      return null;
+  }
+}
+
 export function GameTable({
   view,
   viewerTeamId,
@@ -200,6 +213,10 @@ export function GameTable({
       }),
     [playAction, requestTrucoAction, view, viewerTeamId],
   );
+  const matchFormat = view.matchFormat ?? 'single';
+  const seriesScore = view.seriesScore ?? { 0: 0, 1: 0 };
+  const seriesWinnerTeam = view.seriesWinnerTeam ?? null;
+  const seriesTargetWins = view.seriesTargetWins ?? 1;
 
   useEffect(() => {
     if (logs.length === 0 || presentation.isWaiting) {
@@ -409,8 +426,21 @@ export function GameTable({
       : disconnectedOpponentNames.length > 1
         ? 'Adversarios desconectados'
         : 'Adversario desconectou';
+  const seriesScoreUs = viewerTeamId === 0 ? seriesScore[0] : seriesScore[1];
+  const seriesScoreThem =
+    viewerTeamId === 0 ? seriesScore[1] : seriesScore[0];
   const roomClosed = view.roomLifecycle === 'CLOSED';
-  const rematchDisabled = commandPending || rematchRequested || roomClosed;
+  const runRoundAwardedPoints = runRoundAction?.awardedPoints ?? 1;
+  const runRoundHint = `Desiste da rodada atual e concede ${runRoundAwardedPoints} ponto${runRoundAwardedPoints !== 1 ? 's' : ''} ao adversario.`;
+  const autoSeriesContinuationPending =
+    presentation.isGameEnd &&
+    matchFormat === 'best_of_3' &&
+    seriesWinnerTeam === null;
+  const rematchDisabled =
+    commandPending ||
+    rematchRequested ||
+    roomClosed ||
+    autoSeriesContinuationPending;
   const canRunRound = Boolean(runRoundAction) && !presentation.isPausedReconnect;
 
   useEffect(() => {
@@ -681,6 +711,7 @@ export function GameTable({
                     <CenterTable
                       mode={presentation.isWaiting ? 'waiting' : 'table'}
                       roomCode={view.roomCode}
+                      matchFormat={matchFormat}
                       codeCopied={codeCopied}
                       onCopyCode={() => onCopyCode(view.roomCode)}
                       roundCards={view.roundCards}
@@ -727,7 +758,7 @@ export function GameTable({
                     trucoHint={presentation.trucoHint}
                     trucoLabel={presentation.trucoLabel}
                     canRunRound={canRunRound}
-                    runRoundHint="Desiste da rodada atual e concede 1 ponto ao adversario."
+                    runRoundHint={runRoundHint}
                     onCancelSelection={() =>
                       !commandPending ? setSelectedPlay(null) : undefined
                     }
@@ -850,6 +881,7 @@ export function GameTable({
                     <CenterTable
                       mode={presentation.isWaiting ? 'waiting' : 'table'}
                       roomCode={view.roomCode}
+                      matchFormat={matchFormat}
                       codeCopied={codeCopied}
                       onCopyCode={() => onCopyCode(view.roomCode)}
                       roundCards={view.roundCards}
@@ -899,7 +931,7 @@ export function GameTable({
                     trucoHint={presentation.trucoHint}
                     trucoLabel={presentation.trucoLabel}
                     runRoundEnabled={canRunRound}
-                    runRoundHint="Desiste da rodada atual e concede 1 ponto ao adversario."
+                    runRoundHint={runRoundHint}
                     commandPending={commandPending}
                     onToggleCovered={onToggleCovered}
                     onRequestTruco={handleRequestTrucoPress}
@@ -932,13 +964,25 @@ export function GameTable({
             </div>
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.28em] text-white/40">
-                {presentation.gameWon ? 'Vitoria' : 'Fim de jogo'}
+                {seriesWinnerTeam !== null && matchFormat === 'best_of_3'
+                  ? 'Serie encerrada'
+                  : presentation.gameWon
+                    ? 'Vitoria'
+                    : 'Fim de jogo'}
               </p>
               <h3 className="mt-2 text-3xl font-black text-white">
                 {presentation.scoreUs} × {presentation.scoreThem}
               </h3>
+              {matchFormat === 'best_of_3' && (
+                <p className="mt-2 text-[11px] font-black uppercase tracking-[0.22em] text-emerald-200/80">
+                  Melhor de 3 partidas · {seriesScoreUs} × {seriesScoreThem} ·
+                  primeiro a {seriesTargetWins}
+                </p>
+              )}
               <p className="mt-2 text-sm text-white/55">
-                {presentation.gameWon
+                {autoSeriesContinuationPending
+                  ? 'A proxima partida da serie comeca automaticamente em instantes.'
+                  : presentation.gameWon
                   ? 'Sua dupla venceu a partida.'
                   : roomClosed
                     ? 'A sala foi encerrada. Voce pode voltar ao lobby.'
@@ -963,6 +1007,8 @@ export function GameTable({
               )}
               {rematchRequested
                 ? 'Aguardando adversario...'
+                : autoSeriesContinuationPending
+                  ? 'Proxima partida...'
                 : roomClosed
                   ? 'Sala encerrada'
                   : 'Pedir revanche'}
@@ -1077,9 +1123,13 @@ export function GameTable({
         requestedValue={view.trucoPending?.requestedValue ?? 0}
         acceptedValue={view.trucoPending?.acceptedValue ?? 0}
         raiseTarget={
-          view.trucoPending ? view.trucoPending.requestedValue + 3 : null
+          view.trucoPending
+            ? getNextRaiseTarget(view.trucoPending.requestedValue)
+            : null
         }
         canRaise={Boolean(respondTrucoAction?.actions.includes('raise'))}
+        canRunRound={canRunRound}
+        runRoundAwardedPoints={runRoundAwardedPoints}
         commandPending={commandPending}
         playerCards={presentation.bottomCards}
         partnerCards={presentation.topCards}

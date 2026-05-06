@@ -5,6 +5,7 @@ import type {
   CreateRoomResponse,
   GuestUserResponse,
   JoinRoomResponse,
+  RoomMatchFormat,
   RoomListResponse,
   RoomLookupResponse,
   UserProfile,
@@ -192,6 +193,7 @@ export async function createOrUpdateGuestUser(
 
 export async function createRoomRequest(input: {
   maxPlayers?: number;
+  matchFormat?: RoomMatchFormat;
   nickname: string;
   ownerUserId: string;
 }): Promise<CreateRoomResponse> {

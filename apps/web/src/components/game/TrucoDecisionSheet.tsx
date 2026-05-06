@@ -11,6 +11,8 @@ interface TrucoDecisionSheetProps {
   acceptedValue: number;
   raiseTarget: number | null;
   canRaise: boolean;
+  canRunRound: boolean;
+  runRoundAwardedPoints: number;
   commandPending: boolean;
   playerCards: Card[];
   partnerCards: Card[];
@@ -28,6 +30,8 @@ export function TrucoDecisionSheet({
   acceptedValue,
   raiseTarget,
   canRaise,
+  canRunRound,
+  runRoundAwardedPoints,
   commandPending,
   playerCards,
   partnerCards,
@@ -128,14 +132,17 @@ export function TrucoDecisionSheet({
             </button>
           )}
 
-          <button
-            type="button"
-            onClick={onRunRound}
-            disabled={commandPending}
-            className="min-h-12 rounded-2xl border border-rose-200/25 bg-rose-500/8 px-4 py-3 text-sm font-black uppercase tracking-[0.18em] text-rose-100 disabled:opacity-45"
-          >
-            Correr rodada · dar 1 pra eles
-          </button>
+          {canRunRound && (
+            <button
+              type="button"
+              onClick={onRunRound}
+              disabled={commandPending}
+              className="min-h-12 rounded-2xl border border-rose-200/25 bg-rose-500/8 px-4 py-3 text-sm font-black uppercase tracking-[0.18em] text-rose-100 disabled:opacity-45"
+            >
+              Correr rodada · dar {runRoundAwardedPoints} ponto
+              {runRoundAwardedPoints !== 1 ? 's' : ''} pra eles
+            </button>
+          )}
 
           <button
             type="button"

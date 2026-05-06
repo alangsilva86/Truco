@@ -42,7 +42,6 @@ type PendingTransition =
 
 const HAND_OF_ELEVEN_PLAY_VALUE = 3;
 const HAND_OF_ELEVEN_RUN_PENALTY = 1;
-const ROUND_RUN_AWARDED_POINTS = 1;
 
 export interface MatchState {
   matchId: string;
@@ -358,7 +357,7 @@ function resolveRoundRun(
 
   const runnerTeam = getTeamForSeat(seatId);
   const awardedTeam = runnerTeam === 0 ? 1 : 0;
-  const awardedPoints = ROUND_RUN_AWARDED_POINTS;
+  const awardedPoints = state.currentRoundPoints;
 
   state.pendingTruco = null;
   state.scores[awardedTeam] += awardedPoints;
@@ -409,11 +408,7 @@ function canSeatPlayCovered(state: MatchState): boolean {
 }
 
 function canRunRound(phase: GamePhase): boolean {
-  return (
-    phase === 'PLAYING' ||
-    phase === 'TRUCO_DECISION' ||
-    phase === 'HAND_OF_ELEVEN_DECISION'
-  );
+  return phase === 'PLAYING';
 }
 
 function createInvalidResult(
@@ -877,7 +872,7 @@ export function getLegalActions(
     actions.push({
       type: 'RUN_ROUND',
       seatIds: TEAM_SEATS[viewerTeamId],
-      awardedPoints: ROUND_RUN_AWARDED_POINTS,
+      awardedPoints: state.currentRoundPoints,
     });
   }
 

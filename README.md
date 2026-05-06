@@ -4,7 +4,7 @@ Monorepo do Truco online com frontend React/Vite, backend autoritativo em Colyse
 
 ## Estado atual do produto
 
-Esta fase entrega deploy em producao, lobby com area do usuario, usuario convidado persistido, criacao/listagem/entrada em salas e reconnect basico.
+Esta fase entrega deploy em producao, lobby com area do usuario, usuario convidado persistido, criacao/listagem/entrada em salas, escolha entre `rodada unica` e `melhor de 3`, alem de reconnect basico.
 
 Importante: a runtime de jogo atual continua suportando `2` usuarios humanos por sala, cada um controlando uma dupla. A modelagem de persistencia ja deixa o projeto preparado para evoluir depois para fluxos com `4` usuarios humanos sem reescrever a base agora.
 
@@ -107,6 +107,8 @@ Endpoints principais:
 - `POST /api/rooms`
 - `GET /api/rooms/:roomCode`
 - `POST /api/rooms/:roomCode/join`
+
+Ao criar uma sala com `POST /api/rooms`, o payload aceita `matchFormat` com os valores `single` ou `best_of_3`.
 
 ## Scripts
 

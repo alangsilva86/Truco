@@ -16,6 +16,7 @@ export type RoomWithParticipants = Prisma.RoomGetPayload<{
 
 interface CreateRoomInput {
   maxPlayers: number;
+  matchFormat: string;
   ownerNickname: string;
   ownerUserId: string;
   roomCode: string;
@@ -34,6 +35,7 @@ interface UpsertParticipantInput {
 export class RoomRepository {
   async createRoom({
     maxPlayers,
+    matchFormat,
     ownerNickname,
     ownerUserId,
     roomCode,
@@ -41,6 +43,7 @@ export class RoomRepository {
     return getPrismaClient().room.create({
       data: {
         maxPlayers,
+        matchFormat,
         ownerUserId,
         roomCode,
         participants: {

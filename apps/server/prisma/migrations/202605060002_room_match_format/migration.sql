@@ -1,0 +1,2 @@
+ALTER TABLE "Room"
+ADD COLUMN "matchFormat" TEXT NOT NULL DEFAULT 'single';

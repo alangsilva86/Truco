@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { PlayerInfo, TeamId } from '@truco/contracts';
+import { AvailableAction, PlayerInfo, TeamId } from '@truco/contracts';
 import {
   MatchState,
   applyCommand,
@@ -163,7 +163,7 @@ describe('engine', () => {
     expect(accepted.nextState.phase).toBe('PLAYING');
   });
 
-  it('keeps play actions for active team but allows running for both teams', () => {
+  it('keeps play actions for active team and only allows running during active play', () => {
     const state = startReadyMatch(99);
     const activeTeam = (state.turnSeatId ?? 1) % 2 === 0 ? 0 : (1 as TeamId);
     const waitingTeam = activeTeam === 0 ? 1 : 0;
@@ -272,6 +272,68 @@ describe('engine', () => {
     expect(afterAccept.nextState.pendingTruco).toBeNull();
   });
 
+  it('caps truco at 12 without offering a new request or raise above it', () => {
+    const state = startReadyMatch(130);
+    const requesterSeat = state.turnSeatId!;
+    const requesterTeam = (requesterSeat % 2) as TeamId;
+    const responderTeam: TeamId = requesterTeam === 0 ? 1 : 0;
+
+    const afterTruco = applyCommand(state, {
+      commandId: 'cap-req-3',
+      issuedAt: Date.now(),
+      type: 'REQUEST_TRUCO',
+      payload: { seatId: requesterSeat },
+    }).nextState;
+
+    const afterSeis = applyCommand(afterTruco, {
+      commandId: 'cap-req-6',
+      issuedAt: Date.now(),
+      type: 'RESPOND_TRUCO',
+      payload: { action: 'raise' },
+    }).nextState;
+
+    const afterNove = applyCommand(afterSeis, {
+      commandId: 'cap-req-9',
+      issuedAt: Date.now(),
+      type: 'RESPOND_TRUCO',
+      payload: { action: 'raise' },
+    }).nextState;
+
+    const afterDoze = applyCommand(afterNove, {
+      commandId: 'cap-req-12',
+      issuedAt: Date.now(),
+      type: 'RESPOND_TRUCO',
+      payload: { action: 'raise' },
+    }).nextState;
+
+    expect(afterDoze.pendingTruco?.requestedValue).toBe(12);
+    expect(afterDoze.pendingTruco?.responseTeam).not.toBeUndefined();
+    expect(
+      (
+        getLegalActions(
+          afterDoze,
+          afterDoze.pendingTruco!.responseTeam,
+        ).find((action) => action.type === 'RESPOND_TRUCO') as
+          | Extract<AvailableAction, { type: 'RESPOND_TRUCO' }>
+          | undefined
+      )?.actions,
+    ).toEqual(['accept', 'run']);
+
+    const acceptedAtDoze = applyCommand(afterDoze, {
+      commandId: 'cap-accept-12',
+      issuedAt: Date.now(),
+      type: 'RESPOND_TRUCO',
+      payload: { action: 'accept' },
+    }).nextState;
+
+    expect(acceptedAtDoze.currentRoundPoints).toBe(12);
+    expect(
+      getLegalActions(acceptedAtDoze, responderTeam).some(
+        (action) => action.type === 'REQUEST_TRUCO',
+      ),
+    ).toBe(false);
+  });
+
   it('requires a play-or-run decision when one team reaches 11', () => {
     const state = startMatchAtScore({ 0: 11, 1: 10 }, 31);
 
@@ -281,11 +343,9 @@ describe('engine', () => {
       playValue: 3,
       runPenalty: 1,
     });
-    expect(getLegalActions(state, 1)).toContainEqual({
-      type: 'RUN_ROUND',
-      seatIds: [1, 3],
-      awardedPoints: 1,
-    });
+    expect(
+      getLegalActions(state, 1).some((action) => action.type === 'RUN_ROUND'),
+    ).toBe(false);
 
     const afterPlay = applyCommand(state, {
       commandId: 'hand-11-play',
@@ -342,13 +402,9 @@ describe('engine', () => {
     expect(result.events.some((event) => event.type === 'ROUND_RUN')).toBe(true);
   });
 
-  it('awards 1 point when running after a truco request', () => {
+  it('does not allow running the round while a truco decision is pending', () => {
     const state = startReadyMatch(35);
     const requesterSeat = state.turnSeatId ?? 0;
-    const requesterTeam = (requesterSeat % 2) as TeamId;
-    const runnerTeam: TeamId = requesterTeam === 0 ? 1 : 0;
-    const runnerSeat = runnerTeam === 0 ? 0 : 1;
-    const awardedTeam: TeamId = runnerTeam === 0 ? 1 : 0;
 
     const requested = applyCommand(state, {
       commandId: 'truco-before-run-round',
@@ -358,17 +414,84 @@ describe('engine', () => {
     });
     expect(requested.error).toBeUndefined();
     expect(requested.nextState.phase).toBe('TRUCO_DECISION');
+    expect(
+      getLegalActions(requested.nextState, 0).some(
+        (action) => action.type === 'RUN_ROUND',
+      ),
+    ).toBe(false);
+    expect(
+      getLegalActions(requested.nextState, 1).some(
+        (action) => action.type === 'RUN_ROUND',
+      ),
+    ).toBe(false);
 
     const ranRound = applyCommand(requested.nextState, {
       commandId: 'run-round-after-truco',
       issuedAt: Date.now(),
       type: 'RUN_ROUND',
+      payload: { requestedBySeatId: 1 },
+    });
+
+    expect(ranRound.error).toContain('only available while a round is active');
+  });
+
+  it('awards the full current round value when someone runs after doze was accepted', () => {
+    const state = startReadyMatch(36);
+    const requesterSeat = state.turnSeatId!;
+    const requesterTeam = (requesterSeat % 2) as TeamId;
+    const runnerSeat = requesterTeam === 0 ? 1 : 0;
+
+    const afterTruco = applyCommand(state, {
+      commandId: 'doze-req-3',
+      issuedAt: Date.now(),
+      type: 'REQUEST_TRUCO',
+      payload: { seatId: requesterSeat },
+    }).nextState;
+
+    const afterSeis = applyCommand(afterTruco, {
+      commandId: 'doze-req-6',
+      issuedAt: Date.now(),
+      type: 'RESPOND_TRUCO',
+      payload: { action: 'raise' },
+    }).nextState;
+
+    const afterNove = applyCommand(afterSeis, {
+      commandId: 'doze-req-9',
+      issuedAt: Date.now(),
+      type: 'RESPOND_TRUCO',
+      payload: { action: 'raise' },
+    }).nextState;
+
+    const afterDoze = applyCommand(afterNove, {
+      commandId: 'doze-req-12',
+      issuedAt: Date.now(),
+      type: 'RESPOND_TRUCO',
+      payload: { action: 'raise' },
+    }).nextState;
+
+    const acceptedAtDoze = applyCommand(afterDoze, {
+      commandId: 'doze-accept-12',
+      issuedAt: Date.now(),
+      type: 'RESPOND_TRUCO',
+      payload: { action: 'accept' },
+    }).nextState;
+
+    const result = applyCommand(acceptedAtDoze, {
+      commandId: 'doze-run-round',
+      issuedAt: Date.now(),
+      type: 'RUN_ROUND',
       payload: { requestedBySeatId: runnerSeat },
     });
 
-    expect(ranRound.error).toBeUndefined();
-    expect(ranRound.nextState.phase).toBe('ROUND_END');
-    expect(ranRound.nextState.scores[awardedTeam]).toBe(1);
+    expect(result.error).toBeUndefined();
+    expect(result.nextState.scores[requesterTeam]).toBe(12);
+    expect(result.nextState.phase).toBe('GAME_END');
+    expect(
+      result.events.some(
+        (event) =>
+          event.type === 'ROUND_RUN' && event.payload.awardedPoints === 12,
+      ),
+    ).toBe(true);
   });
 
   it('starts 11 x 11 as mao de ferro worth 3 without truco', () => {

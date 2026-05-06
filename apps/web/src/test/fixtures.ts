@@ -18,6 +18,7 @@ export function createClientGameView(
   return {
     matchId: 'match-1',
     roomCode: 'ABC123',
+    matchFormat: 'single',
     stateVersion: 1,
     eventCursor: 1,
     gamePhase: 'PLAYING',
@@ -56,6 +57,9 @@ export function createClientGameView(
     connectionState: 'connected',
     message: 'Sua vez.',
     lastRoundWinnerTeam: null,
+    seriesScore: { 0: 0, 1: 0 },
+    seriesTargetWins: 1,
+    seriesWinnerTeam: null,
     ...overrides,
   };
 }

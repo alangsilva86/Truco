@@ -54,6 +54,7 @@ const mocks = vi.hoisted(() => {
     turnSeatId: null,
     dealerSeatId: null,
     trickStarterSeatId: null,
+    matchFormat: 'single',
     vira: null,
     manilhaRank: null,
     trucoPending: null,
@@ -61,6 +62,9 @@ const mocks = vi.hoisted(() => {
     connectionState: 'connected',
     message: 'Aguardando o segundo jogador...',
     lastRoundWinnerTeam: null,
+    seriesScore: { 0: 0, 1: 0 },
+    seriesTargetWins: 1,
+    seriesWinnerTeam: null,
   };
 
   class FakeRoom {
@@ -144,6 +148,7 @@ const mocks = vi.hoisted(() => {
         id: 'room-db-1',
         roomCode: 'RCN123',
         status: 'waiting',
+        matchFormat: 'single',
         players: 1,
         maxPlayers: 2,
         canJoin: true,
@@ -173,6 +178,7 @@ const mocks = vi.hoisted(() => {
         id: 'room-db-2',
         roomCode: 'ABCD12',
         status: 'waiting',
+        matchFormat: 'single',
         players: 2,
         maxPlayers: 2,
         canJoin: true,
@@ -321,6 +327,7 @@ describe('App', () => {
     });
     expect(mocks.createRoomRequest).toHaveBeenCalledWith({
       maxPlayers: 2,
+      matchFormat: 'single',
       nickname: 'Ana',
       ownerUserId: 'usr-1',
     });
@@ -375,6 +382,37 @@ describe('App', () => {
       userId: 'usr-1',
     });
     expect(window.location.pathname).toBe('/sala/ABCD12');
+  });
+
+  it('permite criar sala em melhor de 3', async () => {
+    render(<App />);
+
+    fireEvent.change(screen.getByPlaceholderText(/seu apelido/i), {
+      target: { value: 'Ana' },
+    });
+    expect(
+      screen.getByRole('button', { name: /1 partida/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /melhor de 3 partidas/i }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /melhor de 3 partidas/i }),
+    );
+    expect(
+      screen.getByText(/sala sera criada como: melhor de 3 partidas/i),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: /^criar sala$/i })[1]);
+
+    await waitFor(() => {
+      expect(mocks.createRoomRequest).toHaveBeenCalledWith({
+        maxPlayers: 2,
+        matchFormat: 'best_of_3',
+        nickname: 'Ana',
+        ownerUserId: 'usr-1',
+      });
+    });
   });
 
   it('permite reconexao manual pelo botao do lobby', async () => {

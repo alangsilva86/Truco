@@ -1,6 +1,12 @@
 import { performance } from 'node:perf_hooks';
 import { Client, CloseCode, Room } from 'colyseus';
-import { GameCommand, RoomLifecycle, SeatId, TeamId } from '@truco/contracts';
+import {
+  GameCommand,
+  RoomLifecycle,
+  RoomMatchFormat,
+  SeatId,
+  TeamId,
+} from '@truco/contracts';
 import { MatchState, createMatch } from '@truco/engine';
 import { getReconnectWindowSeconds } from '../config/runtime.js';
 import { roomService } from '../modules/rooms/room.service.js';
@@ -35,6 +41,9 @@ interface ClientReconnectTelemetryPayload {
 }
 
 const DISCONNECT_GRACE_MS = 2_000;
+const BEST_OF_THREE_TARGET_WINS = 2;
+const SINGLE_MATCH_TARGET_WINS = 1;
+const NEXT_SERIES_MATCH_DELAY_MS = 2_500;
 
 interface PersistentRoomAuth {
   nickname: string;
@@ -81,6 +90,12 @@ function buildPlayers(participants: Record<TeamId, Participant | null>) {
   return players;
 }
 
+function getSeriesTargetWins(matchFormat: RoomMatchFormat): number {
+  return matchFormat === 'best_of_3'
+    ? BEST_OF_THREE_TARGET_WINS
+    : SINGLE_MATCH_TARGET_WINS;
+}
+
 export class TrucoRoom extends Room<{
   metadata: TrucoRoomMetadata;
   state: TrucoRoomState;
@@ -103,7 +118,13 @@ export class TrucoRoom extends Room<{
   private persistentRoomId: string | null = null;
   private runtime: MatchRuntime | null = null;
   private roomCode = '';
+  private matchFormat: RoomMatchFormat = 'single';
   private lifecycle: RoomLifecycle = 'OPEN';
+  private seriesScore: Record<TeamId, number> = { 0: 0, 1: 0 };
+  private seriesWinnerTeam: TeamId | null = null;
+  private lastEngineState: MatchState | null = null;
+  private nextMatchDealerSeatId: SeatId = 0;
+  private nextSeriesMatchTimer: NodeJS.Timeout | null = null;
   private matchStartedAt: number | null = null;
   private lastMatchDurationMs = 0;
 
@@ -137,6 +158,19 @@ export class TrucoRoom extends Room<{
       if (this.lifecycle === 'CLOSED') {
         client.send('command_rejected', {
           message: 'Esta sala foi encerrada.',
+          commandId: message.commandId,
+        });
+        return;
+      }
+
+      if (
+        message.type === 'REMATCH' &&
+        this.matchFormat === 'best_of_3' &&
+        this.seriesWinnerTeam === null
+      ) {
+        client.send('command_rejected', {
+          message:
+            'A proxima partida da serie melhor de 3 comeca automaticamente.',
           commandId: message.commandId,
         });
         return;
@@ -216,11 +250,16 @@ export class TrucoRoom extends Room<{
 
   async onCreate(options?: {
     maxPlayers?: number;
+    matchFormat?: RoomMatchFormat;
     persistentRoomId?: string;
     roomCode?: string;
   }): Promise<void> {
     this.maxClients = 2;
     this.persistentRoomId = options?.persistentRoomId ?? null;
+    this.matchFormat = options?.matchFormat ?? 'single';
+    this.seriesScore = { 0: 0, 1: 0 };
+    this.seriesWinnerTeam = null;
+    this.nextMatchDealerSeatId = 0;
     this.roomCode =
       options?.roomCode ??
       (await generateRoomCode(async (code) =>
@@ -228,6 +267,7 @@ export class TrucoRoom extends Room<{
       ));
     serverMetrics.increment('roomCreatedTotal');
     logger.info('room.created', {
+      matchFormat: this.matchFormat,
       persistentRoomId: this.persistentRoomId,
       roomCode: this.roomCode,
       roomId: this.roomId,
@@ -450,6 +490,7 @@ export class TrucoRoom extends Room<{
   }
 
   onDispose(): void {
+    this.clearNextSeriesMatchTimer();
     this.disconnectGraceManager.clearAll();
     this.reactionRateLimit.clear();
     this.reconnectStartedAtBySession.clear();
@@ -508,7 +549,32 @@ export class TrucoRoom extends Room<{
     );
   }
 
-  private startMatch(): void {
+  private getSeriesSnapshot() {
+    return {
+      score: { ...this.seriesScore },
+      targetWins: getSeriesTargetWins(this.matchFormat),
+      winnerTeam: this.seriesWinnerTeam,
+    };
+  }
+
+  private clearNextSeriesMatchTimer(): void {
+    if (!this.nextSeriesMatchTimer) {
+      return;
+    }
+
+    clearTimeout(this.nextSeriesMatchTimer);
+    this.nextSeriesMatchTimer = null;
+  }
+
+  private resetSeriesProgress(): void {
+    this.seriesScore = { 0: 0, 1: 0 };
+    this.seriesWinnerTeam = null;
+  }
+
+  private markMatchStarted(
+    reason: 'initial' | 'rematch' | 'series_continue',
+  ): void {
+    this.clearNextSeriesMatchTimer();
     this.lifecycle = 'LOCKED';
     this.matchStartedAt = Date.now();
     serverMetrics.increment('matchStartedTotal');
@@ -516,14 +582,35 @@ export class TrucoRoom extends Room<{
       void roomService.markRoomPlaying(this.persistentRoomId);
     }
 
-    const initialState = createMatch(Date.now(), {
-      matchId: `${this.roomId}-${Date.now()}`,
-      players: buildPlayers(this.participants),
+    logger.info('match.started', {
+      reason,
+      roomCode: this.roomCode,
+      roomId: this.roomId,
+      matchFormat: this.matchFormat,
+      seriesScore: this.seriesScore,
+      seriesTargetWins: getSeriesTargetWins(this.matchFormat),
     });
+  }
 
-    this.runtime = new MatchRuntime({
+  private createRuntime(initialState: MatchState): MatchRuntime {
+    this.lastEngineState = initialState;
+
+    return new MatchRuntime({
       initialState,
       onStateChange: (state) => {
+        const previousState = this.lastEngineState;
+        const resumedByRematch =
+          previousState?.phase === 'GAME_END' &&
+          state.phase === 'DEALING' &&
+          state.scores[0] === 0 &&
+          state.scores[1] === 0;
+
+        if (resumedByRematch) {
+          this.resetSeriesProgress();
+          this.markMatchStarted('rematch');
+        }
+
+        this.lastEngineState = state;
         this.syncState(state);
         this.broadcastGameViews();
       },
@@ -535,12 +622,47 @@ export class TrucoRoom extends Room<{
         if (event.type === 'GAME_ENDED' && this.matchStartedAt !== null) {
           this.lastMatchDurationMs = Date.now() - this.matchStartedAt;
           serverMetrics.recordMatchDuration(this.lastMatchDurationMs);
+          this.seriesScore[event.payload.winnerTeam] += 1;
+
+          const targetWins = getSeriesTargetWins(this.matchFormat);
+          this.seriesWinnerTeam =
+            this.seriesScore[event.payload.winnerTeam] >= targetWins
+              ? event.payload.winnerTeam
+              : null;
+
           logger.info('match.finished', {
             roomCode: this.roomCode,
             roomId: this.roomId,
             durationMs: this.lastMatchDurationMs,
             winnerTeam: event.payload.winnerTeam,
+            matchFormat: this.matchFormat,
+            seriesScore: this.seriesScore,
+            seriesTargetWins: targetWins,
+            seriesWinnerTeam: this.seriesWinnerTeam,
           });
+
+          this.syncState(this.runtime?.getState());
+          this.broadcastGameViews();
+
+          if (this.lifecycle === 'CLOSED') {
+            if (this.persistentRoomId) {
+              void roomService.markRoomFinished(this.persistentRoomId, 'abandoned');
+            }
+            return;
+          }
+
+          if (this.seriesWinnerTeam !== null) {
+            if (this.persistentRoomId) {
+              void roomService.markRoomFinished(this.persistentRoomId, 'finished');
+            }
+            return;
+          }
+
+          if (this.matchFormat === 'best_of_3') {
+            this.scheduleNextSeriesMatch();
+            return;
+          }
+
           if (this.persistentRoomId) {
             void roomService.markRoomFinished(this.persistentRoomId, 'finished');
           }
@@ -560,14 +682,40 @@ export class TrucoRoom extends Room<{
           ?.send('command_rejected', { message, commandId });
       },
     });
+  }
 
-    logger.info('match.started', {
-      roomCode: this.roomCode,
-      roomId: this.roomId,
+  private scheduleNextSeriesMatch(): void {
+    this.clearNextSeriesMatchTimer();
+    this.nextSeriesMatchTimer = setTimeout(() => {
+      if (
+        this.seriesWinnerTeam !== null ||
+        !this.participants[0]?.connected ||
+        !this.participants[1]?.connected ||
+        !this.clientsByTeam.has(0) ||
+        !this.clientsByTeam.has(1)
+      ) {
+        return;
+      }
+
+      this.startMatch('series_continue');
+    }, NEXT_SERIES_MATCH_DELAY_MS);
+  }
+
+  private startMatch(reason: 'initial' | 'series_continue' = 'initial'): void {
+    this.clearNextSeriesMatchTimer();
+    this.runtime?.dispose();
+    const initialState = createMatch(Date.now(), {
+      matchId: `${this.roomId}-${Date.now()}`,
+      players: buildPlayers(this.participants),
     });
+    this.runtime = this.createRuntime(initialState);
+    this.markMatchStarted(reason);
     this.syncState(initialState);
+    this.broadcastGameViews();
+    const dealerSeatId = this.nextMatchDealerSeatId;
+    this.nextMatchDealerSeatId = ((dealerSeatId + 1) % 4) as SeatId;
     this.clock.setTimeout(() => {
-      this.runtime?.start();
+      this.runtime?.start(dealerSeatId);
     }, 25);
   }
 
@@ -576,6 +724,7 @@ export class TrucoRoom extends Room<{
     sessionId: string,
     userId: string | null,
   ): void {
+    this.clearNextSeriesMatchTimer();
     this.disconnectGraceManager.clear(teamId);
     this.clearReconnectTracking(sessionId);
     this.reactionRateLimit.delete(sessionId);
@@ -698,17 +847,21 @@ export class TrucoRoom extends Room<{
     if (this.runtime) {
       return createEngineGameView(
         this.roomCode,
+        this.matchFormat,
         this.lifecycle,
         teamId,
         this.runtime.getState(),
+        this.getSeriesSnapshot(),
       );
     }
 
     return createWaitingGameView(
       this.roomCode,
+      this.matchFormat,
       this.lifecycle,
       teamId,
       buildPlayers(this.participants),
+      this.getSeriesSnapshot(),
     );
   }
 
@@ -733,24 +886,30 @@ export class TrucoRoom extends Room<{
       syncEngineRoomState(
         this.state,
         this.roomCode,
+        this.matchFormat,
         this.lifecycle,
         engineState,
+        this.getSeriesSnapshot(),
         snapshot,
       );
     } else if (this.runtime) {
       syncEngineRoomState(
         this.state,
         this.roomCode,
+        this.matchFormat,
         this.lifecycle,
         this.runtime.getState(),
+        this.getSeriesSnapshot(),
         snapshot,
       );
     } else {
       syncWaitingRoomState(
         this.state,
         this.roomCode,
+        this.matchFormat,
         this.lifecycle,
         buildPlayers(this.participants),
+        this.getSeriesSnapshot(),
         snapshot,
       );
     }

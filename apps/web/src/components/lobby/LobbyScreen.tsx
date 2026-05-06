@@ -1,11 +1,17 @@
 import { AlertCircle, Copy, Crown, Link2, RefreshCcw, Sparkles } from 'lucide-react';
-import { ClientStorageSnapshot, PublicRoom, UserProfile } from '@truco/contracts';
+import {
+  ClientStorageSnapshot,
+  PublicRoom,
+  RoomMatchFormat,
+  UserProfile,
+} from '@truco/contracts';
 
 interface LobbyScreenProps {
   busy: boolean;
   copiedRoomCode: string | null;
   error: string | null;
   lobbyMode: 'create' | 'join';
+  matchFormat: RoomMatchFormat;
   nickname: string;
   onCopyRoomLink: (roomCode: string) => void;
   onCreateRoom: () => void;
@@ -17,11 +23,18 @@ interface LobbyScreenProps {
   roomsLoading: boolean;
   routeRoomCode: string | null;
   setLobbyMode: (mode: 'create' | 'join') => void;
+  setMatchFormat: (value: RoomMatchFormat) => void;
   setNickname: (value: string) => void;
   setRoomCodeInput: (value: string) => void;
   storedSession: ClientStorageSnapshot | null;
   storedUser: UserProfile | null;
   userRooms: PublicRoom[];
+}
+
+function getMatchFormatLabel(matchFormat: RoomMatchFormat): string {
+  return matchFormat === 'best_of_3'
+    ? 'Melhor de 3 partidas'
+    : '1 partida';
 }
 
 function getStatusLabel(status: PublicRoom['status']): string {
@@ -58,7 +71,8 @@ function RoomListCard({
             {room.roomCode}
           </p>
           <p className="mt-1 text-xs uppercase tracking-[0.16em] text-white/45">
-            {getStatusLabel(room.status)} · {room.players}/{room.maxPlayers}
+            {getStatusLabel(room.status)} · {room.players}/{room.maxPlayers} ·{' '}
+            {getMatchFormatLabel(room.matchFormat)}
           </p>
         </div>
         <button
@@ -97,6 +111,7 @@ export function LobbyScreen({
   copiedRoomCode,
   error,
   lobbyMode,
+  matchFormat,
   nickname,
   onCopyRoomLink,
   onCreateRoom,
@@ -108,6 +123,7 @@ export function LobbyScreen({
   roomsLoading,
   routeRoomCode,
   setLobbyMode,
+  setMatchFormat,
   setNickname,
   setRoomCodeInput,
   storedSession,
@@ -234,6 +250,52 @@ export function LobbyScreen({
                 className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm outline-none transition focus:border-emerald-400/40 focus:bg-white/10"
               />
 
+              {lobbyMode === 'create' && (
+                <div className="rounded-3xl border border-white/10 bg-white/5 p-4">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-white/45">
+                    Formato da sala
+                  </p>
+                  <p className="mt-2 text-sm text-white/60">
+                    Escolha se quem criar a sala vai jogar uma partida unica ou
+                    uma serie melhor de 3 partidas.
+                  </p>
+                  <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setMatchFormat('single')}
+                      className={`rounded-2xl border px-4 py-3 text-left transition ${
+                        matchFormat === 'single'
+                          ? 'border-emerald-300/45 bg-emerald-500/15 text-emerald-100'
+                          : 'border-white/10 bg-white/5 text-white/60'
+                      }`}
+                    >
+                      <span className="block text-sm font-black uppercase tracking-[0.14em]">
+                        1 partida
+                      </span>
+                      <span className="mt-1 block text-xs text-current/75">
+                        A sala termina quando a partida atual acabar.
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMatchFormat('best_of_3')}
+                      className={`rounded-2xl border px-4 py-3 text-left transition ${
+                        matchFormat === 'best_of_3'
+                          ? 'border-emerald-300/45 bg-emerald-500/15 text-emerald-100'
+                          : 'border-white/10 bg-white/5 text-white/60'
+                      }`}
+                    >
+                      <span className="block text-sm font-black uppercase tracking-[0.14em]">
+                        Melhor de 3 partidas
+                      </span>
+                      <span className="mt-1 block text-xs text-current/75">
+                        Vence quem ganhar 2 partidas primeiro.
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {lobbyMode === 'join' && (
                 <input
                   value={roomCodeInput}
@@ -261,6 +323,12 @@ export function LobbyScreen({
             )}
 
             <div className="mt-5 grid gap-3">
+              {lobbyMode === 'create' && (
+                <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs font-bold uppercase tracking-[0.16em] text-white/55">
+                  Sala sera criada como: {getMatchFormatLabel(matchFormat)}
+                </div>
+              )}
+
               <button
                 type="button"
                 onClick={lobbyMode === 'create' ? onCreateRoom : onJoinRoom}

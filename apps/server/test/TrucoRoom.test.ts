@@ -305,6 +305,56 @@ describe('TrucoRoom', () => {
     expect(afterRun.scores[1]).toBe(1);
   });
 
+  it('ends the match when someone runs after the round is already worth doze', async () => {
+    const room = await colyseus.createRoom('truco_room', {});
+    const host = await colyseus.connectTo(room, { nickname: 'Ana' });
+    const guest = await colyseus.connectTo(room, { nickname: 'Bia' });
+    host.onMessage('game_view', () => undefined);
+    guest.onMessage('game_view', () => undefined);
+    host.onMessage('match_event', () => undefined);
+    guest.onMessage('match_event', () => undefined);
+
+    await waitFor(
+      () =>
+        host.state.gamePhase === 'PLAYING' &&
+        guest.state.gamePhase === 'PLAYING',
+    );
+
+    const hostView = await bootstrapView(host);
+    const testRoom = room as unknown as {
+      runtime: { getState: () => MatchState };
+      syncState: (state?: MatchState) => void;
+      broadcastGameViews: () => void;
+    };
+    const state = testRoom.runtime.getState();
+    state.phase = 'PLAYING';
+    state.currentRoundPoints = 12;
+    state.pendingTruco = null;
+    state.scores = { 0: 0, 1: 0 };
+    state.message = 'Rodada valendo doze.';
+    testRoom.syncState(state);
+    testRoom.broadcastGameViews();
+
+    await waitFor(
+      () => host.state.gamePhase === 'PLAYING' && host.state.currentRoundPoints === 12,
+    );
+
+    host.send('command', {
+      commandId: 'doze-room-run-round',
+      issuedAt: Date.now(),
+      type: 'RUN_ROUND',
+      payload: {
+        requestedBySeatId: hostView.ownedSeatIds[0],
+      },
+    } satisfies GameCommand);
+
+    await waitFor(() => host.state.gamePhase === 'GAME_END');
+
+    const finalView = await bootstrapView(host);
+    expect(finalView.scores[1]).toBe(12);
+    expect(finalView.gamePhase).toBe('GAME_END');
+  });
+
   it('projects and resolves the mao de 11 decision through the room', async () => {
     const room = await colyseus.createRoom('truco_room', {});
     const host = await colyseus.connectTo(room, { nickname: 'Ana' });
@@ -337,11 +387,9 @@ describe('TrucoRoom', () => {
       playValue: 3,
       runPenalty: 1,
     });
-    expect(guestView.availableActions).toContainEqual({
-      type: 'RUN_ROUND',
-      seatIds: [1, 3],
-      awardedPoints: 1,
-    });
+    expect(
+      guestView.availableActions.some((action) => action.type === 'RUN_ROUND'),
+    ).toBe(false);
 
     const command: GameCommand = {
       commandId: 'hand-11-play',

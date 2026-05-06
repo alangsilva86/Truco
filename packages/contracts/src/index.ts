@@ -31,6 +31,7 @@ export type ConnectionState = 'connected' | 'reconnecting' | 'disconnected';
 export type TrucoResponseAction = 'accept' | 'run' | 'raise';
 export type HandOfElevenResponseAction = 'play' | 'run';
 export type RoomStatus = 'waiting' | 'playing' | 'finished' | 'abandoned';
+export type RoomMatchFormat = 'single' | 'best_of_3';
 export type RoomLookupFailureReason =
   | 'ROOM_NOT_FOUND'
   | 'ROOM_FULL'
@@ -49,6 +50,7 @@ export interface PublicRoom {
   id: string;
   roomCode: string;
   status: RoomStatus;
+  matchFormat: RoomMatchFormat;
   players: number;
   maxPlayers: number;
   canJoin: boolean;
@@ -175,6 +177,7 @@ export type AvailableAction =
 export interface ClientGameView {
   matchId: string;
   roomCode: string;
+  matchFormat?: RoomMatchFormat;
   stateVersion: number;
   eventCursor: number;
   gamePhase: GamePhase;
@@ -197,6 +200,9 @@ export interface ClientGameView {
   connectionState: ConnectionState;
   message: string;
   lastRoundWinnerTeam: TeamId | null;
+  seriesScore?: Record<TeamId, number>;
+  seriesTargetWins?: number;
+  seriesWinnerTeam?: TeamId | null;
 }
 
 export interface PlayCardPayload {

@@ -1,4 +1,10 @@
-import { PlayedCardView, Rank, SeatId, TeamId } from '@truco/contracts';
+import {
+  PlayedCardView,
+  Rank,
+  RoomMatchFormat,
+  SeatId,
+  TeamId,
+} from '@truco/contracts';
 import { Check, Copy, Crown, Sparkles } from 'lucide-react';
 import { type CSSProperties, useRef } from 'react';
 import { CardView } from '../Card.js';
@@ -115,6 +121,7 @@ function randomInRange(min: number, max: number): number {
 interface CenterTableProps {
   mode: 'waiting' | 'table';
   roomCode: string;
+  matchFormat?: RoomMatchFormat;
   codeCopied: boolean;
   onCopyCode: () => void;
   roundCards: PlayedCardView[];
@@ -127,6 +134,7 @@ interface CenterTableProps {
 export function CenterTable({
   mode,
   roomCode,
+  matchFormat = 'single',
   codeCopied,
   onCopyCode,
   roundCards,
@@ -155,6 +163,11 @@ export function CenterTable({
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.28em] text-white/40">
             Compartilhe o codigo
+          </p>
+          <p className="mt-3 text-[11px] font-black uppercase tracking-[0.22em] text-emerald-200/80">
+            {matchFormat === 'best_of_3'
+              ? 'Melhor de 3 partidas'
+              : '1 partida'}
           </p>
           <h3 className="mt-3 font-mono text-4xl font-black tracking-[0.22em] text-white sm:text-5xl">
             {roomCode}

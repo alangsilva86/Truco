@@ -4,6 +4,7 @@ import type {
   GuestUserResponse,
   JoinRoomResponse,
   PublicRoom,
+  RoomMatchFormat,
   RoomLookupFailureReason,
   RoomLookupResponse,
   RoomListResponse,
@@ -20,9 +21,11 @@ import { assertValidNickname, normalizeRoomCode } from '../shared/validation.js'
 
 const ROOM_NAME = 'truco_room';
 const SUPPORTED_MAX_PLAYERS = 2;
+const DEFAULT_ROOM_MATCH_FORMAT: RoomMatchFormat = 'single';
 
 interface CreateRoomInput {
   maxPlayers?: number;
+  matchFormat?: unknown;
   nickname: string;
   ownerUserId: string;
   requestOrigin?: string;
@@ -153,12 +156,28 @@ function toPublicRoom(
       ),
     createdAt: room.createdAt.toISOString(),
     id: room.id,
+    matchFormat: room.matchFormat as RoomMatchFormat,
     maxPlayers: room.maxPlayers,
     ownerUserId: room.ownerUserId,
     players: activePlayers,
     roomCode: room.roomCode,
     status: room.status as RoomStatus,
   };
+}
+
+function resolveMatchFormat(rawMatchFormat?: unknown): RoomMatchFormat {
+  if (rawMatchFormat === undefined || rawMatchFormat === null) {
+    return DEFAULT_ROOM_MATCH_FORMAT;
+  }
+
+  if (rawMatchFormat === 'single' || rawMatchFormat === 'best_of_3') {
+    return rawMatchFormat;
+  }
+
+  throw new ApiError(400, {
+    error: 'VALIDATION_ERROR',
+    message: 'Formato de sala invalido. Use "single" ou "best_of_3".',
+  });
 }
 
 function resolveMaxPlayers(rawMaxPlayers?: number): number {
@@ -222,6 +241,7 @@ async function ensureRealtimeRoom(room: RoomWithParticipants): Promise<{
 
   const liveRoom = await matchMaker.createRoom(ROOM_NAME, {
     maxPlayers: room.maxPlayers,
+    matchFormat: room.matchFormat as RoomMatchFormat,
     persistentRoomId: room.id,
     roomCode: room.roomCode,
   });
@@ -303,6 +323,7 @@ export class RoomService {
 
   async createRoom({
     maxPlayers,
+    matchFormat,
     nickname,
     ownerUserId,
     requestOrigin,
@@ -311,6 +332,7 @@ export class RoomService {
 
     const normalizedNickname = assertValidNickname(nickname);
     const resolvedMaxPlayers = resolveMaxPlayers(maxPlayers);
+    const resolvedMatchFormat = resolveMatchFormat(matchFormat);
     const owner = await userRepository.findById(ownerUserId);
 
     if (!owner) {
@@ -325,6 +347,7 @@ export class RoomService {
     );
     const room = await roomRepository.createRoom({
       maxPlayers: resolvedMaxPlayers,
+      matchFormat: resolvedMatchFormat,
       ownerNickname: normalizedNickname,
       ownerUserId,
       roomCode,
@@ -333,6 +356,7 @@ export class RoomService {
 
     logger.info('room.created', {
       colyseusRoomId: realtimeRoom.roomId,
+      matchFormat: resolvedMatchFormat,
       ownerUserId,
       roomCode: room.roomCode,
       roomId: room.id,

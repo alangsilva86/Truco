@@ -229,6 +229,7 @@ const app = defineServer({
             typeof req.body?.maxPlayers === 'number'
               ? req.body.maxPlayers
               : undefined,
+          matchFormat: req.body?.matchFormat,
           nickname: String(req.body?.nickname ?? owner?.nickname ?? ''),
           ownerUserId,
           requestOrigin: req.get('origin') ?? req.get('referer') ?? undefined,

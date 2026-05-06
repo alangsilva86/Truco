@@ -208,7 +208,11 @@ export function getNextTrucoValue(current: number): number {
     return 9;
   }
 
-  return 12;
+  if (current === 9) {
+    return 12;
+  }
+
+  return 13;
 }
 
 export function getTrucoLabel(value: number): string {

@@ -638,6 +638,9 @@ describe('GameTable', () => {
     expect(within(dialog).getByText(/suas cartas/i)).toBeInTheDocument();
     expect(within(dialog).getByLabelText(/a de ouros/i)).toBeInTheDocument();
     expect(within(dialog).getByLabelText(/3 de paus/i)).toBeInTheDocument();
+    expect(
+      within(dialog).queryByRole('button', { name: /correr rodada/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('mostra cartas da dupla no sheet de mao de 11', () => {

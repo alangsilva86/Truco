@@ -11,6 +11,7 @@ export class PlayerSchema extends Schema {
 
 export class TrucoRoomState extends Schema {
   @type('string') roomCode = '';
+  @type('string') matchFormat = 'single';
   @type('string') roomLifecycle: RoomLifecycle = 'OPEN';
   @type('string') matchId = '';
   @type('string') gamePhase = 'WAITING_PLAYERS';
@@ -18,6 +19,10 @@ export class TrucoRoomState extends Schema {
   @type('number') eventCursor = 0;
   @type('number') scoreTeam0 = 0;
   @type('number') scoreTeam1 = 0;
+  @type('number') seriesScoreTeam0 = 0;
+  @type('number') seriesScoreTeam1 = 0;
+  @type('number') seriesTargetWins = 1;
+  @type('number') seriesWinnerTeam = -1;
   @type('number') currentRoundPoints = 1;
   @type('number') turnSeatId = -1;
   @type('number') dealerSeatId = -1;
@@ -71,11 +76,18 @@ function applySnapshot(
 export function syncWaitingRoomState(
   state: TrucoRoomState,
   roomCode: string,
+  matchFormat: string,
   lifecycle: RoomLifecycle,
   players: Record<SeatId, PlayerInfo>,
+  series: {
+    score: { 0: number; 1: number };
+    targetWins: number;
+    winnerTeam: 0 | 1 | null;
+  },
   snapshot: StateSyncSnapshot,
 ): void {
   state.roomCode = roomCode;
+  state.matchFormat = matchFormat;
   state.roomLifecycle = lifecycle;
   state.matchId = '';
   state.gamePhase = 'WAITING_PLAYERS';
@@ -83,6 +95,10 @@ export function syncWaitingRoomState(
   state.eventCursor = 0;
   state.scoreTeam0 = 0;
   state.scoreTeam1 = 0;
+  state.seriesScoreTeam0 = series.score[0];
+  state.seriesScoreTeam1 = series.score[1];
+  state.seriesTargetWins = series.targetWins;
+  state.seriesWinnerTeam = series.winnerTeam ?? -1;
   state.currentRoundPoints = 1;
   state.turnSeatId = -1;
   state.dealerSeatId = -1;
@@ -94,11 +110,18 @@ export function syncWaitingRoomState(
 export function syncEngineRoomState(
   state: TrucoRoomState,
   roomCode: string,
+  matchFormat: string,
   lifecycle: RoomLifecycle,
   engineState: MatchState,
+  series: {
+    score: { 0: number; 1: number };
+    targetWins: number;
+    winnerTeam: 0 | 1 | null;
+  },
   snapshot: StateSyncSnapshot,
 ): void {
   state.roomCode = roomCode;
+  state.matchFormat = matchFormat;
   state.roomLifecycle = lifecycle;
   state.matchId = engineState.matchId;
   state.gamePhase = engineState.phase;
@@ -106,6 +129,10 @@ export function syncEngineRoomState(
   state.eventCursor = engineState.eventCursor;
   state.scoreTeam0 = engineState.scores[0];
   state.scoreTeam1 = engineState.scores[1];
+  state.seriesScoreTeam0 = series.score[0];
+  state.seriesScoreTeam1 = series.score[1];
+  state.seriesTargetWins = series.targetWins;
+  state.seriesWinnerTeam = series.winnerTeam ?? -1;
   state.currentRoundPoints = engineState.currentRoundPoints;
   state.turnSeatId = engineState.turnSeatId ?? -1;
   state.dealerSeatId = engineState.dealerSeatId ?? -1;

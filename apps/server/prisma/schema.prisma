@@ -25,6 +25,7 @@ model Room {
   roomCode       String            @unique
   colyseusRoomId String?
   status         String            @default("waiting")
+  matchFormat    String            @default("single")
   ownerUserId    String?
   maxPlayers     Int               @default(2)
   createdAt      DateTime          @default(now())
